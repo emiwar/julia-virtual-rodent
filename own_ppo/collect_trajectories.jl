@@ -49,15 +49,17 @@ function collect_batch(model, envStates, actor_critic, action_size, state_size, 
     rewards = CUDA.zeros(params.n_envs, params.n_steps_per_batch)
     terminated = CUDA.zeros(Bool, params.n_envs, params.n_steps_per_batch)
 
+    n_terminated_episodes = Threads.Atomic{Int64}(0)
+    sum_cuml_reward = Threads.Atomic{Float64}(0.0)
+    sum_episode_length = Threads.Atomic{Int64}(0)
+
     for i=1:params.n_envs
         states[:, i, 1] = state(model, envStates[i])
     end
-
     actions_cpu = zeros(Float32, action_size, params.n_envs)
     states_cpu = zeros(Float32, state_size, params.n_envs)
     rewards_cpu = zeros(Float32, params.n_envs)
     terminated_cpu = zeros(Bool, params.n_envs)
-    t = 1
     for t=1:params.n_steps_per_batch
         action_params = actor_critic.actor(view(states, :, :, t))
         mu = view(action_params, 1:action_size, :)
@@ -72,6 +74,9 @@ function collect_batch(model, envStates, actor_critic, action_size, state_size, 
             rewards_cpu[i] = reward(model, envStates[i], params)
             terminated_cpu[i] = is_terminated(envStates[i], params)
             if terminated_cpu[i]
+                Threads.atomic_add!(n_terminated_episodes, 1)
+                Threads.atomic_add!(sum_cuml_reward, envStates[i].cumul_reward)
+                Threads.atomic_add!(sum_episode_length, envStates[i].n_steps_taken)
                 reset!(model, envStates[i])
             end
         end
@@ -79,7 +84,10 @@ function collect_batch(model, envStates, actor_critic, action_size, state_size, 
         terminated[:, t] = terminated_cpu
         states[:, :, t+1] = states_cpu
     end
-    return (;states, actions, loglikelihoods, rewards, terminated)
+    stats = (;n_terminated_episodes = n_terminated_episodes[],
+              avg_reward = sum_cuml_reward[] / n_terminated_episodes[],
+              avg_length = sum_episode_length[] / n_terminated_episodes[])
+    return (;states, actions, loglikelihoods, rewards, terminated, stats)
 end
 
 function compute_advantages(batch, params)
@@ -142,6 +150,8 @@ end
 
 opt_state = Flux.setup(Flux.Adam(), actor_critic)
 batch = collect_batch(model, envStates, actor_critic, action_size, state_size, params)
+println(batch.stats)
+
 for i=1:100
     ppo_update!(batch, actor_critic, opt_state, params);
 end

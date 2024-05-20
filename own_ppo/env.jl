@@ -6,12 +6,14 @@ mutable struct EnvState
     data::MuJoCo.Data
     last_torso_x::Float64
     n_steps_taken::Int
+    cumul_reward::Float64
 end
+
 function EnvState(model::MuJoCo.Model)
     data = MuJoCo.init_data(model)
     MuJoCo.reset!(model, data)
     last_torso_x = MuJoCo.body(data, "torso").com[1]
-    EnvState(MuJoCo.init_data(model), last_torso_x, 0)
+    EnvState(MuJoCo.init_data(model), last_torso_x, 0, 0.0)
 end
 
 torso_x(env::EnvState) = MuJoCo.body(env.data, "torso").com[1]
@@ -26,7 +28,7 @@ function act!(model, env::EnvState, action, params)
         MuJoCo.step!(model, env.data)
     end
     env.n_steps_taken += 1
-    
+    env.cumul_reward += reward(model, env, params) #TODO: Clumsy
 end
 
 function reward(model, env::EnvState, params)
@@ -43,4 +45,5 @@ function reset!(model::MuJoCo.Model, env::EnvState)
     MuJoCo.reset!(model, env.data)
     env.last_torso_x = torso_x(env)
     env.n_steps_taken = 0
+    env.cumul_reward = 0.0
 end
