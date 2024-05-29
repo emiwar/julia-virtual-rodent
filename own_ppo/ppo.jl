@@ -8,6 +8,10 @@ Base.@kwdef struct ActorCritic{A,C}
 end
 Flux.@layer ActorCritic
 
+function clamp_logsigma(logsigma, params)
+    params.logsigma_min + (params.logsigma_max - params.logsigma_min)*(0.5f0*tanh(logsigma) + 0.5f0)
+end
+
 function collect_batch(multi_thread_env, actor_critic, params)
     actionsize = action_size(multi_thread_env)
     statesize = state_size(multi_thread_env)
@@ -29,10 +33,11 @@ function collect_batch(multi_thread_env, actor_critic, params)
     for t=1:steps_per_batch
         actor_output .= actor_critic.actor(view(states, :, :, t))
         mu = tanh.(view(actor_output, 1:actionsize, :))
-        logsigma = view(actor_output, (actionsize+1):2*actionsize, :)
+        #logsigma = (view(actor_output, (actionsize+1):2*actionsize, :))
+        logsigma = params.logsigma_min .+ (params.logsigma_max .- params.logsigma_min).*(0.5f0.*tanh.((view(actor_output, (actionsize+1):2*actionsize, :))) .+ 0.5f0)
         CUDA.randn!(rnd)
-        actions[:, :, t] .= mu .+ exp.(logsigma) .* rnd
-        loglikelihoods[:, t] .= (-0.5 .* sum(((view(actions, :, :, t) .- mu) ./ exp.(logsigma)).^2; dims=1) .- sum(logsigma; dims=1))'
+        actions[:, :, t] .= clamp.(mu .+ exp.(logsigma) .* rnd, -1.0, 1.0) #mu .+ exp.(logsigma) .* rnd
+        loglikelihoods[:, t] .= (-0.5f0 .* sum(((view(actions, :, :, t) .- mu) ./ exp.(logsigma)).^2; dims=1) .- sum(logsigma; dims=1))'
         
         sum_sigma += mapreduce(ls->exp(ls), +, logsigma)
         multi_thread_env.actions .= cpu(view(actions, :, :, t))
@@ -78,16 +83,18 @@ function ppo_update!(batch, actor_critic, opt_state, params)
 
         actor_output = actor_critic.actor(non_final_states)
         mu = tanh.(view(actor_output, 1:action_size, :))
-        logsigma = view(actor_output, (action_size+1):2*action_size, :)
+        logsigma = params.logsigma_min .+ (params.logsigma_max .- params.logsigma_min).*(0.5f0.*tanh.((view(actor_output, (action_size+1):2*action_size, :))) .+ 0.5f0)
 
-        new_loglikelihoods = -0.5 .* sum(((batch_actions .- mu) ./ exp.(logsigma)).^2; dims=1) .- sum(logsigma; dims=1)
+        new_loglikelihoods = -0.5f0 .* sum(((batch_actions .- mu) ./ exp.(logsigma)).^2; dims=1) .- sum(logsigma; dims=1)
         #entropy_loss = mean(action_size * (log(2.0f0*pi) + 1) .+ sum(logsigma; dims = ?)) / 2
         entropy_loss = (sum(logsigma) + size(logsigma, 1) * (log(2.0f0*pi) + 1)) / (size(logsigma, 2) * 2)
 
         likelihood_ratios = exp.(view(new_loglikelihoods, :) .- view(batch.loglikelihoods, :))
 
         grad_cand1 = likelihood_ratios .* advantages
-        clamped_ratios = clamp.(likelihood_ratios, 1.0f0 - params.clip_range, 1.0f0 + params.clip_range)
+        clamped_ratios = clamp.(likelihood_ratios,
+                                1.0f0 - Float32(params.clip_range),
+                                1.0f0 + Float32(params.clip_range))
         grad_cand2 = clamped_ratios .* advantages
         actor_loss = -sum(min.(grad_cand1, grad_cand2)) / length(grad_cand1)
 
@@ -96,8 +103,8 @@ function ppo_update!(batch, actor_critic, opt_state, params)
         critic_loss = sum((non_final_statevalues .+ advantages .- values).^2) / length(non_final_statevalues)
 
         total_loss = params.loss_weight_actor * actor_loss + 
-                     params.loss_weight_critic * critic_loss +
-                     params.loss_weight_entropy * entropy_loss
+                     params.loss_weight_critic * critic_loss# +
+                     #params.loss_weight_entropy * entropy_loss
         Flux.ignore() do
             stats[:total_loss] = total_loss
             stats[:critic_loss] = critic_loss
@@ -110,7 +117,8 @@ function ppo_update!(batch, actor_critic, opt_state, params)
             stats[:epoch_std_advantage] = Statistics.std(advantages)
             stats[:epoch_std_target_value] = Statistics.std(non_final_statevalues .+ advantages)
             stats[:epoch_std_predicted_value] = Statistics.std(values)
-            stats[:critic_r2] = 1.0 - critic_loss / (stats[:epoch_std_target_value]^2)
+            stats[:critic_r2] = Statistics.cor(Flux.cpu(values)[:], Flux.cpu(non_final_statevalues .+ advantages)[:])
+            #stats[:critic_r2] = 1.0 - critic_loss / (stats[:epoch_std_target_value]^2)
         end
         return total_loss
     end

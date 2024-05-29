@@ -9,12 +9,12 @@ import Dates
 
 params = (;hidden1_size=64,
            hidden2_size=64,
-           n_envs=64,
-           n_steps_per_batch=256,
+           n_envs=20,
+           n_steps_per_batch=64,
            n_physics_steps=5,
            forward_reward_weight = 10.0,
            healthy_reward_weight = 1.0,
-           ctrl_reward_weight = 0.025,
+           ctrl_reward_weight = 0.1,
            loss_weight_actor = 1.0,
            loss_weight_critic = 1.0,
            loss_weight_entropy = -0.0,
@@ -23,8 +23,10 @@ params = (;hidden1_size=64,
            lambda=0.95,
            clip_range=0.2,
            n_epochs=15_000,
+           logsigma_min=-2,
+           logsigma_max=0,
            actor_sigma_init_bias=-2.0,
-           reset_epoch_start=true)
+           reset_epoch_start=false)
 modelPath = "/home/emil/Development/custom_torchrl_env/models/rodent_with_floor.xml"
 multi_thread_env = MultiThreadedMuJoCo{RodentEnv}(MuJoCo.load_model(modelPath), params.n_envs)
 
@@ -44,14 +46,12 @@ lg = Wandb.WandbLogger(project = "PPO-julia",
 actor_critic = ActorCritic(actor_net, critic_net) |> Flux.gpu
 opt_state = Flux.setup(Flux.Adam(), actor_critic)
 
-#keepalive = Dict{String, Float64}[]
 @showprogress for epoch = 1:params.n_epochs
-    epoch_params = params#epoch < 1000 ? merge(params, (;loss_weight_actor=0.0)) : params
+    epoch_params = epoch < 1000 ? merge(params, (;loss_weight_actor=0.0)) : params
     batch = collect_batch(multi_thread_env, actor_critic, epoch_params)
-    losses = ppo_update!(batch, actor_critic, opt_state, epoch_params)
+    losses = ppo_update!(batch, actor_critic, opt_state, epoch_params); losses[:critic_loss]
     infodict = merge(Dict(string(k) => v for (k, v) in pairs(batch.stats)),
                      Dict(string(k) => v for (k, v) in losses))
-    #push!(keepalive, infodict)
     Wandb.log(lg, infodict)
     GC.gc()
 end
