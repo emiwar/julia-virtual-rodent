@@ -23,7 +23,7 @@ end
 
 torso_x(env::RodentEnv) = MuJoCo.body(env.data, "torso").com[1]
 torso_z(env::RodentEnv) = MuJoCo.body(env.data, "torso").com[3]
-torso_speed_x(env::RodentEnv) = torso_x(env) - env.last_torso_x
+torso_speed_x(model, env::RodentEnv) = (torso_x(env) - env.last_torso_x) / model.opt.timestep
 state(model::MuJoCo.Model, env::RodentEnv) = MuJoCo.get_physics_state(model, env.data)
 
 function act!(model, env::RodentEnv, action, params)
@@ -36,7 +36,7 @@ function act!(model, env::RodentEnv, action, params)
 end
 
 function reward(model, env::RodentEnv, params)
-    velocity = torso_speed_x(env)
+    velocity = torso_speed_x(model, env)
     forward_reward = params.forward_reward_weight * velocity
     healthy_reward = params.healthy_reward_weight * (!is_terminated(env, params))
     ctrl_reward = -params.ctrl_reward_weight * env.ctrl_squared

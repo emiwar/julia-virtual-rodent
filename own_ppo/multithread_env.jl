@@ -16,6 +16,9 @@ mutable struct MultiThreadedMuJoCo{T <: MuJoCoEnv}
     sum_epoch_reward::Float64
     sum_epoch_x_speed::Float64
     sum_epoch_x_pos::Float64
+
+    max_epoch_x_speed::Float64
+    max_epoch_x_pos::Float64
 end
 
 function MultiThreadedMuJoCo{T}(model::MuJoCo.Model, n_envs::Integer) where T <: MuJoCoEnv
@@ -33,7 +36,7 @@ function MultiThreadedMuJoCo{T}(model::MuJoCo.Model, n_envs::Integer) where T <:
         Threads.Atomic{Int64}(0),
         Threads.Atomic{Float64}(0.0),
         Threads.Atomic{Int64}(0),
-        0, 0.0, 0.0, 0.0
+        0, 0.0, 0.0, 0.0, 0.0, 0.0
     )
 end
 
@@ -49,6 +52,8 @@ function prepare_batch!(env::MultiThreadedMuJoCo, params)
     env.sum_epoch_reward = 0.0
     env.sum_epoch_x_speed = 0.0
     env.sum_epoch_x_pos = 0.0
+    env.max_epoch_x_speed = -Inf
+    env.max_epoch_x_pos = -Inf
     if params.reset_epoch_start
         for i=1:n_envs(env)
             env.n_steps_taken[i] = 0
@@ -72,7 +77,7 @@ function step!(env::MultiThreadedMuJoCo, params)
         env.n_steps_taken[i] += 1
         env.episode_reward[i] += env.rewards[i]
         step_x_pos[i] = torso_x(env.envs[i])
-        step_x_speed[i] = torso_speed_x(env.envs[i])
+        step_x_speed[i] = torso_speed_x(env.model, env.envs[i])
         if env.terminated[i]
             Threads.atomic_add!(env.n_terminated_episodes, 1)
             Threads.atomic_add!(env.sum_episode_reward, env.episode_reward[i])
@@ -86,6 +91,8 @@ function step!(env::MultiThreadedMuJoCo, params)
     env.sum_epoch_reward += sum(env.rewards)
     env.sum_epoch_x_speed += sum(step_x_speed)
     env.sum_epoch_x_pos += sum(step_x_pos)
+    env.max_epoch_x_speed = max(env.max_epoch_x_speed, maximum(step_x_speed))
+    env.max_epoch_x_pos = max(env.max_epoch_x_pos, maximum(step_x_pos))
 end
 
 function stats(env::MultiThreadedMuJoCo)
@@ -94,7 +101,9 @@ function stats(env::MultiThreadedMuJoCo)
       episode_avg_length = env.sum_episode_length[] / env.n_terminated_episodes[],
       epoch_avg_reward = env.sum_epoch_reward / n_envs(env),
       epoch_avg_x_pos = env.sum_epoch_x_pos / env.n_steps,
-      epoch_avg_x_speed = env.sum_epoch_x_speed / env.n_steps
+      epoch_avg_x_speed = env.sum_epoch_x_speed / env.n_steps,
+      epoch_max_x_pos = env.max_epoch_x_pos,
+      epoch_max_x_speed = env.max_epoch_x_speed,
     )
     #epoch_avg_z
 end
