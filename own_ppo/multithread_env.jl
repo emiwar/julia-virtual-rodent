@@ -96,7 +96,7 @@ function step!(env::MultiThreadedMuJoCo, params)
 end
 
 function stats(env::MultiThreadedMuJoCo)
-    (;n_terminated_episodes = env.n_terminated_episodes[],
+    (;epoch_n_terminated_episodes = env.n_terminated_episodes[],
       episode_avg_reward = env.sum_episode_reward[] / env.n_terminated_episodes[],
       episode_avg_length = env.sum_episode_length[] / env.n_terminated_episodes[],
       epoch_avg_reward = env.sum_epoch_reward / n_envs(env),

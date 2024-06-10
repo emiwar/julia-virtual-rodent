@@ -12,7 +12,7 @@ function clamp_logsigma(logsigma, params)
     params.logsigma_min + (params.logsigma_max - params.logsigma_min)*(0.5f0*tanh(logsigma) + 0.5f0)
 end
 
-function collect_batch(multi_thread_env, actor_critic, params)
+function collect_batch(multi_thread_env, actor_critic, params; logfcn=nothing)
     actionsize = action_size(multi_thread_env)
     statesize = state_size(multi_thread_env)
     nenvs = n_envs(multi_thread_env)
@@ -20,37 +20,44 @@ function collect_batch(multi_thread_env, actor_critic, params)
 
     states =  CUDA.zeros(statesize,  nenvs, steps_per_batch+1)
     actions = CUDA.zeros(actionsize, nenvs, steps_per_batch)
-    loglikelihoods = CUDA.zeros(      nenvs, steps_per_batch)
-    rewards = CUDA.zeros(             nenvs, steps_per_batch)
-    terminated = CUDA.zeros(Bool,     nenvs, steps_per_batch)
+    loglikelihoods = CUDA.zeros(     nenvs, steps_per_batch)
+    rewards = CUDA.zeros(            nenvs, steps_per_batch)
+    terminated = CUDA.zeros(Bool,    nenvs, steps_per_batch)
+    sigmas = CUDA.zeros(actionsize,  nenvs, steps_per_batch)
+    mus =    CUDA.zeros(actionsize,  nenvs, steps_per_batch)
 
     rnd = CUDA.zeros(actionsize, nenvs)
     actor_output = CUDA.zeros(2*actionsize, nenvs)
 
     prepare_batch!(multi_thread_env, params)
     states[:, :, 1] = multi_thread_env.states
-    sum_sigma = 0.0
     for t=1:steps_per_batch
         actor_output .= actor_critic.actor(view(states, :, :, t))
-        mu = view(actor_output, 1:actionsize, :)
-        #logsigma = (view(actor_output, (actionsize+1):2*actionsize, :))
-        sigma = params.sigma_min .+ 0.5f0.*(params.sigma_max .- params.sigma_min).*(1 .+ view(actor_output, (actionsize+1):2*actionsize, :))
+        mus[:, :, t] .= view(actor_output, 1:actionsize, :)
+        unscaled_sigma = view(actor_output, (actionsize+1):2*actionsize, :)
+        sigmas[:, :, t] .= params.sigma_min .+ 0.5f0.*(params.sigma_max .- params.sigma_min).*(1 .+ unscaled_sigma)
         CUDA.randn!(rnd)
-        actions[:, :, t] .= mu .+ sigma .* rnd #clamp.(mu .+ sigma .* rnd, -1.0, 1.0) #
-        loglikelihoods[:, t] .= (-0.5f0 .* sum(((view(actions, :, :, t) .- mu) ./ sigma).^2; dims=1) .- mapreduce(log, +, sigma; dims=1))'
+        actions[:, :, t] .= view(mus, :, :, t) .+ view(sigmas, :, :, t) .* rnd #clamp.(mu .+ sigma .* rnd, -1.0, 1.0) #
+        loglikelihoods[:, t] .= (-0.5f0 .* sum(((view(actions, :, :, t) .- view(mus, :, :, t)) ./ view(sigmas, :, :, t)).^2; dims=1) .- mapreduce(log, +, view(sigmas, :, :, t); dims=1))'
         
-        sum_sigma += sum(sigma)
         multi_thread_env.actions .= cpu(view(actions, :, :, t))
         step!(multi_thread_env, params)
         rewards[:, t] = multi_thread_env.rewards
         terminated[:, t] = multi_thread_env.terminated
         states[:, :, t+1] = multi_thread_env.states
     end
-    extra_stats = (;epoch_avg_sigma = sum_sigma / length(actions),
-                    avg_sqr_control = mapreduce(a->a^2, +, actions) / length(actions))
-    
-    return (;states, actions, loglikelihoods, rewards, terminated,
-             stats=merge(stats(multi_thread_env), extra_stats))
+    if !isnothing(logfcn)
+        logfcn("actor/mus", mus)
+        logfcn("actor/sigmas", sigmas)
+        logfcn("actor/actions", actions)
+        logfcn("actor/squared_actions", actions.^2)
+        logfcn("rollout_batch/rewards", rewards)
+        for (key, val) in pairs(stats(multi_thread_env))
+            logfcn("rollout_batch/$key", val)
+        end
+        #stats(multi_thread_env) ???
+    end  
+    return (;states, actions, loglikelihoods, rewards, terminated)
 end
 
 function compute_advantages(batch, params)
@@ -70,25 +77,26 @@ function compute_advantages(batch, params)
     return advantages
 end
 
-function ppo_update!(batch, actor_critic, opt_state, params)
+function ppo_update!(batch, actor_critic, opt_state, params; logfcn=nothing)
     n_envs, n_steps_per_batch = size(batch.rewards)
     action_size = size(batch.actions, 1)
     state_values = reshape(batch.states, Val(2)) |> actor_critic.critic
     batch = merge(batch, (;values=reshape(state_values, n_envs, n_steps_per_batch+1)))
-    advantages = view(compute_advantages(batch, params), :)
-    stats = Dict{Symbol, Float64}()
-    gradients = Flux.gradient(actor_critic) do actor_critic
-        non_final_states = reshape(view(batch.states, :, :, 1:n_steps_per_batch), Val(2))
-        batch_actions = reshape(batch.actions, Val(2))
 
+    advantages = view(compute_advantages(batch, params), :)
+    non_final_states = reshape(view(batch.states, :, :, 1:n_steps_per_batch), Val(2))
+    batch_actions = reshape(batch.actions, Val(2))
+    non_final_statevalues = reshape(view(batch.values, :, 1:n_steps_per_batch), Val(1))
+    target_values = non_final_statevalues .+ advantages
+
+    #stats = Dict{Symbol, Float64}()
+    gradients = Flux.gradient(actor_critic) do actor_critic
+        #Actor loss
         actor_output = actor_critic.actor(non_final_states)
         mu = view(actor_output, 1:action_size, :)
-        sigma = params.sigma_min .+ 0.5f0.*(params.sigma_max .- params.sigma_min).*(1 .+ view(actor_output, (action_size+1):2*action_size, :))
+        unscaled_sigma = view(actor_output, (action_size+1):2*action_size, :)
+        sigma = params.sigma_min .+ 0.5f0.*(params.sigma_max .- params.sigma_min).*(1 .+ unscaled_sigma)
         new_loglikelihoods = (-0.5f0 .* sum(((batch_actions .- mu) ./ sigma).^2; dims=1) .- sum(log.(sigma); dims=1))
-        #logsigma = params.logsigma_min .+ (params.logsigma_max .- params.logsigma_min).*(0.5f0.*tanh.((view(actor_output, (action_size+1):2*action_size, :))) .+ 0.5f0)
-        #new_loglikelihoods = -0.5f0 .* sum(((batch_actions .- mu) ./ exp.(logsigma)).^2; dims=1) .- sum(logsigma; dims=1)
-        #entropy_loss = mean(action_size * (log(2.0f0*pi) + 1) .+ sum(logsigma; dims = ?)) / 2
-        #entropy_loss = (sum(logsigma) + size(logsigma, 1) * (log(2.0f0*pi) + 1)) / (size(logsigma, 2) * 2)
         likelihood_ratios = exp.(view(new_loglikelihoods, :) .- view(batch.loglikelihoods, :))
         grad_cand1 = likelihood_ratios .* advantages
         clamped_ratios = clamp.(likelihood_ratios,
@@ -97,30 +105,32 @@ function ppo_update!(batch, actor_critic, opt_state, params)
         grad_cand2 = clamped_ratios .* advantages
         actor_loss = -sum(min.(grad_cand1, grad_cand2)) / length(grad_cand1)
 
-        values = view(actor_critic.critic(non_final_states), :)#view(critic_net(non_final_states), :)
-        non_final_statevalues = reshape(view(batch.values, :, 1:n_steps_per_batch), Val(1))
-        critic_loss = sum((non_final_statevalues .+ advantages .- values).^2) / length(non_final_statevalues)
+        #Critic loss
+        values = view(actor_critic.critic(non_final_states), :)
+        critic_loss = sum((target_values .- values).^2) / length(non_final_statevalues)
+
+        #Entropy loss
+        #entropy_loss = mean(action_size * (log(2.0f0*pi) + 1) .+ sum(logsigma; dims = ?)) / 2
+        #entropy_loss = (sum(logsigma) + size(logsigma, 1) * (log(2.0f0*pi) + 1)) / (size(logsigma, 2) * 2)
 
         total_loss = params.loss_weight_actor * actor_loss + 
                      params.loss_weight_critic * critic_loss# +
                      #params.loss_weight_entropy * entropy_loss
+        
         Flux.ignore() do
-            stats[:total_loss] = total_loss
-            stats[:critic_loss] = critic_loss
-            stats[:actor_loss] = actor_loss
-            #stats[:entropy_loss] = entropy_loss
-            stats[:epoch_avg_advantage] = Statistics.mean(advantages)
-            stats[:epoch_avg_target_value] = Statistics.mean(non_final_statevalues .+ advantages)
-            stats[:epoch_avg_predicted_value] = Statistics.mean(values)
-
-            stats[:epoch_std_advantage] = Statistics.std(advantages)
-            stats[:epoch_std_target_value] = Statistics.std(non_final_statevalues .+ advantages)
-            stats[:epoch_std_predicted_value] = Statistics.std(values)
-            stats[:critic_corr] = Statistics.cor(Flux.cpu(values)[:], Flux.cpu(non_final_statevalues .+ advantages)[:])
-            stats[:critic_r2] = 1.0 - critic_loss / (stats[:epoch_std_target_value]^2)
+            if !isnothing(logfcn)
+                logfcn("losses/total_loss", total_loss)
+                logfcn("losses/critic_loss", critic_loss)
+                logfcn("losses/actor_loss", actor_loss)
+                logfcn("critic/predicted_value", values)
+                logfcn("critic/target_value", target_values)
+                logfcn("critic/advantages_value", advantages)
+                logfcn("critic/prediction_corr", Statistics.cor(Flux.cpu(values)[:], Flux.cpu(target_values)[:]))
+                logfcn("critic/explained_variance", 1.0 - critic_loss / Statistics.var(target_values))
+            end
         end
         return total_loss
     end
     Flux.update!(opt_state, actor_critic, gradients[1]) #(actor_net, critic_net)
-    return stats
+    #return stats
 end

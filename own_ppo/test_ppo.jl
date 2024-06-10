@@ -1,10 +1,11 @@
 include("env.jl")
 include("multithread_env.jl")
 include("ppo.jl")
+include("logger.jl")
 
 using Flux
 using ProgressMeter
-import Wandb
+#import Wandb
 import Dates
 
 params = (;hidden1_size=64,
@@ -23,7 +24,7 @@ params = (;hidden1_size=64,
            gamma=0.99,
            lambda=0.95,
            clip_range=0.2,
-           n_epochs=15_000,
+           n_epochs=50_000,
            sigma_min=1f-2,
            sigma_max=1f0,
            actor_sigma_init_bias=0f0,
@@ -41,26 +42,23 @@ critic_net = Chain(Dense(state_size(multi_thread_env) => params.hidden1_size, ta
                    Dense(params.hidden1_size => params.hidden2_size, tanh),
                    Dense(params.hidden2_size => 1; init=zeros32)) #; 
 
-lg = Wandb.WandbLogger(project = "PPO-julia",
-                       name = "testrun-$(Dates.now())",
-                       config = Dict(string(k) => v for (k, v) in pairs(params)))
 actor_critic = ActorCritic(actor_net, critic_net) |> Flux.gpu
 opt_state = Flux.setup(Flux.Adam(), actor_critic)
 
+logger = create_logger("runs/test-$(Dates.now()).h5", params.n_epochs, 32)
+
 @showprogress for epoch = 1:params.n_epochs
     epoch_params = params#epoch < 1000 ? merge(params, (;loss_weight_actor=0.0)) : params
-    batch = collect_batch(multi_thread_env, actor_critic, epoch_params)
+    logfcn = (k,v)->logger(epoch, k, v)
+    batch = collect_batch(multi_thread_env, actor_critic, epoch_params; logfcn)
     for j=1:(params.n_miniepochs-1)
         ppo_update!(batch, actor_critic, opt_state, epoch_params)
     end
-    losses = ppo_update!(batch, actor_critic, opt_state, epoch_params)
-    infodict = merge(Dict(string(k) => v for (k, v) in pairs(batch.stats)),
-                     Dict(string(k) => v for (k, v) in losses))
-    Wandb.log(lg, infodict)
+    ppo_update!(batch, actor_critic, opt_state, epoch_params; logfcn)
     GC.gc()
 end
 
-Wandb.close(lg)
+#Wandb.close(lg)
 #adv = Flux.cpu(compute_advantages(batch, params))
 #vals = Flux.cpu(batch.values)
 #p = Plots.plot()
