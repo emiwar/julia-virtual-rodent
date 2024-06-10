@@ -4,9 +4,11 @@ import dash
 import dash_bootstrap_components as dbc
 import h5py
 import numpy as np
+import pathlib
 
 #filename = "runs/test-2024-05-31T18:24:59.981.h5"
-filename = "runs/test-2024-05-31T19:50:37.942.h5"
+#filename = "runs/test-2024-05-31T19:50:37.942.h5"
+filename = "runs/test-2024-06-10T12:24:48.074.h5"
 
 def create_simple_line(vals, title):
     fig = go.Figure()
@@ -36,25 +38,53 @@ def create_quantile_plot(quantiles, title):
     return fig
 
 app = dash.Dash(__name__, external_stylesheets = [dbc.themes.CERULEAN])
-f = h5py.File(filename, "r")
-layout = [dbc.Row(dash.html.H1(filename))]
-for group in f["training"].keys():
-    layout.append(dbc.Row(dash.html.H4(group)))
-    row = []
-    for entry in f[f"training/{group}"].keys():
-        if isinstance(f[f"training/{group}/{entry}"], h5py.Dataset):
-            n_epochs = max(0, f['n_epochs'][0]-1)
-            vals = f[f"training/{group}/{entry}"][:n_epochs]
-            row.append(dbc.Col([dash.dcc.Graph(figure=create_simple_line(vals, entry))], width=4))
-        elif "quantiles" in f[f"training/{group}/{entry}"]:
-            n_epochs = max(0, f['n_epochs'][0]-1)
-            quantiles = np.array(f[f"training/{group}/{entry}/quantiles"][:n_epochs, :])
-            row.append(dbc.Col([dash.dcc.Graph(figure=create_quantile_plot(quantiles, entry))], width=4))
-        else:
-            print(f"Unknown entry type for {group}/{entry}")
+navbar = dbc.NavbarSimple(
+    children=[
+        #dbc.DropdownMenu(
+        #    children=[dbc.DropdownMenuItem(str(p)) for p in pathlib.Path("runs/").glob("*.h5")],
+        #    nav=True,
+        #    in_navbar=True,
+        #    label="Select run",
+        #    id="selected-run"
+        #),
+        dash.dcc.Dropdown([str(p) for p in pathlib.Path("runs/").glob("*.h5")],
+                          id="selected-run", clearable=False, maxHeight=500,
+                          style={'width': 500})
+    ],
+    brand="Custom PPO implementation",
+    brand_href="#",
+    color="primary",
+    dark=True,
+)
+app.layout = [navbar, dash.html.Div(id='main')]
+@dash.callback(
+    dash.Output('main', 'children'),
+    dash.Input('selected-run', 'value')
+)
+def load_run(filename):
+    if filename is None:
+        return "Select a run."
+    if not filename.startswith("runs/"):
+        return f"Invalid filename: {filename}"
+    f = h5py.File(str(filename), "r")
+    layout = [dbc.Row(dash.html.H1(filename))]
+    for group in f["training"].keys():
+        layout.append(dbc.Row(dash.html.H4(group)))
+        row = []
+        for entry in f[f"training/{group}"].keys():
+            if isinstance(f[f"training/{group}/{entry}"], h5py.Dataset):
+                n_epochs = max(0, f['n_epochs'][0]-1)
+                vals = f[f"training/{group}/{entry}"][:n_epochs]
+                row.append(dbc.Col([dash.dcc.Graph(figure=create_simple_line(vals, entry))], width=4))
+            elif "quantiles" in f[f"training/{group}/{entry}"]:
+                n_epochs = max(0, f['n_epochs'][0]-1)
+                quantiles = np.array(f[f"training/{group}/{entry}/quantiles"][:n_epochs, :])
+                row.append(dbc.Col([dash.dcc.Graph(figure=create_quantile_plot(quantiles, entry))], width=4))
+            else:
+                print(f"Unknown entry type for {group}/{entry}")
 
-    layout.append(dbc.Row(row))
-app.layout = dbc.Container(layout, fluid=True)
+        layout.append(dbc.Row(row))
+    return dbc.Container(layout, fluid=True)
 
 if __name__ == '__main__':
     app.run(debug=True)

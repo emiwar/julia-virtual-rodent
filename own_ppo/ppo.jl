@@ -28,6 +28,7 @@ function collect_batch(multi_thread_env, actor_critic, params; logfcn=nothing)
 
     rnd = CUDA.zeros(actionsize, nenvs)
     actor_output = CUDA.zeros(2*actionsize, nenvs)
+    info = zeros(Float32, length(info_fcns(eltype(multi_thread_env.envs))), nenvs, steps_per_batch)
 
     prepare_batch!(multi_thread_env, params)
     states[:, :, 1] = multi_thread_env.states
@@ -45,6 +46,7 @@ function collect_batch(multi_thread_env, actor_critic, params; logfcn=nothing)
         rewards[:, t] = multi_thread_env.rewards
         terminated[:, t] = multi_thread_env.terminated
         states[:, :, t+1] = multi_thread_env.states
+        info[:, :, t] = multi_thread_env.info_array
     end
     if !isnothing(logfcn)
         logfcn("actor/mus", mus)
@@ -52,10 +54,12 @@ function collect_batch(multi_thread_env, actor_critic, params; logfcn=nothing)
         logfcn("actor/actions", actions)
         logfcn("actor/squared_actions", actions.^2)
         logfcn("rollout_batch/rewards", rewards)
-        for (key, val) in pairs(stats(multi_thread_env))
-            logfcn("rollout_batch/$key", val)
+        for (j, key) in enumerate(keys(info_fcns(eltype(multi_thread_env.envs))))
+            logfcn("rollout_batch/$key", info[j, :, :])
         end
-        #stats(multi_thread_env) ???
+        #for (key, val) in pairs(stats(multi_thread_env))
+        #    logfcn("rollout_batch/$key", val)
+        #end
     end  
     return (;states, actions, loglikelihoods, rewards, terminated)
 end
@@ -122,9 +126,9 @@ function ppo_update!(batch, actor_critic, opt_state, params; logfcn=nothing)
                 logfcn("losses/total_loss", total_loss)
                 logfcn("losses/critic_loss", critic_loss)
                 logfcn("losses/actor_loss", actor_loss)
-                logfcn("critic/predicted_value", values)
-                logfcn("critic/target_value", target_values)
-                logfcn("critic/advantages_value", advantages)
+                logfcn("critic/predicted_values", values)
+                logfcn("critic/target_values", target_values)
+                logfcn("critic/advantages", advantages)
                 logfcn("critic/prediction_corr", Statistics.cor(Flux.cpu(values)[:], Flux.cpu(target_values)[:]))
                 logfcn("critic/explained_variance", 1.0 - critic_loss / Statistics.var(target_values))
             end
