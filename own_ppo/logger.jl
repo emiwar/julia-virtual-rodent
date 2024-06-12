@@ -30,3 +30,11 @@ function calc_quantiles(vals, n_quantiles)
     stepsize = length(vals) ÷ n_quantiles
     view(sort(view(vals, :)), (stepsize÷2):stepsize:length(vals))
 end
+
+function write_params(filename::String, params)
+    HDF5.h5open(filename, "cw") do fid
+        for (k,v) in pairs(params)
+            fid["params/$k"] = v
+        end
+    end
+end

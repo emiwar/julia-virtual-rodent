@@ -1,13 +1,13 @@
+using Flux
+using ProgressMeter
+import Dates
+import BSON
+
 include("mujoco_env.jl")
 include("collector.jl")
 include("ppo.jl")
 include("logger.jl")
 include("networks.jl")
-
-
-using Flux
-using ProgressMeter
-import Dates
 
 params = (;hidden1_size=64,
            hidden2_size=64,
@@ -29,15 +29,18 @@ params = (;hidden1_size=64,
            sigma_min=1f-2,
            sigma_max=1f0,
            actor_sigma_init_bias=0f0,
-           reset_epoch_start=false)
+           reset_epoch_start=false,
+           checkpoint_interval=2500)
 
 test_env = RodentEnv()
 
 actor_critic = ActorCritic(test_env, params) |> Flux.gpu
 opt_state = Flux.setup(Flux.Adam(), actor_critic)
 envs = [RodentEnv() for _=1:params.n_envs]
-logger = create_logger("runs/test-$(Dates.now()).h5", params.n_epochs, 32)
-
+run_name = "test-$(Dates.now())"
+logger = create_logger("runs/$(run_name).h5", params.n_epochs, 32)
+write_params("runs/$(run_name).h5", params)
+mkdir("runs/checkpoints/$(run_name)")
 @showprogress for epoch = 1:params.n_epochs
     epoch_params = params#epoch < 1000 ? merge(params, (;loss_weight_actor=0.0)) : params
     logfcn = (k,v)->logger(epoch, k, v)
@@ -46,17 +49,8 @@ logger = create_logger("runs/test-$(Dates.now()).h5", params.n_epochs, 32)
         ppo_update!(batch, actor_critic, opt_state, epoch_params)
     end
     ppo_update!(batch, actor_critic, opt_state, epoch_params; logfcn)
+    if epoch % params.checkpoint_interval == 0
+        BSON.bson("runs/checkpoints/$(run_name)/step-$(epoch).bson"; actor_critic)
+    end
     GC.gc()
 end
-
-batch = collect_batch(envs, actor_critic, params);
-ppo_update!(batch, actor_critic, opt_state, params);
-#Wandb.close(lg)
-#adv = Flux.cpu(compute_advantages(batch, params))
-#vals = Flux.cpu(batch.values)
-#p = Plots.plot()
-#for i = 1:32
-#    Plots.plot!(p, adv[i, :] .+ 100*i)
-#end
-#p
-#Plots.show()

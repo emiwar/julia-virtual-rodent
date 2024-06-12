@@ -40,3 +40,9 @@ function critic(actor_critic::ActorCritic, state, params)
 end
 
 action_size(actor_critic::ActorCritic) = size(actor_critic.actor[end].weight, 1) ÷ 2
+
+#function save_checkpoint(model::ActorCritic, filename)
+    #actor_state = Flux.state(model.actor)
+    #critic_state = Flux.state(model.critic)
+    #JLD2.jldsave(filename; actor_state, critic_state)
+#end
