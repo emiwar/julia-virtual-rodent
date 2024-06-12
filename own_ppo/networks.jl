@@ -4,8 +4,8 @@ struct ActorCritic{A,C}
 end
 
 function ActorCritic(env::MuJoCoEnv, params::NamedTuple)
-    state_size = mapreduce(s->length(s.a), +, state_space(env))
-    action_size = mapreduce(s->length(s.a), +, action_space(env))
+    state_size = mapreduce(s->s isa Rectangle ? length(s.a) : 1, +, state_space(env))
+    action_size = mapreduce(s->s isa Rectangle ? length(s.a) : 1, +, action_space(env))
     actor_bias = [zeros32(action_size); params.actor_sigma_init_bias*ones32(action_size)]
     actor_net = Chain(Dense(state_size => params.hidden1_size, tanh),
                       Dense(params.hidden1_size => params.hidden2_size, tanh),
@@ -19,8 +19,16 @@ end
 
 Flux.@layer ActorCritic
 
+function flatten_state(state)
+    #torso_height = reshape(state.torso_height, 1, size(state.torso_height))
+    cat(state.qpos, state.qvel, state.act,
+        state.head_accel*0.1f0, state.head_vel, state.head_gyro,
+        state.paw_contacts, state.torso_linvel, state.torso_xmat,
+        state.torso_height*10.0f0; dims=1)
+end
+
 function actor(actor_critic::ActorCritic, state, params, action=nothing)
-    input = cat(state.qpos, state.qvel, state.act; dims=1)
+    input = flatten_state(state)
     actor_net_output = actor_critic.actor(input)
     action_size = size(actor_net_output, 1) ÷ 2
     batch_dims = ntuple(_->:, ndims(actor_net_output)-1)
@@ -35,7 +43,7 @@ function actor(actor_critic::ActorCritic, state, params, action=nothing)
 end
 
 function critic(actor_critic::ActorCritic, state, params)
-    input = cat(state.qpos, state.qvel, state.act; dims=1)
+    input = flatten_state(state)
     return view(actor_critic.critic(input), 1, :, :)# .* 1.0f2
 end
 
