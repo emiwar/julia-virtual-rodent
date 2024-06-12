@@ -20,7 +20,7 @@ end
 Flux.@layer ActorCritic
 
 function actor(actor_critic::ActorCritic, state, params, action=nothing)
-    input = cat(state.qpos, state.qvel, state.qacc; dims=1)
+    input = cat(state.qpos, state.qvel, state.act; dims=1)
     actor_net_output = actor_critic.actor(input)
     action_size = size(actor_net_output, 1) ÷ 2
     batch_dims = ntuple(_->:, ndims(actor_net_output)-1)
@@ -35,8 +35,8 @@ function actor(actor_critic::ActorCritic, state, params, action=nothing)
 end
 
 function critic(actor_critic::ActorCritic, state, params)
-    input = cat(state.qpos, state.qvel, state.qacc; dims=1)
-    return view(actor_critic.critic(input), 1, :, :) .* 1.0f2
+    input = cat(state.qpos, state.qvel, state.act; dims=1)
+    return view(actor_critic.critic(input), 1, :, :)# .* 1.0f2
 end
 
 action_size(actor_critic::ActorCritic) = size(actor_critic.actor[end].weight, 1) ÷ 2

@@ -44,7 +44,7 @@ end
 function state_space(env::RodentEnv)
     (qpos=(-Inf .. Inf) ^ Int(env.model.nq),
      qvel=(-Inf .. Inf) ^ Int(env.model.nv),
-     qacc=(-Inf .. Inf) ^ Int(env.model.nv))
+     act=(-Inf .. Inf) ^ Int(env.model.na))
 end
 
 function info_space(env::RodentEnv)
@@ -60,7 +60,7 @@ end
 function state(env::RodentEnv, params)
     (qpos=env.data.qpos,
      qvel=env.data.qvel,
-     qacc=env.data.qacc)
+     act=env.data.act)
 end
 
 function reward(env::RodentEnv, params)
