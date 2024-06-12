@@ -37,26 +37,23 @@ def create_quantile_plot(quantiles, title):
     )
     return fig
 
+def generate_layout():
+    navbar = dbc.NavbarSimple(
+        children=[
+            dash.dcc.Dropdown(sorted([str(p) for p in pathlib.Path("runs/").glob("*.h5")]),
+                            id="selected-run", clearable=False, maxHeight=500,
+                            style={'width': 500})
+        ],
+        brand="Custom PPO implementation",
+        brand_href="#",
+        color="primary",
+        dark=True,
+    )
+    return dash.html.Div([navbar, dash.html.Div(id='main')])
+
 app = dash.Dash(__name__, external_stylesheets = [dbc.themes.CERULEAN])
-navbar = dbc.NavbarSimple(
-    children=[
-        #dbc.DropdownMenu(
-        #    children=[dbc.DropdownMenuItem(str(p)) for p in pathlib.Path("runs/").glob("*.h5")],
-        #    nav=True,
-        #    in_navbar=True,
-        #    label="Select run",
-        #    id="selected-run"
-        #),
-        dash.dcc.Dropdown([str(p) for p in pathlib.Path("runs/").glob("*.h5")],
-                          id="selected-run", clearable=False, maxHeight=500,
-                          style={'width': 500})
-    ],
-    brand="Custom PPO implementation",
-    brand_href="#",
-    color="primary",
-    dark=True,
-)
-app.layout = [navbar, dash.html.Div(id='main')]
+app.layout = generate_layout
+
 @dash.callback(
     dash.Output('main', 'children'),
     dash.Input('selected-run', 'value')

@@ -1,22 +1,23 @@
-include("env.jl")
-include("multithread_env.jl")
+include("mujoco_env.jl")
+include("collector.jl")
 include("ppo.jl")
 include("logger.jl")
+include("networks.jl")
+
 
 using Flux
 using ProgressMeter
-#import Wandb
 import Dates
 
 params = (;hidden1_size=64,
            hidden2_size=64,
            n_envs=512,
-           n_steps_per_batch=8,
+           n_steps_per_batch=16,
            n_physics_steps=5,
            n_miniepochs=5,
            forward_reward_weight = 10.0,
            healthy_reward_weight = 1.0,
-           ctrl_reward_weight = 0.25,
+           ctrl_reward_weight = 0.1,
            loss_weight_actor = 1.0,
            loss_weight_critic = 1.0,
            loss_weight_entropy = -0.0,
@@ -29,28 +30,18 @@ params = (;hidden1_size=64,
            sigma_max=1f0,
            actor_sigma_init_bias=0f0,
            reset_epoch_start=false)
-modelPath = "/home/emil/Development/custom_torchrl_env/models/rodent_with_floor.xml"
-multi_thread_env = MultiThreadedMuJoCo{RodentEnv}(MuJoCo.load_model(modelPath), params.n_envs)
 
-actor_bias = [zeros32(action_size(multi_thread_env));
-              params.actor_sigma_init_bias*ones32(action_size(multi_thread_env))]
-actor_net = Chain(Dense(state_size(multi_thread_env) => params.hidden1_size, tanh),
-                  Dense(params.hidden1_size => params.hidden2_size, tanh),
-                  Dense(params.hidden2_size => 2*action_size(multi_thread_env), tanh; init=zeros32, bias=actor_bias))
+test_env = RodentEnv()
 
-critic_net = Chain(Dense(state_size(multi_thread_env) => params.hidden1_size, tanh),
-                   Dense(params.hidden1_size => params.hidden2_size, tanh),
-                   Dense(params.hidden2_size => 1; init=zeros32)) #; 
-
-actor_critic = ActorCritic(actor_net, critic_net) |> Flux.gpu
+actor_critic = ActorCritic(test_env, params) |> Flux.gpu
 opt_state = Flux.setup(Flux.Adam(), actor_critic)
-
+envs = [RodentEnv() for _=1:params.n_envs]
 logger = create_logger("runs/test-$(Dates.now()).h5", params.n_epochs, 32)
 
 @showprogress for epoch = 1:params.n_epochs
     epoch_params = params#epoch < 1000 ? merge(params, (;loss_weight_actor=0.0)) : params
     logfcn = (k,v)->logger(epoch, k, v)
-    batch = collect_batch(multi_thread_env, actor_critic, epoch_params; logfcn)
+    batch = collect_batch(envs, actor_critic, epoch_params; logfcn)
     for j=1:(params.n_miniepochs-1)
         ppo_update!(batch, actor_critic, opt_state, epoch_params)
     end
@@ -58,6 +49,8 @@ logger = create_logger("runs/test-$(Dates.now()).h5", params.n_epochs, 32)
     GC.gc()
 end
 
+batch = collect_batch(envs, actor_critic, params);
+ppo_update!(batch, actor_critic, opt_state, params);
 #Wandb.close(lg)
 #adv = Flux.cpu(compute_advantages(batch, params))
 #vals = Flux.cpu(batch.values)
