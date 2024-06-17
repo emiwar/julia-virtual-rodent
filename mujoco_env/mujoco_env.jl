@@ -14,7 +14,7 @@ mutable struct RodentEnv <: MuJoCoEnv
 end
 
 function RodentEnv()
-    modelPath = "/home/emil/Development/custom_torchrl_env/models/rodent_with_floor.xml"
+    modelPath = "mujoco_env/assets/rodent_with_floor.xml"
     model = MuJoCo.load_model(modelPath)
     RodentEnv(model)
 end

@@ -3,7 +3,7 @@ using ProgressMeter
 import Dates
 import BSON
 
-include("mujoco_env.jl")
+include("../mujoco_env/mujoco_env.jl")
 include("collector.jl")
 include("ppo.jl")
 include("logger.jl")

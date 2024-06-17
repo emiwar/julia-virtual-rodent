@@ -33,7 +33,7 @@ function collect_batch(envs, actor_critic, params; logfcn=nothing)
             env = envs[i]
             action = view(step_actions, i)
             act!(env, action, params)
-            step_states[i] = state(envs[i], params)
+            step_states[i] = state(env, params)
             step_reward[i] = reward(env, params)
             step_terminated[i] = is_terminated(env, params)
             infos[i, t] = info(env)
