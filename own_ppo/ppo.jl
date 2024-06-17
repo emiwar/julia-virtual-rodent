@@ -21,14 +21,14 @@ end
 
 function ppo_update!(batch, actor_critic, opt_state, params; logfcn=nothing)
     n_envs, n_steps_per_batch = size(batch.rewards)
-    values = critic(actor_critic, batch.states, params)
+    values = critic(actor_critic, batch.states.nt, params)
     advantages = compute_advantages(batch.rewards, values, batch.terminated, params)
-    non_final_states = map(s->view(s, :, :, 1:n_steps_per_batch), batch.states)
+    non_final_states = view(batch.states, :, 1:n_steps_per_batch)
     non_final_statevalues = view(values, :, 1:n_steps_per_batch)
     target_values = non_final_statevalues .+ advantages
     gradients = Flux.gradient(actor_critic) do actor_critic
         #Actor loss
-        actor_output = actor(actor_critic, non_final_states, params, batch.actions)
+        actor_output = actor(actor_critic, non_final_states.nt, params, batch.actions.nt)
         likelihood_ratios = exp.(actor_output.loglikelihood .- batch.loglikelihoods)
         grad_cand1 = likelihood_ratios .* advantages
         clamped_ratios = clamp.(likelihood_ratios,

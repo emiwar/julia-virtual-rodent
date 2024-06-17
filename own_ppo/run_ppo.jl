@@ -21,11 +21,11 @@ params = (;hidden1_size=64,
            loss_weight_actor = 1.0,
            loss_weight_critic = 1.0,
            loss_weight_entropy = -0.0,
-           min_torso_z = 0.045,
+           min_torso_z = 0.04,
            gamma=0.99,
            lambda=0.95,
            clip_range=0.2,
-           n_epochs=50_000,
+           n_epochs=5_000,
            sigma_min=1f-2,
            sigma_max=1f0,
            actor_sigma_init_bias=0f0,
@@ -53,3 +53,4 @@ mkdir("runs/checkpoints/$(run_name)")
     end
     GC.gc()
 end
+

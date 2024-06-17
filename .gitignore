@@ -24,5 +24,7 @@ docs/site/
 Manifest.toml
 
 .CondaPkg/
+.vscode/
 wandb/
 runs/
+rendered_rollouts/

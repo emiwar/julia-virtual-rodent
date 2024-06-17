@@ -28,48 +28,11 @@ function RodentEnv(model::MuJoCo.Model)
     return env
 end
 
-#Utils
-torso_x(env::RodentEnv) = MuJoCo.body(env.data, "torso").com[1]
-torso_y(env::RodentEnv) = MuJoCo.body(env.data, "torso").com[2]
-torso_z(env::RodentEnv) = MuJoCo.body(env.data, "torso").com[3]
-torso_speed_x(env::RodentEnv) = (torso_x(env) - env.last_torso_x) / env.model.opt.timestep
-
-#Space declarations
-function action_space(env::RodentEnv)
-    (;ctrl=(-1.0 .. 1.0) ^ Int(env.model.nu))
-end
-
-function state_space(env::RodentEnv)
-    (qpos=(-Inf .. Inf) ^ Int(env.model.nq),
-     qvel=(-Inf .. Inf) ^ Int(env.model.nv),
-     act=(-Inf .. Inf) ^ Int(env.model.na),
-     head_accel = (-Inf .. Inf) ^ 3,
-     head_vel = (-Inf .. Inf) ^ 3,
-     head_gyro = (-Inf .. Inf) ^ 3,
-     paw_contacts = (0.0 .. 1.0) ^ 4,
-     torso_linvel = (-Inf .. Inf) ^ 3,
-     torso_xmat = (-Inf .. Inf) ^ 9,
-     torso_height = Rectangle(DomainSets.StaticArrays.SVector{1}([0.0]),
-                              DomainSets.StaticArrays.SVector{1}([Inf])))
-end
-
-function info_space(env::RodentEnv)
-    (
-     torso_x=(-Inf .. Inf),
-     torso_y=(-Inf .. Inf),
-     torso_z=(-Inf .. Inf),
-     torso_speed_x=(-Inf .. Inf),
-     lifetime=(0 .. typemax(Int)),
-     cumulative_reward=(0 .. Inf),
-     actuator_force_sum_sqr=(0 .. Inf)
-    )
-end
-
 #Read-outs
 function state(env::RodentEnv, params)
-    (qpos=env.data.qpos,
-     qvel=env.data.qvel,
-     act=env.data.act,
+    (qpos=reshape(env.data.qpos, :),
+     qvel=reshape(env.data.qvel, :),
+     act=reshape(env.data.act, :),
      head_accel = read_sensor_value(env, "accelerometer"),
      head_vel = read_sensor_value(env, "velocimeter"),
      head_gyro = read_sensor_value(env, "gyro"),
@@ -123,13 +86,23 @@ function reset!(env::RodentEnv)
     env.cumulative_reward = 0.0
 end
 
-function read_sensor_value(env::RodentEnv, sensor_id::Integer)
+function null_action(env::MuJoCoEnv, params)
+    (;ctrl=zeros(env.model.nu))
+end
+
+#Utils
+torso_x(env::RodentEnv) = MuJoCo.body(env.data, "torso").com[1]
+torso_y(env::RodentEnv) = MuJoCo.body(env.data, "torso").com[2]
+torso_z(env::RodentEnv) = MuJoCo.body(env.data, "torso").com[3]
+torso_speed_x(env::RodentEnv) = (torso_x(env) - env.last_torso_x) / env.model.opt.timestep
+
+function read_sensor_value(env::MuJoCoEnv, sensor_id::Integer)
     ind = env.model.sensor_adr[sensor_id+1]
     len = env.model.sensor_dim[sensor_id+1]
     return view(env.data.sensordata, (ind+1):(ind+len))
 end
 
-function read_sensor_value(env::RodentEnv, sensor_name::String)
+function read_sensor_value(env::MuJoCoEnv, sensor_name::String)
     sensor_id = MuJoCo.mj_name2id(env.model, MuJoCo.mjOBJ_SENSOR, sensor_name)
     if sensor_id == -1
         error("Cannot find sensor '$sensor_name'")
