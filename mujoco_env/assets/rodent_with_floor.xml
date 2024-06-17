@@ -565,12 +565,12 @@
     </fixed>
   </tendon>
   <actuator>
-    <general name="lumbar_extend" forcerange="-20 20" tendon="lumbar_extend" dyntype="filter" biastype="affine" dynprm="0.04" gainprm="13.08996938995747" biasprm="2.617993877991495 -20"/>
-    <general name="lumbar_bend" forcerange="-20 20" tendon="lumbar_bend" dyntype="filter" biastype="affine" dynprm="0.04" gainprm="10.47197551196598" biasprm="0 -20"/>
-    <general name="lumbar_twist" forcerange="-20 20" tendon="lumbar_twist" dyntype="filter" biastype="affine" dynprm="0.04" gainprm="10.47197551196598" biasprm="0 -20"/>
-    <general name="cervical_extend" forcerange="-20 20" tendon="cervical_extend" dyntype="filter" biastype="affine" dynprm="0.04" gainprm="10.18108730330026" biasprm="2.03621746066005 -20"/>
-    <general name="cervical_bend" forcerange="-20 20" tendon="cervical_bend" dyntype="filter" biastype="affine" dynprm="0.04" gainprm="12.21730476396031" biasprm="0 -20"/>
-    <general name="cervical_twist" forcerange="-20 20" tendon="cervical_twist" dyntype="filter" biastype="affine" dynprm="0.04" gainprm="12.21730476396031" biasprm="0 -20"/>
+    <general name="lumbar_extend" forcerange="-20 20" tendon="lumbar_extend" dyntype="filter" biastype="affine" dynprm="0.04" gainprm="0.1308996938995747" biasprm="2.617993877991495 -20"/>
+    <general name="lumbar_bend" forcerange="-20 20" tendon="lumbar_bend" dyntype="filter" biastype="affine" dynprm="0.04" gainprm="0.1047197551196598" biasprm="0 -20"/>
+    <general name="lumbar_twist" forcerange="-20 20" tendon="lumbar_twist" dyntype="filter" biastype="affine" dynprm="0.04" gainprm="0.1047197551196598" biasprm="0 -20"/>
+    <general name="cervical_extend" forcerange="-20 20" tendon="cervical_extend" dyntype="filter" biastype="affine" dynprm="0.04" gainprm="0.1018108730330026" biasprm="2.03621746066005 -20"/>
+    <general name="cervical_bend" forcerange="-20 20" tendon="cervical_bend" dyntype="filter" biastype="affine" dynprm="0.04" gainprm="0.1221730476396031" biasprm="0 -20"/>
+    <general name="cervical_twist" forcerange="-20 20" tendon="cervical_twist" dyntype="filter" biastype="affine" dynprm="0.04" gainprm="0.1221730476396031" biasprm="0 -20"/>
     <general name="caudal_extend" forcerange="-0.1 0.1" tendon="caudal_extend" dyntype="filter" biastype="affine" dynprm="0.04" gainprm="0.02617993877991495" biasprm="0 -0.1"/>
     <general name="caudal_bend" forcerange="-0.1 0.1" tendon="caudal_bend" dyntype="filter" biastype="affine" dynprm="0.04" gainprm="0.02617993877991494" biasprm="0 -0.1"/>
     <general name="hip_L_supinate" forcerange="-0.2 0.2" joint="hip_L_supinate" dyntype="filter" biastype="affine" dynprm="0.04" gainprm="0.2443460952792061" biasprm="-0.0349065850398866 -0.4"/>

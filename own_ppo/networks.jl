@@ -4,8 +4,8 @@ struct ActorCritic{A,C}
 end
 
 function ActorCritic(env::MuJoCoEnv, params::NamedTuple)
-    state_size = mapreduce(s->s isa Rectangle ? length(s.a) : 1, +, state_space(env))
-    action_size = mapreduce(s->s isa Rectangle ? length(s.a) : 1, +, action_space(env))
+    state_size = mapreduce(s->length(s), +, state(env, params))
+    action_size =  mapreduce(s->length(s), +, null_action(env, params))
     actor_bias = [zeros32(action_size); params.actor_sigma_init_bias*ones32(action_size)]
     actor_net = Chain(Dense(state_size => params.hidden1_size, tanh),
                       Dense(params.hidden1_size => params.hidden2_size, tanh),
