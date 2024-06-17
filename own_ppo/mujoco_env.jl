@@ -8,7 +8,6 @@ mutable struct RodentEnv <: MuJoCoEnv
     model::MuJoCo.Model
     data::MuJoCo.Data
     last_torso_x::Float64
-    ctrl_squared::Float64
     lifetime::Int64
     cumulative_reward::Float64
     #torso::MuJoCo.Wrappers.NamedAccess.DataBody
@@ -24,8 +23,7 @@ function RodentEnv(model::MuJoCo.Model)
     data = MuJoCo.init_data(model)
     MuJoCo.reset!(model, data)
     torso = MuJoCo.body(data, "torso")
-    env = RodentEnv(model, data, 0.0, 0.0, 0, 0.0)
-    env.ctrl_squared = sum(env.data.ctrl .^ 2)
+    env = RodentEnv(model, data, 0.0, 0, 0.0)
     reset!(env)
     return env
 end
@@ -38,7 +36,7 @@ torso_speed_x(env::RodentEnv) = (torso_x(env) - env.last_torso_x) / env.model.op
 
 #Space declarations
 function action_space(env::RodentEnv)
-    (;torques=(-1.0 .. 1.0) ^ Int(env.model.nu))
+    (;ctrl=(-1.0 .. 1.0) ^ Int(env.model.nu))
 end
 
 function state_space(env::RodentEnv)
@@ -56,12 +54,15 @@ function state_space(env::RodentEnv)
 end
 
 function info_space(env::RodentEnv)
-    (torso_x=(-Inf .. Inf),
+    (
+     torso_x=(-Inf .. Inf),
      torso_y=(-Inf .. Inf),
      torso_z=(-Inf .. Inf),
      torso_speed_x=(-Inf .. Inf),
      lifetime=(0 .. typemax(Int)),
-     cumulative_reward=(0 .. Inf))
+     cumulative_reward=(0 .. Inf),
+     actuator_force_sum_sqr=(0 .. Inf)
+    )
 end
 
 #Read-outs
@@ -72,10 +73,10 @@ function state(env::RodentEnv, params)
      head_accel = read_sensor_value(env, "accelerometer"),
      head_vel = read_sensor_value(env, "velocimeter"),
      head_gyro = read_sensor_value(env, "gyro"),
-     paw_contacts = [read_sensor_value(test_env, "palm_L"); 
-                     read_sensor_value(test_env, "palm_R");
-                     read_sensor_value(test_env, "sole_L");
-                     read_sensor_value(test_env, "sole_R")],
+     paw_contacts = [read_sensor_value(env, "palm_L"); 
+                     read_sensor_value(env, "palm_R");
+                     read_sensor_value(env, "sole_L");
+                     read_sensor_value(env, "sole_R")],
      torso_linvel = read_sensor_value(env, "torso"),
      torso_xmat = MuJoCo.body(env.data, "torso").xmat,
      torso_height = MuJoCo.body(env.data, "torso").com[3]
@@ -85,7 +86,7 @@ end
 function reward(env::RodentEnv, params)
     forward_reward = params.forward_reward_weight * torso_speed_x(env)
     healthy_reward = params.healthy_reward_weight * (!is_terminated(env, params))
-    ctrl_reward = -params.ctrl_reward_weight * env.ctrl_squared
+    ctrl_reward = -params.ctrl_reward_weight * sum(env.data.actuator_force.^2)
     return forward_reward + healthy_reward + ctrl_reward
 end
 
@@ -99,14 +100,14 @@ function info(env::RodentEnv)
      torso_z=torso_z(env),
      torso_speed_x=torso_speed_x(env),
      lifetime=env.lifetime,
-     cumulative_reward=env.cumulative_reward)
+     cumulative_reward=env.cumulative_reward,
+     actuator_force_sum_sqr=sum(env.data.actuator_force.^2))
 end
 
 #Actions
 function act!(env::RodentEnv, action, params)
     env.last_torso_x = torso_x(env)
-    env.ctrl_squared = sum(action.torques .^ 2)
-    env.data.ctrl .= clamp.(action.torques, -1.0, 1.0)
+    env.data.ctrl .= clamp.(action.ctrl, -1.0, 1.0)
     for _=1:params.n_physics_steps
         MuJoCo.step!(env.model, env.data)
     end
@@ -129,7 +130,7 @@ function read_sensor_value(env::RodentEnv, sensor_id::Integer)
 end
 
 function read_sensor_value(env::RodentEnv, sensor_name::String)
-    sensor_id = MuJoCo.mj_name2id(test_env.model, MuJoCo.mjOBJ_SENSOR, sensor_name)
+    sensor_id = MuJoCo.mj_name2id(env.model, MuJoCo.mjOBJ_SENSOR, sensor_name)
     if sensor_id == -1
         error("Cannot find sensor '$sensor_name'")
     end

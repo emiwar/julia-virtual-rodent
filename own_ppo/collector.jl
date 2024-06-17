@@ -66,9 +66,10 @@ function collect_batch(envs, actor_critic, params; logfcn=nothing)
     if !isnothing(logfcn)
         logfcn("actor/mus", mus)
         logfcn("actor/sigmas", sigmas)
-        logfcn("actor/action_torques", actions.torques)
-        logfcn("actor/action_torques_squared", actions.torques.^2)
+        logfcn("actor/action_ctrl", actions.ctrl)
+        logfcn("actor/action_ctrl_sum_squared", sum(actions.ctrl.^2; dims=1))
         logfcn("rollout_batch/rewards", rewards)
+        logfcn("rollout_batch/failure_rate", sum(terminated) / length(terminated))
         for (key, val) in infos |> pairs
             logfcn("rollout_batch/$key", val)
         end

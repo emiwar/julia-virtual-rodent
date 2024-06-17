@@ -36,15 +36,15 @@ function actor(actor_critic::ActorCritic, state, params, action=nothing)
     unscaled_sigma = view(actor_net_output, (action_size+1):2*action_size, batch_dims...)
     sigma = params.sigma_min .+ 0.5f0.*(params.sigma_max .- params.sigma_min).*(1 .+ unscaled_sigma)
     if isnothing(action)
-        action = (;torques=mu .+ sigma .* CUDA.randn(size(mu)...))
+        action = (;ctrl=mu .+ sigma .* CUDA.randn(size(mu)...))
     end
-    loglikelihood = view(-0.5f0 .* sum(((action.torques .- mu) ./ sigma).^2; dims=1) .- sum(log.(sigma); dims=1), 1, batch_dims...)
+    loglikelihood = view(-0.5f0 .* sum(((action.ctrl .- mu) ./ sigma).^2; dims=1) .- sum(log.(sigma); dims=1), 1, batch_dims...)
     return (;action, loglikelihood, mu, sigma)
 end
 
 function critic(actor_critic::ActorCritic, state, params)
     input = flatten_state(state)
-    return view(actor_critic.critic(input), 1, :, :)# .* 1.0f2
+    return view(actor_critic.critic(input), 1, :, :) .* 1.0f3
 end
 
 action_size(actor_critic::ActorCritic) = size(actor_critic.actor[end].weight, 1) ÷ 2
