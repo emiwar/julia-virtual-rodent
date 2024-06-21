@@ -10,7 +10,7 @@ import pathlib
 #filename = "runs/test-2024-05-31T19:50:37.942.h5"
 filename = "runs/test-2024-06-10T12:24:48.074.h5"
 log_y_plots = {"cumulative_reward", "actuator_force_sum_sqr",
-               "critic_loss", "lifetime"}
+               "critic_loss"} #"lifetime"}
 
 def create_simple_line(vals, title):
     fig = go.Figure()
