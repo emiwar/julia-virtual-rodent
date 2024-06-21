@@ -44,16 +44,19 @@ function ppo_update!(batch, actor_critic, opt_state, params; logfcn=nothing)
         #Entropy loss
         #entropy_loss = mean(action_size * (log(2.0f0*pi) + 1) .+ sum(logsigma; dims = ?)) / 2
         #entropy_loss = (sum(logsigma) + size(logsigma, 1) * (log(2.0f0*pi) + 1)) / (size(logsigma, 2) * 2)
+        entropy_loss = 0.5sum(log.((2π*exp(1)).*(actor_output.sigma.^2))) / length(actor_output.sigma)
+
 
         total_loss = params.loss_weight_actor * actor_loss + 
-                     params.loss_weight_critic * critic_loss# +
-                     #params.loss_weight_entropy * entropy_loss
+                     params.loss_weight_critic * critic_loss +
+                     params.loss_weight_entropy * entropy_loss
         
         Flux.ignore() do
             if !isnothing(logfcn)
                 logfcn("losses/total_loss", total_loss)
                 logfcn("losses/critic_loss", critic_loss)
                 logfcn("losses/actor_loss", actor_loss)
+                logfcn("losses/entropy_loss", entropy_loss)
                 logfcn("critic/predicted_values", new_values)
                 logfcn("critic/target_values", target_values)
                 logfcn("critic/advantages", advantages)

@@ -2,7 +2,7 @@ import BSON
 import Flux
 import CUDA
 import MuJoCo
-include("../mujoco_env/mujoco_env.jl")
+include("../mujoco_env/rodent_run_env.jl")
 include("networks.jl")
 MuJoCo.init_visualiser()
 
@@ -10,10 +10,11 @@ params = (;n_physics_steps=5,
            sigma_min=1f-2,
            sigma_max=1f0,
            min_torso_z = 0.04)
-filename = "runs/checkpoints/test-2024-06-17T14:57:38.707/step-1000.bson"
+filename = "runs/checkpoints/test-2024-06-20T10:37:39.473/step-4000.bson"
 T = 1000
 
 actor_critic = BSON.load(filename)[:actor_critic] |> Flux.gpu
+
 env = RodentEnv()
 reset!(env)
 nx = env.model.nq + env.model.nv + env.model.na

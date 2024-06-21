@@ -9,10 +9,14 @@ import pathlib
 #filename = "runs/test-2024-05-31T18:24:59.981.h5"
 #filename = "runs/test-2024-05-31T19:50:37.942.h5"
 filename = "runs/test-2024-06-10T12:24:48.074.h5"
+log_y_plots = {"cumulative_reward", "actuator_force_sum_sqr",
+               "critic_loss", "lifetime"}
 
 def create_simple_line(vals, title):
     fig = go.Figure()
     fig.add_trace(go.Scatter(y=vals, name=title, line=dict(width=2)))
+    if title in log_y_plots:
+        fig.update_yaxes(type='log')
     fig.update_layout(
         #title=title,
         xaxis_title="Epoch",
@@ -26,7 +30,10 @@ def create_quantile_plot(quantiles, title):
     fig = go.Figure()
     for i in range(quantiles.shape[1]):
         alpha = 0.2#np.exp(-((i/quantiles.shape[1] - 0.5)**2)/4)
-        fig.add_trace(go.Scatter(y=quantiles[:,i], line=dict(width=.5, color=f"rgba(0.0,0.0,1.0,{alpha})")))
+        fig.add_trace(go.Scatter(y=quantiles[:,i],
+                                 line=dict(width=.5, color=f"rgba(0.0,0.0,1.0,{alpha})")))
+    if title in log_y_plots:
+        fig.update_yaxes(type='log')
     fig.update_layout(
         #title=title,
         xaxis_title="Epoch",
