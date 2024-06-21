@@ -33,7 +33,7 @@ params = (;hidden1_size=64,
            imitation_steps_ahead=20,
            checkpoint_interval=1000,
            max_target_distance=3e-2,
-           reward_sigma_sqr=1e-2)
+           reward_sigma_sqr=(1e-2)^2)
 
 test_env = RodentImitationEnv()
 
