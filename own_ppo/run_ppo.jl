@@ -40,11 +40,13 @@ test_env = RodentImitationEnv()
 actor_critic = ActorCritic(test_env, params) |> Flux.gpu
 opt_state = Flux.setup(Flux.Adam(), actor_critic)
 envs = [RodentImitationEnv() for _=1:params.n_envs]
-run_name = "test-$(Dates.now())"
+starttime = Dates.now()
+run_name = "test-$(starttime)"
 logger = create_logger("runs/$(run_name).h5", params.n_epochs, 32)
 write_params("runs/$(run_name).h5", params)
 mkdir("runs/checkpoints/$(run_name)")
 @showprogress for epoch = 1:params.n_epochs
+    epoch_starttime = Dates.now()
     logfcn = (k,v)->logger(epoch, k, v)
     batch = collect_batch(envs, actor_critic, params; logfcn)
     for j=1:(params.n_miniepochs-1)
@@ -54,6 +56,11 @@ mkdir("runs/checkpoints/$(run_name)")
     if epoch % params.checkpoint_interval == 0
         BSON.bson("runs/checkpoints/$(run_name)/step-$(epoch).bson"; actor_critic=Flux.cpu(actor_critic))
     end
-    GC.gc()
+    GC.gc() #Do I still need this?
+    epoch_time = (Dates.now() - epoch_starttime).value
+    logfcn("timer/epoch_time", epoch_time)
+    logfcn("timer/elapsed_time", (Dates.now() - starttime).value)
+    logfcn("timer/current_time", Dates.datetime2unix(Dates.now()))
+    logfcn("timer/steps_per_second", params.n_envs * params.n_steps_per_batch / epoch_time)
 end
 
