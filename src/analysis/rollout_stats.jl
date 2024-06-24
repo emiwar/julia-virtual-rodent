@@ -3,8 +3,8 @@ import Flux
 import CUDA
 import MuJoCo
 import Plots
-include("mujoco_env.jl")
-include("networks.jl")
+include("../environments/rodent_run_env.jl")
+include("../algorithms/ppo_networks.jl")
 
 filename = "runs/checkpoints/test-2024-06-14T15:36:56.427/step-2000.bson"
 T = 1000

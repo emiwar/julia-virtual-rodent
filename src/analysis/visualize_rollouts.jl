@@ -2,8 +2,8 @@ import BSON
 import Flux
 import CUDA
 import MuJoCo
-include("../mujoco_env/rodent_run_env.jl")
-include("networks.jl")
+include("../environments/rodent_run_env.jl")
+include("../algorithms/ppo_networks.jl")
 MuJoCo.init_visualiser()
 
 params = (;n_physics_steps=5,

@@ -1,4 +1,4 @@
-include("named_batch_tuple.jl")
+include("../utils/named_batch_tuple.jl")
 
 function collect_batch(envs, actor_critic, params; logfcn=nothing)
     steps_per_batch = params.n_steps_per_batch

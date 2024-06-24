@@ -10,8 +10,8 @@ mutable struct RodentImitationEnv <: MuJoCoEnv
 end
 
 function RodentImitationEnv()
-    modelPath = "mujoco_env/assets/rodent_with_floor_scale080_edits.xml"
-    trajectoryPath = "mujoco_env/assets/example_com_trajectory.h5"
+    modelPath = "src/environments/assets/rodent_with_floor_scale080_edits.xml"
+    trajectoryPath = "src/environments/assets/example_com_trajectory.h5"
     com_targets = HDF5.h5open(fid->fid["com"][:, :], trajectoryPath, "r")
     model = MuJoCo.load_model(modelPath)
     data = MuJoCo.init_data(model)

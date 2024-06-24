@@ -3,11 +3,12 @@ using ProgressMeter
 import Dates
 import BSON
 
-include("../mujoco_env/rodent_imitation_env.jl")
-include("collector.jl")
-include("ppo.jl")
-include("logger.jl")
-include("networks.jl")
+include("environments/rodent_imitation_env.jl")
+include("algorithms/collector.jl")
+include("algorithms/ppo_loss.jl")
+include("algorithms/ppo_networks.jl")
+include("utils/logger.jl")
+
 
 params = (;hidden1_size=64,
            hidden2_size=64,
@@ -25,7 +26,7 @@ params = (;hidden1_size=64,
            gamma=0.99,
            lambda=0.95,
            clip_range=0.2,
-           n_epochs=50_000,
+           n_epochs=50,#50_000,
            sigma_min=1f-2,
            sigma_max=1f0,
            actor_sigma_init_bias=0f0,
@@ -61,6 +62,6 @@ mkdir("runs/checkpoints/$(run_name)")
     logfcn("timer/epoch_time", epoch_time)
     logfcn("timer/elapsed_time", (Dates.now() - starttime).value)
     logfcn("timer/current_time", Dates.datetime2unix(Dates.now()))
-    logfcn("timer/steps_per_second", params.n_envs * params.n_steps_per_batch / epoch_time)
+    logfcn("timer/steps_per_second", params.n_envs * params.n_steps_per_batch / epoch_time * 1000.0)
 end
 
