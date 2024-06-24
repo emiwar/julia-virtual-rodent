@@ -28,3 +28,4 @@ Manifest.toml
 wandb/
 runs/
 rendered_rollouts/
+.env/

@@ -41,7 +41,10 @@ end
 
 function reward(env::RodentImitationEnv, params)
     target_vec = get_target_vector(env, params)
-    return exp(-sum(target_vec.^2) / params.reward_sigma_sqr)
+    closeness_reward = exp(-sum(target_vec.^2) / params.reward_sigma_sqr)
+    ctrl_reward = -params.ctrl_reward_weight * sum(env.data.actuator_force.^2)
+    return closeness_reward + ctrl_reward
+    
 end
 
 function is_terminated(env::RodentImitationEnv, params)

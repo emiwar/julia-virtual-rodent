@@ -26,7 +26,7 @@ function flatten_state(state)
         state.head_accel*0.1f0, state.head_vel, state.head_gyro,
         state.paw_contacts, state.torso_linvel, state.torso_xmat,
         reshape(state.torso_height, 1, size(state.torso_height)...)*10.0f0,
-        reshape(state.com_target_array, :, batch_dims...); dims=1)
+        reshape(state.com_target_array, :, batch_dims...)*50.0; dims=1)
 end
 
 function actor(actor_critic::ActorCritic, state, params, action=nothing)

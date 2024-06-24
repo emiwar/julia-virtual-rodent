@@ -52,6 +52,7 @@ function collect_batch(envs, actor_critic, params; logfcn=nothing)
         logfcn("actor/action_ctrl_sum_squared", sum(actions.ctrl.^2; dims=1))
         logfcn("rollout_batch/rewards", rewards)
         logfcn("rollout_batch/failure_rate", sum(terminated) / length(terminated))
+        #TODO: Average time-of-death something like mean(infos.lifetime[terminated]) 
         for (key, val) in infos |> pairs
             logfcn("rollout_batch/$key", val)
         end

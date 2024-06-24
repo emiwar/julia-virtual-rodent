@@ -10,7 +10,7 @@ include("algorithms/ppo_networks.jl")
 include("utils/logger.jl")
 
 
-params = (;hidden1_size=64,
+params = (;hidden1_size=128,
            hidden2_size=64,
            n_envs=512,
            n_steps_per_batch=16,
@@ -18,7 +18,7 @@ params = (;hidden1_size=64,
            n_miniepochs=5,
            forward_reward_weight = 10.0,
            healthy_reward_weight = 1.0,
-           ctrl_reward_weight = 0.0,#30.0,#0.1,
+           ctrl_reward_weight = 0.5,#30.0,#0.1,
            loss_weight_actor = 1.0,
            loss_weight_critic = 1.0,
            loss_weight_entropy = 0.0,#-0.5,
