@@ -5,7 +5,6 @@ mutable struct RodentEnv <: MuJoCoEnv
     last_torso_x::Float64
     lifetime::Int64
     cumulative_reward::Float64
-    #torso::MuJoCo.Wrappers.NamedAccess.DataBody
 end
 
 function RodentEnv()
