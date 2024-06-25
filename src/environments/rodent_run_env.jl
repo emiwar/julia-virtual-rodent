@@ -63,7 +63,7 @@ end
 #Actions
 function act!(env::RodentEnv, action, params)
     env.last_torso_x = torso_x(env)
-    env.data.ctrl .= clamp.(action.ctrl, -1.0, 1.0)
+    env.data.ctrl .= clamp.(action, -1.0, 1.0)
     for _=1:params.n_physics_steps
         MuJoCo.step!(env.model, env.data)
     end

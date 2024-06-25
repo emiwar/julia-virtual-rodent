@@ -1,20 +1,24 @@
 include("../utils/named_batch_tuple.jl")
 
-function collect_batch(envs, actor_critic, params; logfcn=nothing)
+function collect_batch(envs, actor_critic, params)
     steps_per_batch = params.n_steps_per_batch
     n_envs = length(envs)
+
+    #Big GPU arrays/NamedBatchTuples for storing the entire batch
     states = gpu_zeros_from_template(state(envs[1], params), (n_envs, steps_per_batch+1))
-    actions = gpu_zeros_from_template(null_action(envs[1], params), (n_envs, steps_per_batch))
-    loglikelihoods = CUDA.zeros( n_envs, steps_per_batch)
+    actor_output_template = actor(actor_critic, view(states, 1, 1), params)
+    actor_output = gpu_zeros_from_template(actor_output_template, (n_envs, steps_per_batch))
     rewards = CUDA.zeros(        n_envs, steps_per_batch)
     terminated = CUDA.zeros(Bool,n_envs, steps_per_batch)
-    sigmas = CUDA.zeros(action_size(actor_critic),  n_envs, steps_per_batch)
-    mus =    CUDA.zeros(action_size(actor_critic),  n_envs, steps_per_batch)
+    #...except infos, which never have to be moved to the GPU
     infos = cpu_zeros_from_template(info(envs[1]), (n_envs, steps_per_batch))
 
+    #Smaller arrays/NamedBatchTuples for keeping one timestep in CPU memory while multithreading
     step_states = cpu_zeros_from_template(state(envs[1], params), (n_envs,))
     step_reward = zeros(Float32, n_envs)
     step_terminated = zeros(Bool, n_envs)
+
+    #States for the first timestep
     @Threads.threads for i=1:n_envs
         if params.reset_epoch_start
             reset!(envs[i])
@@ -22,16 +26,13 @@ function collect_batch(envs, actor_critic, params; logfcn=nothing)
         step_states[i] = state(envs[i], params)
     end
     states[:, 1] = step_states
+
     for t=1:steps_per_batch
-        actor_output = actor(actor_critic, view(states, :, t), params)
-        mus[:, :, t] .= actor_output.mu
-        sigmas[:, :, t] .= actor_output.sigma
-        actions[:, t] = actor_output.action
-        loglikelihoods[:, t] .= actor_output.loglikelihood
-        step_actions = NamedBatchTuple(map(Flux.cpu, actor_output.action))
+        actor_output[:, t] = actor(actor_critic, view(states, :, t), params)
+        step_actions = Array(view(actor_output.action, :, :, t))#NamedBatchTuple(map(Flux.cpu, view(actor_output, :, t).action))
         @Threads.threads for i=1:n_envs
             env = envs[i]
-            action = view(step_actions, i)
+            action = view(step_actions, :, i)
             act!(env, action, params)
             step_states[i] = state(env, params)
             step_reward[i] = reward(env, params)
@@ -41,22 +42,11 @@ function collect_batch(envs, actor_critic, params; logfcn=nothing)
                 reset!(env)
             end
         end
+        #Move the CPU arrays to the correct index of the bigger GPU arrays
         states[:, t+1] = step_states
         rewards[:, t] = step_reward
         terminated[:, t] = step_terminated
     end
-    if !isnothing(logfcn)
-        logfcn("actor/mus", mus)
-        logfcn("actor/sigmas", sigmas)
-        logfcn("actor/action_ctrl", actions.ctrl)
-        logfcn("actor/action_ctrl_sum_squared", sum(actions.ctrl.^2; dims=1))
-        logfcn("rollout_batch/rewards", rewards)
-        logfcn("rollout_batch/failure_rate", sum(terminated) / length(terminated))
-        #TODO: Average time-of-death something like mean(infos.lifetime[terminated]) 
-        for (key, val) in infos |> pairs
-            logfcn("rollout_batch/$key", val)
-        end
-    end  
 
-    return (;states, actions, loglikelihoods, rewards, terminated, info)
+    return (;states, actor_output, rewards, terminated, infos)
 end

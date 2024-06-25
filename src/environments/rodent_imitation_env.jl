@@ -13,6 +13,7 @@ function RodentImitationEnv()
     modelPath = "src/environments/assets/rodent_with_floor_scale080_edits.xml"
     trajectoryPath = "src/environments/assets/example_com_trajectory.h5"
     com_targets = HDF5.h5open(fid->fid["com"][:, :], trajectoryPath, "r")
+    #com_targets[3, :] .= 0.043
     model = MuJoCo.load_model(modelPath)
     data = MuJoCo.init_data(model)
     env = RodentImitationEnv(model, data, 0, 0.0, com_targets)
@@ -42,7 +43,7 @@ end
 function reward(env::RodentImitationEnv, params)
     target_vec = get_target_vector(env, params)
     closeness_reward = exp(-sum(target_vec.^2) / params.reward_sigma_sqr)
-    ctrl_reward = -params.ctrl_reward_weight * sum(env.data.actuator_force.^2)
+    ctrl_reward = -params.ctrl_reward_weight * sum(env.data.ctrl.^2)
     return closeness_reward + ctrl_reward
     
 end
@@ -64,7 +65,7 @@ end
 
 #Actions
 function act!(env::RodentImitationEnv, action, params)
-    env.data.ctrl .= clamp.(action.ctrl, -1.0, 1.0)
+    env.data.ctrl .= clamp.(action, -1.0, 1.0)
     for _=1:params.n_physics_steps
         MuJoCo.step!(env.model, env.data)
     end

@@ -18,7 +18,7 @@ params = (;hidden1_size=128,
            n_miniepochs=5,
            forward_reward_weight = 10.0,
            healthy_reward_weight = 1.0,
-           ctrl_reward_weight = 0.5,#30.0,#0.1,
+           ctrl_reward_weight = 0.05,#30.0,#0.1,
            loss_weight_actor = 1.0,
            loss_weight_critic = 1.0,
            loss_weight_entropy = 0.0,#-0.5,
@@ -26,7 +26,7 @@ params = (;hidden1_size=128,
            gamma=0.99,
            lambda=0.95,
            clip_range=0.2,
-           n_epochs=50,#50_000,
+           n_epochs=50_000,
            sigma_min=1f-2,
            sigma_max=1f0,
            actor_sigma_init_bias=0f0,
@@ -49,7 +49,7 @@ mkdir("runs/checkpoints/$(run_name)")
 @showprogress for epoch = 1:params.n_epochs
     epoch_starttime = Dates.now()
     logfcn = (k,v)->logger(epoch, k, v)
-    batch = collect_batch(envs, actor_critic, params; logfcn)
+    batch = collect_batch(envs, actor_critic, params)
     for j=1:(params.n_miniepochs-1)
         ppo_update!(batch, actor_critic, opt_state, params)
     end
@@ -58,6 +58,17 @@ mkdir("runs/checkpoints/$(run_name)")
         BSON.bson("runs/checkpoints/$(run_name)/step-$(epoch).bson"; actor_critic=Flux.cpu(actor_critic))
     end
     GC.gc() #Do I still need this?
+    logfcn("actor/mus", batch.actor_output.mu)
+    logfcn("actor/sigmas", batch.actor_output.sigma)
+    logfcn("actor/action_ctrl", batch.actor_output.action)
+    logfcn("actor/action_ctrl_sum_squared", sum(batch.actor_output.action.^2; dims=1))
+    logfcn("rollout_batch/rewards", batch.rewards)
+    logfcn("rollout_batch/failure_rate", sum(batch.terminated) / length(batch.terminated))
+    logfcn("rollout_batch/lifespan", Float64.(batch.infos.lifetime[Array(batch.terminated)]))
+    #TODO: Average time-of-death something like mean(infos.lifetime[terminated]) 
+    for (key, val) in batch.infos |> pairs
+        logfcn("rollout_batch/$key", val)
+    end
     epoch_time = (Dates.now() - epoch_starttime).value
     logfcn("timer/epoch_time", epoch_time)
     logfcn("timer/elapsed_time", (Dates.now() - starttime).value)

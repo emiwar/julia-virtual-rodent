@@ -28,8 +28,8 @@ function ppo_update!(batch, actor_critic, opt_state, params; logfcn=nothing)
     target_values = non_final_statevalues .+ advantages
     gradients = Flux.gradient(actor_critic) do actor_critic
         #Actor loss
-        actor_output = actor(actor_critic, non_final_states.nt, params, batch.actions.nt)
-        likelihood_ratios = exp.(actor_output.loglikelihood .- batch.loglikelihoods)
+        actor_output = actor(actor_critic, non_final_states.nt, params, batch.actor_output.action)
+        likelihood_ratios = exp.(actor_output.loglikelihood .- batch.actor_output.loglikelihood)
         grad_cand1 = likelihood_ratios .* advantages
         clamped_ratios = clamp.(likelihood_ratios,
                                 1.0f0 - Float32(params.clip_range),
@@ -42,10 +42,7 @@ function ppo_update!(batch, actor_critic, opt_state, params; logfcn=nothing)
         critic_loss = sum((target_values .- new_values).^2) / length(non_final_statevalues)
 
         #Entropy loss
-        #entropy_loss = mean(action_size * (log(2.0f0*pi) + 1) .+ sum(logsigma; dims = ?)) / 2
-        #entropy_loss = (sum(logsigma) + size(logsigma, 1) * (log(2.0f0*pi) + 1)) / (size(logsigma, 2) * 2)
         entropy_loss = 0.5sum(log.((2π*exp(1)).*(actor_output.sigma.^2))) / length(actor_output.sigma)
-
 
         total_loss = params.loss_weight_actor * actor_loss + 
                      params.loss_weight_critic * critic_loss +
@@ -60,8 +57,10 @@ function ppo_update!(batch, actor_critic, opt_state, params; logfcn=nothing)
                 logfcn("critic/predicted_values", new_values)
                 logfcn("critic/target_values", target_values)
                 logfcn("critic/advantages", advantages)
-                logfcn("critic/prediction_corr", Statistics.cor(Flux.cpu(new_values)[:], Flux.cpu(target_values)[:]))
                 logfcn("critic/explained_variance", 1.0 - critic_loss / Statistics.var(target_values))
+                #TODO: this might be quite inefficient
+                logfcn("critic/prediction_corr", Statistics.cor(reshape(Array(new_values), :),
+                                                                reshape(Array(target_values), :)))
             end
         end
         return total_loss

@@ -17,6 +17,4 @@ function read_sensor_value(env::MuJoCoEnv, sensor_name::String)
     return read_sensor_value(env, sensor_id)
 end
 
-function null_action(env::MuJoCoEnv, params)
-    (;ctrl=zeros(env.model.nu))
-end
+null_action(env::MuJoCoEnv, params) = zeros(env.model.nu)
