@@ -26,7 +26,7 @@ params = (;hidden1_size=128,
            gamma=0.99,
            lambda=0.95,
            clip_range=0.2,
-           n_epochs=50_000,
+           n_epochs=200,#_000,
            sigma_min=1f-2,
            sigma_max=1f0,
            actor_sigma_init_bias=0f0,
@@ -36,43 +36,44 @@ params = (;hidden1_size=128,
            max_target_distance=3e-2,
            reward_sigma_sqr=(1e-2)^2)
 
-test_env = RodentImitationEnv()
-
-actor_critic = ActorCritic(test_env, params) |> Flux.gpu
-opt_state = Flux.setup(Flux.Adam(), actor_critic)
-envs = [RodentImitationEnv() for _=1:params.n_envs]
-starttime = Dates.now()
-run_name = "test-$(starttime)"
-logger = create_logger("runs/$(run_name).h5", params.n_epochs, 32)
-write_params("runs/$(run_name).h5", params)
-mkdir("runs/checkpoints/$(run_name)")
-@showprogress for epoch = 1:params.n_epochs
-    epoch_starttime = Dates.now()
-    logfcn = (k,v)->logger(epoch, k, v)
-    batch = collect_batch(envs, actor_critic, params)
-    for j=1:(params.n_miniepochs-1)
-        ppo_update!(batch, actor_critic, opt_state, params)
+#function run_ppo(params)
+    test_env = RodentImitationEnv()
+    actor_critic = ActorCritic(test_env, params) |> Flux.gpu
+    opt_state = Flux.setup(Flux.Adam(), actor_critic)
+    envs = [clone(test_env) for _=1:params.n_envs]
+    starttime = Dates.now()
+    run_name = "test-$(starttime)"
+    #logger = create_logger("runs/$(run_name).h5", params.n_epochs, 32)
+    write_params("runs/$(run_name).h5", params)
+    mkdir("runs/checkpoints/$(run_name)")
+    @showprogress for epoch = 1:params.n_epochs
+        epoch_starttime = Dates.now()
+        #logfcn = (k,v)->logger(epoch, k, v)
+        batch = collect_batch(envs, actor_critic, params)
+        for j=1:(params.n_miniepochs-1)
+            ppo_update!(batch, actor_critic, opt_state, params)
+        end
+        ppo_update!(batch, actor_critic, opt_state, params)#; logfcn)
+        if epoch % params.checkpoint_interval == 0
+            BSON.bson("runs/checkpoints/$(run_name)/step-$(epoch).bson"; actor_critic=Flux.cpu(actor_critic))
+        end
+        continue
+        #GC.gc() #Do I still need this?
+        logfcn("actor/mus", view(batch.actor_output, :mu, :, :))
+        logfcn("actor/sigmas", view(batch.actor_output, :sigma, :, :))
+        logfcn("actor/action_ctrl", view(batch.actor_output, :action, :, :))
+        logfcn("actor/action_ctrl_sum_squared", sum(view(batch.actor_output, :action, :, :).^2; dims=1))
+        logfcn("rollout_batch/rewards", batch.rewards)
+        logfcn("rollout_batch/failure_rate", sum(batch.terminated) / length(batch.terminated))
+        logfcn("rollout_batch/lifespan", Float64.(view(batch.infos, :lifetime, :, :)[Array(batch.terminated)]))
+        for (key, val) in batch.infos |> pairs
+            logfcn("rollout_batch/$key", val)
+        end
+        epoch_time = (Dates.now() - epoch_starttime).value
+        logfcn("timer/epoch_time", epoch_time)
+        logfcn("timer/elapsed_time", (Dates.now() - starttime).value)
+        logfcn("timer/current_time", Dates.datetime2unix(Dates.now()))
+        logfcn("timer/steps_per_second", params.n_envs * params.n_steps_per_batch / epoch_time * 1000.0)
     end
-    ppo_update!(batch, actor_critic, opt_state, params; logfcn)
-    if epoch % params.checkpoint_interval == 0
-        BSON.bson("runs/checkpoints/$(run_name)/step-$(epoch).bson"; actor_critic=Flux.cpu(actor_critic))
-    end
-    GC.gc() #Do I still need this?
-    logfcn("actor/mus", batch.actor_output.mu)
-    logfcn("actor/sigmas", batch.actor_output.sigma)
-    logfcn("actor/action_ctrl", batch.actor_output.action)
-    logfcn("actor/action_ctrl_sum_squared", sum(batch.actor_output.action.^2; dims=1))
-    logfcn("rollout_batch/rewards", batch.rewards)
-    logfcn("rollout_batch/failure_rate", sum(batch.terminated) / length(batch.terminated))
-    logfcn("rollout_batch/lifespan", Float64.(batch.infos.lifetime[Array(batch.terminated)]))
-    #TODO: Average time-of-death something like mean(infos.lifetime[terminated]) 
-    for (key, val) in batch.infos |> pairs
-        logfcn("rollout_batch/$key", val)
-    end
-    epoch_time = (Dates.now() - epoch_starttime).value
-    logfcn("timer/epoch_time", epoch_time)
-    logfcn("timer/elapsed_time", (Dates.now() - starttime).value)
-    logfcn("timer/current_time", Dates.datetime2unix(Dates.now()))
-    logfcn("timer/steps_per_second", params.n_envs * params.n_steps_per_batch / epoch_time * 1000.0)
-end
+#end
 

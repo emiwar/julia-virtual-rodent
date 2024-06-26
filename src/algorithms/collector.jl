@@ -5,16 +5,23 @@ function collect_batch(envs, actor_critic, params)
     n_envs = length(envs)
 
     #Big GPU arrays/NamedBatchTuples for storing the entire batch
-    states = gpu_zeros_from_template(state(envs[1], params), (n_envs, steps_per_batch+1))
-    actor_output_template = actor(actor_critic, view(states, 1, 1), params)
-    actor_output = gpu_zeros_from_template(actor_output_template, (n_envs, steps_per_batch))
+    template_state = state(envs[1], params)
+    states = ComponentArray(CUDA.zeros(size(template_state)..., n_envs, steps_per_batch+1),
+                            (getaxes(template_state)..., FlatAxis(), FlatAxis()));
+    template_actor_output = actor(actor_critic, view(states, :, 1, 1), params)
+    actor_output = ComponentArray(CUDA.zeros(size(template_actor_output)..., n_envs, steps_per_batch),
+                                  (getaxes(template_actor_output)..., FlatAxis(), FlatAxis()));
     rewards = CUDA.zeros(        n_envs, steps_per_batch)
     terminated = CUDA.zeros(Bool,n_envs, steps_per_batch)
+
     #...except infos, which never have to be moved to the GPU
-    infos = cpu_zeros_from_template(info(envs[1]), (n_envs, steps_per_batch))
+    template_info = info(envs[1])
+    infos = ComponentArray(zeros(size(template_info)..., n_envs, steps_per_batch),
+                           (getaxes(template_info)..., FlatAxis(), FlatAxis()))
 
     #Smaller arrays/NamedBatchTuples for keeping one timestep in CPU memory while multithreading
-    step_states = cpu_zeros_from_template(state(envs[1], params), (n_envs,))
+    step_states = ComponentArray(zeros(size(template_state)..., n_envs),
+                                 (getaxes(template_state)..., FlatAxis()))
     step_reward = zeros(Float32, n_envs)
     step_terminated = zeros(Bool, n_envs)
 
@@ -23,27 +30,26 @@ function collect_batch(envs, actor_critic, params)
         if params.reset_epoch_start
             reset!(envs[i])
         end
-        step_states[i] = state(envs[i], params)
+        step_states[:, i] = state(envs[i], params)
     end
-    states[:, 1] = step_states
-
+    states[:, :, 1] = step_states
     for t=1:steps_per_batch
-        actor_output[:, t] = actor(actor_critic, view(states, :, t), params)
-        step_actions = Array(view(actor_output.action, :, :, t))#NamedBatchTuple(map(Flux.cpu, view(actor_output, :, t).action))
+        actor_output[:, :, t] = actor(actor_critic, view(states, :, :, t), params);
+        step_actions = Array(view(actor_output, :action, :, t))
         @Threads.threads for i=1:n_envs
             env = envs[i]
             action = view(step_actions, :, i)
             act!(env, action, params)
-            step_states[i] = state(env, params)
+            step_states[:, i] = state(env, params)
             step_reward[i] = reward(env, params)
             step_terminated[i] = is_terminated(env, params)
-            infos[i, t] = info(env)
+            infos[:, i, t] = info(env)
             if step_terminated[i]
                 reset!(env)
             end
         end
         #Move the CPU arrays to the correct index of the bigger GPU arrays
-        states[:, t+1] = step_states
+        states[:, :, t+1] = step_states
         rewards[:, t] = step_reward
         terminated[:, t] = step_terminated
     end

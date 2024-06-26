@@ -21,9 +21,21 @@ function RodentImitationEnv()
     return env
 end
 
+function clone(env::RodentImitationEnv)
+    new_env = RodentImitationEnv(
+        env.model,
+        MuJoCo.init_data(env.model),
+        0, 0.0,
+        env.com_targets
+    )
+    reset!(new_env)
+    return new_env
+end
+
 #Read-outs
 function state(env::RodentImitationEnv, params)
-    (qpos=reshape(env.data.qpos, :),
+    ComponentVector(
+     qpos=reshape(env.data.qpos, :),
      qvel=reshape(env.data.qvel, :),
      act=reshape(env.data.act, :),
      head_accel = read_sensor_value(env, "accelerometer"),
@@ -54,13 +66,15 @@ function is_terminated(env::RodentImitationEnv, params)
 end
 
 function info(env::RodentImitationEnv)
-    (torso_x=torso_x(env),
-     torso_y=torso_y(env),
-     torso_z=torso_z(env),
-     lifetime=env.lifetime,
-     cumulative_reward=env.cumulative_reward,
-     actuator_force_sum_sqr=sum(env.data.actuator_force.^2),
-     com_target_info(env, params)...)
+    ComponentVector(;
+        torso_x=torso_x(env),
+        torso_y=torso_y(env),
+        torso_z=torso_z(env),
+        lifetime=float(env.lifetime),
+        cumulative_reward=env.cumulative_reward,
+        actuator_force_sum_sqr=sum(env.data.actuator_force.^2),
+        com_target_info(env, params)...
+    )
 end
 
 #Actions

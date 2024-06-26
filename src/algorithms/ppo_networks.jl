@@ -19,20 +19,20 @@ end
 
 Flux.@layer ActorCritic
 
-function flatten_state(state)
+#function flatten_state(state)
     #torso_height = reshape(state.torso_height, 1, size(state.torso_height))
-    batch_dims = size(state.qpos)[2:end]
-    cat(state.qpos, state.qvel, state.act,
-        state.head_accel*0.1f0, state.head_vel, state.head_gyro,
-        state.paw_contacts, state.torso_linvel, state.torso_xmat,
-        reshape(state.torso_height, 1, size(state.torso_height)...)*10.0f0,
-        reshape(state.com_target_array, :, batch_dims...)*50.0f0; dims=1)
-end
+#    batch_dims = size(state.qpos)[2:end]
+#    cat(state.qpos, state.qvel, state.act,
+#        state.head_accel*0.1f0, state.head_vel, state.head_gyro,
+#        state.paw_contacts, state.torso_linvel, state.torso_xmat,
+#        reshape(state.torso_height, 1, size(state.torso_height)...)*10.0f0,
+#        reshape(state.com_target_array, :, batch_dims...)*50.0f0; dims=1)
+#end
 
 function actor(actor_critic::ActorCritic, state, params, action=nothing)
-    input = flatten_state(state)
+    input = getdata(state) #Just flatten it
     actor_net_output = actor_critic.actor(input)
-    action_size2 = size(actor_net_output, 1) ÷ 2
+    action_size = size(actor_net_output, 1) ÷ 2
     batch_dims = ntuple(_->:, ndims(actor_net_output)-1)
     mu = view(actor_net_output, 1:action_size2, batch_dims...)
     unscaled_sigma = view(actor_net_output, (action_size2+1):2*action_size2, batch_dims...)
@@ -45,12 +45,18 @@ function actor(actor_critic::ActorCritic, state, params, action=nothing)
         end
         action = mu .+ sigma .* xsi
     end
-    loglikelihood = view(-0.5f0 .* sum(((action .- mu) ./ sigma).^2; dims=1) .- sum(log.(sigma); dims=1), 1, batch_dims...)
-    return (;action, loglikelihood, mu, sigma)
+    loglikelihood = -0.5f0 .* sum(((action .- mu) ./ sigma).^2; dims=1) .- sum(log.(sigma); dims=1)
+    CatComponentArray(;action, mu, sigma, loglikelihood)
+end
+
+function CatComponentArray(;arrays...)
+    catted = cat(NamedTuple(arrays)...; dims=1)
+    template = ComponentArray(map(a->zeros(Flux.Nil, size(a, 1)), NamedTuple(arrays)))
+    ComponentArray(catted, (getaxes(template)..., ntuple(_->Axis(), ndims(catted)-1)...));
 end
 
 function critic(actor_critic::ActorCritic, state, params)
-    input = flatten_state(state)
+    input = getdata(state) #Just flatten it
     return view(actor_critic.critic(input), 1, :, :) ./ (1.0-params.gamma)
 end
 
