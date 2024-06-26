@@ -26,18 +26,18 @@ params = (;hidden1_size=128,
            gamma=0.99,
            lambda=0.95,
            clip_range=0.2,
-           n_epochs=200,#_000,
+           n_epochs=25_000,
            sigma_min=1f-2,
            sigma_max=1f0,
            actor_sigma_init_bias=0f0,
            reset_epoch_start=false,
            imitation_steps_ahead=20,
            checkpoint_interval=1000,
-           max_target_distance=3e-2,
-           reward_sigma_sqr=(1e-2)^2)
+           max_target_distance=2e-1,
+           reward_sigma_sqr=(3e-2)^2)
 
 function run_ppo(params)
-    test_env = RodentImitationEnv()
+    test_env = RodentEightPathEnv()
     actor_critic = ActorCritic(test_env, params) |> Flux.gpu
     opt_state = Flux.setup(Flux.Adam(), actor_critic)
     envs = [clone(test_env) for _=1:params.n_envs]
@@ -76,3 +76,4 @@ function run_ppo(params)
     end
 end
 
+run_ppo(params)
