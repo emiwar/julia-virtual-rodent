@@ -36,28 +36,27 @@ params = (;hidden1_size=128,
            max_target_distance=3e-2,
            reward_sigma_sqr=(1e-2)^2)
 
-#function run_ppo(params)
+function run_ppo(params)
     test_env = RodentImitationEnv()
     actor_critic = ActorCritic(test_env, params) |> Flux.gpu
     opt_state = Flux.setup(Flux.Adam(), actor_critic)
     envs = [clone(test_env) for _=1:params.n_envs]
     starttime = Dates.now()
     run_name = "test-$(starttime)"
-    #logger = create_logger("runs/$(run_name).h5", params.n_epochs, 32)
+    logger = create_logger("runs/$(run_name).h5", params.n_epochs, 32)
     write_params("runs/$(run_name).h5", params)
     mkdir("runs/checkpoints/$(run_name)")
     @showprogress for epoch = 1:params.n_epochs
         epoch_starttime = Dates.now()
-        #logfcn = (k,v)->logger(epoch, k, v)
+        logfcn = (k,v)->logger(epoch, k, v)
         batch = collect_batch(envs, actor_critic, params)
         for j=1:(params.n_miniepochs-1)
             ppo_update!(batch, actor_critic, opt_state, params)
         end
-        ppo_update!(batch, actor_critic, opt_state, params)#; logfcn)
+        ppo_update!(batch, actor_critic, opt_state, params; logfcn)
         if epoch % params.checkpoint_interval == 0
             BSON.bson("runs/checkpoints/$(run_name)/step-$(epoch).bson"; actor_critic=Flux.cpu(actor_critic))
         end
-        continue
         #GC.gc() #Do I still need this?
         logfcn("actor/mus", view(batch.actor_output, :mu, :, :))
         logfcn("actor/sigmas", view(batch.actor_output, :sigma, :, :))
@@ -65,9 +64,9 @@ params = (;hidden1_size=128,
         logfcn("actor/action_ctrl_sum_squared", sum(view(batch.actor_output, :action, :, :).^2; dims=1))
         logfcn("rollout_batch/rewards", batch.rewards)
         logfcn("rollout_batch/failure_rate", sum(batch.terminated) / length(batch.terminated))
-        logfcn("rollout_batch/lifespan", Float64.(view(batch.infos, :lifetime, :, :)[Array(batch.terminated)]))
-        for (key, val) in batch.infos |> pairs
-            logfcn("rollout_batch/$key", val)
+        logfcn("rollout_batch/lifespan", view(batch.infos.lifetime, 1, :, :)[Array(batch.terminated)])
+        for key in keys(index(batch.infos))
+            logfcn("rollout_batch/$key", batch.infos[key])
         end
         epoch_time = (Dates.now() - epoch_starttime).value
         logfcn("timer/epoch_time", epoch_time)
@@ -75,5 +74,5 @@ params = (;hidden1_size=128,
         logfcn("timer/current_time", Dates.datetime2unix(Dates.now()))
         logfcn("timer/steps_per_second", params.n_envs * params.n_steps_per_batch / epoch_time * 1000.0)
     end
-#end
+end
 

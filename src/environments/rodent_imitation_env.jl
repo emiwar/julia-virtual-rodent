@@ -34,7 +34,7 @@ end
 
 #Read-outs
 function state(env::RodentImitationEnv, params)
-    ComponentVector(
+    ComponentTensor(
      qpos=reshape(env.data.qpos, :),
      qvel=reshape(env.data.qvel, :),
      act=reshape(env.data.act, :),
@@ -48,7 +48,7 @@ function state(env::RodentImitationEnv, params)
      torso_linvel = read_sensor_value(env, "torso"),
      torso_xmat = MuJoCo.body(env.data, "torso").xmat,
      torso_height = MuJoCo.body(env.data, "torso").com[3],
-     com_target_array = get_future_targets(env, params)
+     com_target_array = reshape(get_future_targets(env, params), Val(1))
     )
 end
 
@@ -66,7 +66,7 @@ function is_terminated(env::RodentImitationEnv, params)
 end
 
 function info(env::RodentImitationEnv)
-    ComponentVector(;
+    ComponentTensor(;
         torso_x=torso_x(env),
         torso_y=torso_y(env),
         torso_z=torso_z(env),

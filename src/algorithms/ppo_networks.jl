@@ -4,7 +4,7 @@ struct ActorCritic{A,C}
 end
 
 function ActorCritic(env::MuJoCoEnv, params::NamedTuple)
-    state_size = mapreduce(s->length(s), +, state(env, params))
+    state_size = length(state(env, params))
     action_size =  mapreduce(s->length(s), +, null_action(env, params))
     actor_bias = [zeros32(action_size); params.actor_sigma_init_bias*ones32(action_size)]
     actor_net = Chain(Dense(state_size => params.hidden1_size, tanh),
@@ -30,12 +30,12 @@ Flux.@layer ActorCritic
 #end
 
 function actor(actor_critic::ActorCritic, state, params, action=nothing)
-    input = getdata(state) #Just flatten it
+    input = data(state) #Just flatten it
     actor_net_output = actor_critic.actor(input)
     action_size = size(actor_net_output, 1) ÷ 2
     batch_dims = ntuple(_->:, ndims(actor_net_output)-1)
-    mu = view(actor_net_output, 1:action_size2, batch_dims...)
-    unscaled_sigma = view(actor_net_output, (action_size2+1):2*action_size2, batch_dims...)
+    mu = view(actor_net_output, 1:action_size, batch_dims...)
+    unscaled_sigma = view(actor_net_output, (action_size+1):2*action_size, batch_dims...)
     sigma = params.sigma_min .+ 0.5f0.*(params.sigma_max .- params.sigma_min).*(1 .+ unscaled_sigma)
     if isnothing(action)
         if mu isa CUDA.AnyCuArray
@@ -46,17 +46,11 @@ function actor(actor_critic::ActorCritic, state, params, action=nothing)
         action = mu .+ sigma .* xsi
     end
     loglikelihood = -0.5f0 .* sum(((action .- mu) ./ sigma).^2; dims=1) .- sum(log.(sigma); dims=1)
-    CatComponentArray(;action, mu, sigma, loglikelihood)
-end
-
-function CatComponentArray(;arrays...)
-    catted = cat(NamedTuple(arrays)...; dims=1)
-    template = ComponentArray(map(a->zeros(Flux.Nil, size(a, 1)), NamedTuple(arrays)))
-    ComponentArray(catted, (getaxes(template)..., ntuple(_->Axis(), ndims(catted)-1)...));
+    (;action, mu, sigma, loglikelihood)
 end
 
 function critic(actor_critic::ActorCritic, state, params)
-    input = getdata(state) #Just flatten it
+    input = data(state) #Just flatten it
     return view(actor_critic.critic(input), 1, :, :) ./ (1.0-params.gamma)
 end
 

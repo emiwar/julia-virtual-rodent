@@ -26,11 +26,12 @@ function ppo_update!(batch, actor_critic, opt_state, params; logfcn=nothing)
     non_final_states = view(batch.states, :, :, 1:n_steps_per_batch)
     non_final_statevalues = view(old_values, :, 1:n_steps_per_batch)
     target_values = non_final_statevalues .+ advantages
+    actions = view(batch.actor_output, :action, :, :)
+    batch_loglikelihoods = view(batch.actor_output, :loglikelihood, :, :)
     gradients = Flux.gradient(actor_critic) do actor_critic
         #Actor loss
-        actor_output = actor(actor_critic, non_final_states, params, view(batch.actor_output, :action, :, :))
-        likelihood_ratios = view(exp.(view(actor_output, :loglikelihood, :, :) .-
-                                 view(batch.actor_output, :loglikelihood, :, :)), 1, :, :)
+        actor_output = actor(actor_critic, non_final_states, params, actions)
+        likelihood_ratios = view(exp.(actor_output.loglikelihood) .- exp.(batch_loglikelihoods), 1, :, :)
         grad_cand1 = likelihood_ratios .* advantages
         clamped_ratios = clamp.(likelihood_ratios,
                                 1.0f0 - Float32(params.clip_range),
@@ -43,7 +44,7 @@ function ppo_update!(batch, actor_critic, opt_state, params; logfcn=nothing)
         critic_loss = sum((target_values .- new_values).^2) / length(non_final_statevalues)
 
         #Entropy loss
-        sigma = view(actor_output, :sigma, :, :)
+        sigma = actor_output.sigma#view(actor_output, :sigma, :, :)
         entropy_loss = 0.5sum(log.((2π*exp(1)).*(sigma.^2))) / length(sigma)
 
         total_loss = params.loss_weight_actor * actor_loss + 

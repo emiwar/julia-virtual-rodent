@@ -1,4 +1,4 @@
-include("../utils/named_batch_tuple.jl")
+include("../utils/component_tensor.jl")
 
 function collect_batch(envs, actor_critic, params)
     steps_per_batch = params.n_steps_per_batch
@@ -6,22 +6,18 @@ function collect_batch(envs, actor_critic, params)
 
     #Big GPU arrays/NamedBatchTuples for storing the entire batch
     template_state = state(envs[1], params)
-    states = ComponentArray(CUDA.zeros(size(template_state)..., n_envs, steps_per_batch+1),
-                            (getaxes(template_state)..., FlatAxis(), FlatAxis()));
-    template_actor_output = actor(actor_critic, view(states, :, 1, 1), params)
-    actor_output = ComponentArray(CUDA.zeros(size(template_actor_output)..., n_envs, steps_per_batch),
-                                  (getaxes(template_actor_output)..., FlatAxis(), FlatAxis()));
+    states = BatchComponentTensor(template_state, n_envs, steps_per_batch+1; array_fcn=CUDA.zeros)
+    template_actor_output = actor(actor_critic, view(states, :, 1, 1), params) |> ComponentTensor
+    actor_output =  BatchComponentTensor(template_actor_output, n_envs, steps_per_batch; array_fcn=CUDA.zeros)
     rewards = CUDA.zeros(        n_envs, steps_per_batch)
     terminated = CUDA.zeros(Bool,n_envs, steps_per_batch)
 
     #...except infos, which never have to be moved to the GPU
     template_info = info(envs[1])
-    infos = ComponentArray(zeros(size(template_info)..., n_envs, steps_per_batch),
-                           (getaxes(template_info)..., FlatAxis(), FlatAxis()))
+    infos = BatchComponentTensor(template_info, n_envs, steps_per_batch; array_fcn=zeros)
 
-    #Smaller arrays/NamedBatchTuples for keeping one timestep in CPU memory while multithreading
-    step_states = ComponentArray(zeros(size(template_state)..., n_envs),
-                                 (getaxes(template_state)..., FlatAxis()))
+    #Smaller arrays/ComponentTensor for keeping one timestep in CPU memory while multithreading
+    step_states = BatchComponentTensor(template_state, n_envs)
     step_reward = zeros(Float32, n_envs)
     step_terminated = zeros(Bool, n_envs)
 
@@ -34,7 +30,7 @@ function collect_batch(envs, actor_critic, params)
     end
     states[:, :, 1] = step_states
     for t=1:steps_per_batch
-        actor_output[:, :, t] = actor(actor_critic, view(states, :, :, t), params);
+        actor_output[:, :, t] = actor(actor_critic, view(states, :, :, t), params) |> ComponentTensor
         step_actions = Array(view(actor_output, :action, :, t))
         @Threads.threads for i=1:n_envs
             env = envs[i]
