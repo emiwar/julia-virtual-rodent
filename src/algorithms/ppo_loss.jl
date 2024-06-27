@@ -31,7 +31,7 @@ function ppo_update!(batch, actor_critic, opt_state, params; logfcn=nothing)
     gradients = Flux.gradient(actor_critic) do actor_critic
         #Actor loss
         actor_output = actor(actor_critic, non_final_states, params, actions)
-        likelihood_ratios = view(exp.(actor_output.loglikelihood) .- exp.(batch_loglikelihoods), 1, :, :)
+        likelihood_ratios = view(exp.(actor_output.loglikelihood .- batch_loglikelihoods), 1, :, :)
         grad_cand1 = likelihood_ratios .* advantages
         clamped_ratios = clamp.(likelihood_ratios,
                                 1.0f0 - Float32(params.clip_range),

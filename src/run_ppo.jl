@@ -2,7 +2,7 @@ using Flux
 using ProgressMeter
 import Dates
 import BSON
-
+include("environments/rodent_run_env.jl")
 include("environments/rodent_imitation_env.jl")
 include("algorithms/collector.jl")
 include("algorithms/ppo_loss.jl")
@@ -18,7 +18,7 @@ params = (;hidden1_size=128,
            n_miniepochs=5,
            forward_reward_weight = 10.0,
            healthy_reward_weight = 0.5,
-           ctrl_reward_weight = 0.05,#30.0,#0.1,
+           ctrl_reward_weight = 0.005,#30.0,#0.1,
            loss_weight_actor = 1.0,
            loss_weight_critic = 1.0,
            loss_weight_entropy = 0.0,#-0.5,
@@ -26,7 +26,7 @@ params = (;hidden1_size=128,
            gamma=0.99,
            lambda=0.95,
            clip_range=0.2,
-           n_epochs=25_000,
+           n_epochs=75_000,
            sigma_min=1f-2,
            sigma_max=1f0,
            actor_sigma_init_bias=0f0,
@@ -42,7 +42,7 @@ function run_ppo(params)
     opt_state = Flux.setup(Flux.Adam(), actor_critic)
     envs = [clone(test_env) for _=1:params.n_envs]
     starttime = Dates.now()
-    run_name = "test-$(starttime)"
+    run_name = "RodentEightPath-$(starttime)"
     logger = create_logger("runs/$(run_name).h5", params.n_epochs, 32)
     write_params("runs/$(run_name).h5", params)
     mkdir("runs/checkpoints/$(run_name)")
@@ -57,7 +57,6 @@ function run_ppo(params)
         if epoch % params.checkpoint_interval == 0
             BSON.bson("runs/checkpoints/$(run_name)/step-$(epoch).bson"; actor_critic=Flux.cpu(actor_critic))
         end
-        #GC.gc() #Do I still need this?
         logfcn("actor/mus", view(batch.actor_output, :mu, :, :))
         logfcn("actor/sigmas", view(batch.actor_output, :sigma, :, :))
         logfcn("actor/action_ctrl", view(batch.actor_output, :action, :, :))

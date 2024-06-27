@@ -20,17 +20,17 @@ end
 Flux.@layer ActorCritic
 
 #function flatten_state(state)
-    #torso_height = reshape(state.torso_height, 1, size(state.torso_height))
-#    batch_dims = size(state.qpos)[2:end]
-#    cat(state.qpos, state.qvel, state.act,
-#        state.head_accel*0.1f0, state.head_vel, state.head_gyro,
-#        state.paw_contacts, state.torso_linvel, state.torso_xmat,
-#        reshape(state.torso_height, 1, size(state.torso_height)...)*10.0f0,
-#        reshape(state.com_target_array, :, batch_dims...)*50.0f0; dims=1)
+#    result = deepcopy(state)
+#    Flux.ignore() do
+#        state.head_accel .*= 1f-1
+#        state.com_target_array .*= 5f0
+#        state.torso_height .*= 1f1
+#    end
+#    return data(result)
 #end
 
 function actor(actor_critic::ActorCritic, state, params, action=nothing)
-    input = data(state) #Just flatten it
+    input = data(state)#flatten_state(state)
     actor_net_output = actor_critic.actor(input)
     action_size = size(actor_net_output, 1) ÷ 2
     batch_dims = ntuple(_->:, ndims(actor_net_output)-1)
@@ -50,7 +50,7 @@ function actor(actor_critic::ActorCritic, state, params, action=nothing)
 end
 
 function critic(actor_critic::ActorCritic, state, params)
-    input = data(state) #Just flatten it
+    input = data(state)
     return view(actor_critic.critic(input), 1, :, :) ./ (1.0-params.gamma)
 end
 

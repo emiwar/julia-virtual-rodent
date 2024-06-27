@@ -31,7 +31,7 @@ function Base.getindex(ct::ComponentTensor, key::Symbol, inds...)
     #reshape(view(ct.data, ind1, inds...), shape..., size(ct.A)[2:end]...)
 end
 Base.getindex(ct::ComponentTensor, key::Symbol) = ct[key, ntuple(_->:, ndims(ct)-1)...]
-Base.getproperty(ct::ComponentTensor, key::Symbol) = ct[key]
+Base.getproperty(ct::ComponentTensor, key::Symbol) = view(ct, key, ntuple(_->:, ndims(ct)-1)...)
 function Base.view(ct::ComponentTensor, ind1::Colon, inds...)
     ComponentTensor(view(data(ct), ind1, inds...), index(ct))
 end

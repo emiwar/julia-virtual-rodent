@@ -41,7 +41,7 @@ function state(env::RodentFollowEnv, params)
      qpos=reshape(env.data.qpos, :),
      qvel=reshape(env.data.qvel, :),
      act=reshape(env.data.act, :),
-     head_accel = read_sensor_value(env, "accelerometer"),
+     head_accel = read_sensor_value(env, "accelerometer") .* 0.1,
      head_vel = read_sensor_value(env, "velocimeter"),
      head_gyro = read_sensor_value(env, "gyro"),
      paw_contacts = [read_sensor_value(env, "palm_L"); 
@@ -50,8 +50,8 @@ function state(env::RodentFollowEnv, params)
                      read_sensor_value(env, "sole_R")],
      torso_linvel = read_sensor_value(env, "torso"),
      torso_xmat = MuJoCo.body(env.data, "torso").xmat,
-     torso_height = MuJoCo.body(env.data, "torso").com[3],
-     com_target_array = reshape(get_future_targets(env, params), Val(1))
+     torso_height = MuJoCo.body(env.data, "torso").com[3] .* 10.0,
+     com_target_array = reshape(get_future_targets(env, params), Val(1)) .* 5.0
     )
 end
 

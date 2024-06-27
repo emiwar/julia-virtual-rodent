@@ -9,24 +9,24 @@ function create_logger(filename, reserve_epochs, n_quantiles; buffer_size=16)
 
         if epoch-last_write[] > buffer_size
             HDF5.h5open(filename, "cw") do fid
-                for (key, val) in pairs(buffer)
-                    if ndims(val) == 2
-                        if !haskey(fid, key)
-                            HDF5.create_dataset(fid, key, eltype(val), (n_quantiles, reserve_epochs))
+                for (k, v) in pairs(buffer)
+                    if ndims(v) == 2
+                        if !haskey(fid, k)
+                            HDF5.create_dataset(fid, k, eltype(v), (n_quantiles, reserve_epochs))
                         end
-                        fid[key][:, (last_write[]+1):(epoch-1)] = val
+                        fid[k][:, (last_write[]+1):(epoch-1)] = v
                     else
-                        if !haskey(fid, key)
-                            HDF5.create_dataset(fid, key, eltype(val), (reserve_epochs,))
+                        if !haskey(fid, k)
+                            HDF5.create_dataset(fid, k, eltype(v), (reserve_epochs,))
                         end
-                        fid[key][(last_write[]+1):(epoch-1)] = val
+                        fid[k][(last_write[]+1):(epoch-1)] = v
                     end
                 end
                 fid["n_epochs"][1] = epoch - 1
             end
             last_write[] = epoch-1
-            for val in values(buffer)
-                val .= 0.0
+            for v in values(buffer)
+                v .= 0.0
             end
         end
 
