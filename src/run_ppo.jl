@@ -33,8 +33,8 @@ params = (;hidden1_size=128,
            reset_epoch_start=false,
            imitation_steps_ahead=20,
            checkpoint_interval=1000,
-           max_target_distance=2e-1,
-           reward_sigma_sqr=(3e-2)^2)
+           max_target_distance=4e-1,
+           reward_sigma_sqr=(5e-2)^2)
 
 function run_ppo(params)
     test_env = RodentImitationEnv()

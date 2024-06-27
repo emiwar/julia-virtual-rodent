@@ -64,7 +64,8 @@ function reward(env::RodentFollowEnv, params)
 end
 
 function is_terminated(env::RodentFollowEnv, params)
-    if torso_z(env) < params.min_torso_z
+    if torso_z(env) < params.min_torso_z || 
+        env.lifetime ÷ 2 + 1 > size(env.com_targets, 2)
         return true
     end
     target_vec = get_target_vector(env, params)
