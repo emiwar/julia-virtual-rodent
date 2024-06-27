@@ -64,6 +64,9 @@ function reward(env::RodentFollowEnv, params)
 end
 
 function is_terminated(env::RodentFollowEnv, params)
+    if torso_z(env) < params.min_torso_z
+        return false
+    end
     target_vec = get_target_vector(env, params)
     LinearAlgebra.norm(target_vec) > params.max_target_distance
 end

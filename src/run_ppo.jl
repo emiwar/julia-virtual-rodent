@@ -18,7 +18,7 @@ params = (;hidden1_size=128,
            n_miniepochs=5,
            forward_reward_weight = 10.0,
            healthy_reward_weight = 0.5,
-           ctrl_reward_weight = 0.005,#30.0,#0.1,
+           ctrl_reward_weight = 0.025,#30.0,#0.1,
            loss_weight_actor = 1.0,
            loss_weight_critic = 1.0,
            loss_weight_entropy = 0.0,#-0.5,
@@ -37,12 +37,12 @@ params = (;hidden1_size=128,
            reward_sigma_sqr=(3e-2)^2)
 
 function run_ppo(params)
-    test_env = RodentEightPathEnv()
+    test_env = RodentImitationEnv()
     actor_critic = ActorCritic(test_env, params) |> Flux.gpu
     opt_state = Flux.setup(Flux.Adam(), actor_critic)
     envs = [clone(test_env) for _=1:params.n_envs]
     starttime = Dates.now()
-    run_name = "RodentEightPath-$(starttime)"
+    run_name = "RodentComImitationPath-$(starttime)"
     logger = create_logger("runs/$(run_name).h5", params.n_epochs, 32)
     write_params("runs/$(run_name).h5", params)
     mkdir("runs/checkpoints/$(run_name)")
