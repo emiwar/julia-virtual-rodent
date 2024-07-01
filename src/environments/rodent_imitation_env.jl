@@ -9,17 +9,18 @@ mutable struct RodentImitationEnv <: RodentFollowEnv
     lifetime::Int64
     cumulative_reward::Float64
     com_targets::Matrix{Float64}
+    xquat_targets::Matrix{Float64}
     #torso::MuJoCo.Wrappers.NamedAccess.DataBody
 end
 
 function RodentImitationEnv()
     modelPath = "src/environments/assets/rodent_with_floor_scale080_edits.xml"
-    trajectoryPath = "src/environments/assets/example_com_trajectory.h5"
-    com_targets = HDF5.h5open(fid->fid["com"][:, :], trajectoryPath, "r")
+    trajectoryPath = "src/environments/assets/com_trajectory2.h5"
+    com_targets, xquat_targets = HDF5.h5open(fid->(fid["com"][:, :], fid["xquat"][:, :]), trajectoryPath, "r")
     #com_targets[3, :] .= 0.043
     model = MuJoCo.load_model(modelPath)
     data = MuJoCo.init_data(model)
-    env = RodentImitationEnv(model, data, 0, 0.0, com_targets)
+    env = RodentImitationEnv(model, data, 0, 0.0, com_targets, xquat_targets)
     reset!(env)
     return env
 end
@@ -29,7 +30,8 @@ function clone(env::RodentImitationEnv)
         env.model,
         MuJoCo.init_data(env.model),
         0, 0.0,
-        env.com_targets
+        env.com_targets,
+        env.xquat_targets
     )
     reset!(new_env)
     return new_env
@@ -51,16 +53,17 @@ function state(env::RodentFollowEnv, params)
      torso_linvel = read_sensor_value(env, "torso"),
      torso_xmat = MuJoCo.body(env.data, "torso").xmat,
      torso_height = MuJoCo.body(env.data, "torso").com[3] .* 10.0,
-     com_target_array = reshape(get_future_targets(env, params), Val(1)) .* 5.0
+     com_target_array = reshape(get_future_targets(env, params), Val(1)) .* 5.0,
+     quat_target_array = reshape(get_future_quats(env, params), Val(1))
     )
 end
 
 function reward(env::RodentFollowEnv, params)
     target_vec = get_target_vector(env, params)
     closeness_reward = exp(-sum(target_vec.^2) / params.reward_sigma_sqr)
+    angle_reward = exp(-(get_angle_to_target(env, params)^2) / params.reward_angle_sigma_sqr)
     ctrl_reward = -params.ctrl_reward_weight * sum(env.data.ctrl.^2)
-    return closeness_reward + ctrl_reward + params.healthy_reward_weight
-    
+    return closeness_reward + angle_reward + ctrl_reward + params.healthy_reward_weight
 end
 
 function is_terminated(env::RodentFollowEnv, params)
@@ -80,6 +83,7 @@ function info(env::RodentFollowEnv)
         lifetime=float(env.lifetime),
         cumulative_reward=env.cumulative_reward,
         actuator_force_sum_sqr=sum(env.data.actuator_force.^2),
+        angle_to_target=get_angle_to_target(env, params) |> rad2deg,
         com_target_info(env, params)...
     )
 end
@@ -127,6 +131,16 @@ function com_target_info(env::RodentFollowEnv, params)
      target_distance=dist)
 end
 
+function get_future_quats(env::RodentImitationEnv, params)
+    com_ind = env.lifetime ÷ 2
+    range = (com_ind + 1):(com_ind + params.imitation_steps_ahead)
+    view(env.xquat_targets, :, range)
+end
+
+function get_angle_to_target(env::RodentImitationEnv, params)
+    com_ind = env.lifetime ÷ 2 + 1
+    2*acos(abs(view(env.xquat_targets, :, com_ind)' * MuJoCo.body(env.data, "torso").xquat))
+end
 
 mutable struct RodentEightPathEnv <: RodentFollowEnv
     model::MuJoCo.Model

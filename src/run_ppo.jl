@@ -34,7 +34,8 @@ params = (;hidden1_size=128,
            imitation_steps_ahead=20,
            checkpoint_interval=1000,
            max_target_distance=4e-1,
-           reward_sigma_sqr=(5e-2)^2)
+           reward_sigma_sqr=(5e-2)^2,
+           reward_angle_sigma_sqr=(0.5)^2)
 
 function run_ppo(params)
     test_env = RodentImitationEnv()
@@ -42,7 +43,7 @@ function run_ppo(params)
     opt_state = Flux.setup(Flux.Adam(), actor_critic)
     envs = [clone(test_env) for _=1:params.n_envs]
     starttime = Dates.now()
-    run_name = "RodentComImitationPath-$(starttime)"
+    run_name = "RodentComAndDirImitation-$(starttime)"
     logger = create_logger("runs/$(run_name).h5", params.n_epochs, 32)
     write_params("runs/$(run_name).h5", params)
     mkdir("runs/checkpoints/$(run_name)")
