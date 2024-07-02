@@ -60,6 +60,7 @@ end
 
 function reward(env::RodentFollowEnv, params)
     target_vec = get_target_vector(env, params)
+    target_vec[3] *= 0.05 #Downplay importance of rearing
     closeness_reward = exp(-sum(target_vec.^2) / params.reward_sigma_sqr)
     angle_reward = exp(-(get_angle_to_target(env, params)^2) / params.reward_angle_sigma_sqr)
     ctrl_reward = -params.ctrl_reward_weight * sum(env.data.ctrl.^2)
@@ -72,6 +73,7 @@ function is_terminated(env::RodentFollowEnv, params)
         return true
     end
     target_vec = get_target_vector(env, params)
+    target_vec[3] *= 0.05 #Downplay importance of rearing
     LinearAlgebra.norm(target_vec) > params.max_target_distance
 end
 

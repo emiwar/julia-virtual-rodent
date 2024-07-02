@@ -11,7 +11,7 @@ log_y_plots = {"cumulative_reward", "actuator_force_sum_sqr",
 
 def create_simple_line(vals, title):
     fig = go.Figure()
-    fig.add_trace(go.Scatter(y=vals, name=title, line=dict(width=2)))
+    fig.add_trace(go.Scattergl(y=vals, name=title, line=dict(width=2)))
     if title in log_y_plots:
         fig.update_yaxes(type='log')
     fig.update_layout(
@@ -27,8 +27,10 @@ def create_quantile_plot(quantiles, title):
     fig = go.Figure()
     for i in range(quantiles.shape[1]):
         alpha = 0.2#np.exp(-((i/quantiles.shape[1] - 0.5)**2)/4)
-        fig.add_trace(go.Scatter(y=quantiles[:,i],
-                                 line=dict(width=.5, color=f"rgba(0.0,0.0,1.0,{alpha})")))
+        if i == quantiles.shape[1]//2:
+            fig.add_trace(go.Scattergl(y=quantiles[:,i], line=dict(width=1)))
+        else:    
+            fig.add_trace(go.Scattergl(y=quantiles[:,i], line=dict(width=.2, color="#1f77b4"), hoverinfo = 'none'))
     if title in log_y_plots:
         fig.update_yaxes(type='log')
     fig.update_layout(
