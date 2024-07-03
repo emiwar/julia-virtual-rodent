@@ -10,17 +10,18 @@ mutable struct RodentImitationEnv <: RodentFollowEnv
     cumulative_reward::Float64
     com_targets::Matrix{Float64}
     xquat_targets::Matrix{Float64}
+    xmat_targets::Matrix{Float64}
     #torso::MuJoCo.Wrappers.NamedAccess.DataBody
 end
 
 function RodentImitationEnv()
     modelPath = "src/environments/assets/rodent_with_floor_scale080_edits.xml"
     trajectoryPath = "src/environments/assets/com_trajectory2.h5"
-    com_targets, xquat_targets = HDF5.h5open(fid->(fid["com"][:, :], fid["xquat"][:, :]), trajectoryPath, "r")
+    com_targets, xquat_targets, xmat_targets = HDF5.h5open(fid->(fid["com"][:, :], fid["xquat"][:, :], fid["xmat"][:, :]), trajectoryPath, "r")
     #com_targets[3, :] .= 0.043
     model = MuJoCo.load_model(modelPath)
     data = MuJoCo.init_data(model)
-    env = RodentImitationEnv(model, data, 0, 0.0, com_targets, xquat_targets)
+    env = RodentImitationEnv(model, data, 0, 0.0, com_targets, xquat_targets, xmat_targets)
     reset!(env)
     return env
 end
@@ -31,7 +32,8 @@ function clone(env::RodentImitationEnv)
         MuJoCo.init_data(env.model),
         0, 0.0,
         env.com_targets,
-        env.xquat_targets
+        env.xquat_targets,
+        env.xmat_targets
     )
     reset!(new_env)
     return new_env
@@ -54,7 +56,7 @@ function state(env::RodentFollowEnv, params)
      torso_xmat = MuJoCo.body(env.data, "torso").xmat,
      torso_height = MuJoCo.body(env.data, "torso").com[3] .* 10.0,
      com_target_array = reshape(get_future_targets(env, params), Val(1)) .* 5.0,
-     quat_target_array = reshape(get_future_quats(env, params), Val(1))
+     xmat_target_array = reshape(get_future_xmats(env, params), Val(1))
     )
 end
 
@@ -137,6 +139,12 @@ function get_future_quats(env::RodentImitationEnv, params)
     com_ind = env.lifetime ÷ 2
     range = (com_ind + 1):(com_ind + params.imitation_steps_ahead)
     view(env.xquat_targets, :, range)
+end
+
+function get_future_xmats(env::RodentImitationEnv, params)
+    com_ind = env.lifetime ÷ 2
+    range = (com_ind + 1):(com_ind + params.imitation_steps_ahead)
+    view(env.xmat_targets, :, range)
 end
 
 function get_angle_to_target(env::RodentImitationEnv, params)
