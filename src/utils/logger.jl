@@ -1,4 +1,5 @@
 import HDF5
+import Sockets
 
 function create_logger(filename, reserve_epochs, n_quantiles; buffer_size=16)
     HDF5.h5open(fid->fid["n_epochs"]=[0], filename, "cw")
@@ -65,5 +66,12 @@ function write_params(filename::String, params)
         for (k,v) in pairs(params)
             fid["params/$k"] = v
         end
+    end
+end
+
+function write_sysinfo(filename::String)
+    HDF5.h5open(filename, "cw") do fid
+        fid["system/hostname"] = Sockets.gethostname()
+        fid["system/git"] = readchomp(`git rev-parse --short HEAD`)
     end
 end

@@ -17,13 +17,13 @@ params = (;hidden1_size=128,
            n_physics_steps=5,
            n_miniepochs=5,
            forward_reward_weight = 10.0,
-           healthy_reward_weight = 2.0,
-           ctrl_reward_weight = 0.02,#0.025,#30.0,#0.1,
+           healthy_reward_weight = 1.0,
+           ctrl_reward_weight = 0.005,#0.025,#30.0,#0.1,
            loss_weight_actor = 1.0,
            loss_weight_critic = 1.0,
            loss_weight_entropy = -0.01,#-0.5,
            min_torso_z = 0.04,
-           gamma=0.99,
+           gamma=0.9,
            lambda=0.95,
            clip_range=0.2,
            n_epochs=75_000,
@@ -31,7 +31,7 @@ params = (;hidden1_size=128,
            sigma_max=1f0,
            actor_sigma_init_bias=0f0,
            reset_epoch_start=false,
-           imitation_steps_ahead=20,
+           imitation_steps_ahead=3,
            checkpoint_interval=1000,
            max_target_distance=4e-1,
            reward_sigma_sqr=(5e-2)^2,
@@ -46,6 +46,7 @@ function run_ppo(params)
     run_name = "RodentComAndDirImitation-$(starttime)"
     logger = create_logger("runs/$(run_name).h5", params.n_epochs, 32)
     write_params("runs/$(run_name).h5", params)
+    write_sysinfo("runs/$(run_name).h5")
     mkdir("runs/checkpoints/$(run_name)")
     @showprogress for epoch = 1:params.n_epochs
         epoch_starttime = Dates.now()

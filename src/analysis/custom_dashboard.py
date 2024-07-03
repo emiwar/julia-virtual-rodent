@@ -71,22 +71,36 @@ def load_run(filename):
         return f"Invalid filename: {filename}"
     f = h5py.File(str(filename), "r")
     layout = [dbc.Row(dash.html.H1(filename))]
-    for group in f["training"].keys():
-        layout.append(dbc.Row(dash.html.H4(group)))
-        row = []
-        for entry in f[f"training/{group}"].keys():
-            if isinstance(f[f"training/{group}/{entry}"], h5py.Dataset):
-                n_epochs = max(0, f['n_epochs'][0]-1)
-                vals = f[f"training/{group}/{entry}"][:n_epochs]
-                row.append(dbc.Col([dash.dcc.Graph(figure=create_simple_line(vals, entry))], width=4))
-            elif "quantiles" in f[f"training/{group}/{entry}"]:
-                n_epochs = max(0, f['n_epochs'][0]-1)
-                quantiles = np.array(f[f"training/{group}/{entry}/quantiles"][:n_epochs, :])
-                row.append(dbc.Col([dash.dcc.Graph(figure=create_quantile_plot(quantiles, entry))], width=4))
-            else:
-                print(f"Unknown entry type for {group}/{entry}")
+    if "training" in f.keys():
+        for group in f["training"].keys():
+            layout.append(dbc.Row(dash.html.H4(group)))
+            row = []
+            for entry in f[f"training/{group}"].keys():
+                if isinstance(f[f"training/{group}/{entry}"], h5py.Dataset):
+                    n_epochs = max(0, f['n_epochs'][0]-1)
+                    vals = f[f"training/{group}/{entry}"][:n_epochs]
+                    row.append(dbc.Col([dash.dcc.Graph(figure=create_simple_line(vals, entry))], width=4))
+                elif "quantiles" in f[f"training/{group}/{entry}"]:
+                    n_epochs = max(0, f['n_epochs'][0]-1)
+                    quantiles = np.array(f[f"training/{group}/{entry}/quantiles"][:n_epochs, :])
+                    row.append(dbc.Col([dash.dcc.Graph(figure=create_quantile_plot(quantiles, entry))], width=4))
+                else:
+                    print(f"Unknown entry type for {group}/{entry}")
 
-        layout.append(dbc.Row(row))
+            layout.append(dbc.Row(row))
+    if "system" in f.keys():
+        layout.append(dbc.Row(dash.html.H4("System")))
+        table_rows = []
+        for group in f["system"].keys():
+            table_rows.append(dash.html.Tr([dash.html.Td(group), dash.html.Td(str(f[f"system/{group}"][()]))]))
+        layout.append(dbc.Row(dbc.Col(dash.html.Table(table_rows, className="table"), width=4)))
+    
+    if "params" in f.keys():
+        layout.append(dbc.Row(dash.html.H4("Params")))
+        table_rows = []
+        for group in f["params"].keys():
+            table_rows.append(dash.html.Tr([dash.html.Td(group), dash.html.Td(str(f[f"params/{group}"][()]))]))
+        layout.append(dbc.Row(dbc.Col(dash.html.Table(table_rows, className="table"), width=4)))
     return dbc.Container(layout, fluid=True)
 
 if __name__ == '__main__':
