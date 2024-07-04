@@ -38,7 +38,6 @@ function Base.getindex(ct::ComponentTensor, key::Symbol)
         return data(ct)[ind1]
     end
 end
-
 Base.getproperty(ct::ComponentTensor, key::Symbol) = view(ct, key, ntuple(_->:, ndims(ct)-1)...)
 function Base.view(ct::ComponentTensor, ind1::Colon, inds...)
     ComponentTensor(view(data(ct), ind1, inds...), index(ct))
@@ -66,7 +65,9 @@ end
 
 
 function computeRange(ct::ComponentTensor, indkeys::Vector{Symbol})
-    for i = 2:length(indkeys), inds...
+    for i = 2:length(indkeys)
+        @assert index(ct)[indkeys[i]][1].start == index(ct)[indkeys[i-1]][1].stop + 1
+    end
     start = index(ct)[first(indkeys)][1].start
     stop = index(ct)[last(indkeys)][1].stop
     return start:stop
