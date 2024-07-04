@@ -1,36 +1,44 @@
-struct ActorCritic{A,C}
+struct ActorCritic{A,C,E,X}
     actor::A
     critic::C
+    com_encoder::E
+    xmat_encoder::X
 end
 
+Flux.@layer ActorCritic
+
+prop_keys() = [:qpos, :qvel, :act, :head_accel, :head_vel,
+               :head_gyro,:paw_contacts, :torso_linvel,
+               :torso_xmat, :torso_height]
+
 function ActorCritic(env::MuJoCoEnv, params::NamedTuple)
-    state_size = length(state(env, params))
+    s = state(env, params)
+    state_size = length(s)
     action_size =  mapreduce(s->length(s), +, null_action(env, params))
+    prop_size = length(computeRange(s, prop_keys()))
+    com_size = length(computeRange(s, [:com_target_array]))
+    xmat_size = length(computeRange(s, [:xmat_target_array]))
     actor_bias = [zeros32(action_size); params.actor_sigma_init_bias*ones32(action_size)]
-    actor_net = Chain(Dense(state_size => params.hidden1_size, tanh),
+    actor_net = Chain(Dense((prop_size+params.latent_dimension) => params.hidden1_size, tanh),
                       Dense(params.hidden1_size => params.hidden2_size, tanh),
                       Dense(params.hidden2_size => 2*action_size, tanh;
                             init=zeros32, bias=actor_bias))
     critic_net = Chain(Dense(state_size => params.hidden1_size, tanh),
                        Dense(params.hidden1_size => params.hidden2_size, tanh),
                        Dense(params.hidden2_size => 1; init=zeros32))
-    return ActorCritic(actor_net, critic_net)
+    com_encoder = Dense(com_size=> params.latent_dimension÷2, tanh)
+    xmat_encoder = Dense(xmat_size => params.latent_dimension÷2, tanh)
+    return ActorCritic(actor_net, critic_net, com_encoder, xmat_encoder)
 end
 
-Flux.@layer ActorCritic
-
-#function flatten_state(state)
-#    result = deepcopy(state)
-#    Flux.ignore() do
-#        state.head_accel .*= 1f-1
-#        state.com_target_array .*= 5f0
-#        state.torso_height .*= 1f1
-#    end
-#    return data(result)
-#end
 
 function actor(actor_critic::ActorCritic, state, params, action=nothing)
-    input = data(state)#flatten_state(state)
+    com_target_array = Flux.ignore(()->state[:com_target_array])
+    xmat_target_array = Flux.ignore(()->state[:xmat_target_array])
+    prop = Flux.ignore(()->view(state, prop_keys()))
+    com_encoded = actor_critic.com_encoder(com_target_array)
+    xmat_encoded = actor_critic.xmat_encoder(xmat_target_array)
+    input = cat(prop, com_encoded, xmat_encoded; dims=1)
     actor_net_output = actor_critic.actor(input)
     action_size = size(actor_net_output, 1) ÷ 2
     batch_dims = ntuple(_->:, ndims(actor_net_output)-1)

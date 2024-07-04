@@ -30,7 +30,15 @@ function Base.getindex(ct::ComponentTensor, key::Symbol, inds...)
     data(ct)[ind1, inds...]
     #reshape(view(ct.data, ind1, inds...), shape..., size(ct.A)[2:end]...)
 end
-Base.getindex(ct::ComponentTensor, key::Symbol) = ct[key, ntuple(_->:, ndims(ct)-1)...]
+function Base.getindex(ct::ComponentTensor, key::Symbol)
+    if ndims(ct) > 1
+        return ct[key, ntuple(_->:, ndims(ct)-1)...]
+    else
+        ind1, shape = index(ct)[key]
+        return data(ct)[ind1]
+    end
+end
+
 Base.getproperty(ct::ComponentTensor, key::Symbol) = view(ct, key, ntuple(_->:, ndims(ct)-1)...)
 function Base.view(ct::ComponentTensor, ind1::Colon, inds...)
     ComponentTensor(view(data(ct), ind1, inds...), index(ct))
@@ -54,4 +62,37 @@ end
 
 function BatchComponentTensor(template::ComponentTensor, batch_dims...; array_fcn=zeros)
     ComponentTensor(array_fcn(size(template)..., batch_dims...), index(template))
+end
+
+
+function computeRange(ct::ComponentTensor, indkeys::Vector{Symbol})
+    for i = 2:length(indkeys), inds...
+    start = index(ct)[first(indkeys)][1].start
+    stop = index(ct)[last(indkeys)][1].stop
+    return start:stop
+end
+
+function Base.getindex(ct::ComponentTensor, keys::Vector{Symbol}, inds...)
+    data(ct)[computeRange(ct, keys), inds...]
+end
+Base.getindex(ct::ComponentTensor, key::Vector{Symbol}) = ct[key, ntuple(_->:, ndims(ct)-1)...]
+
+function Base.view(ct::ComponentTensor, indkeys::Vector{Symbol}, inds...)
+    view(data(ct), computeRange(ct, indkeys), inds...)
+end
+function Base.view(ct::ComponentTensor, indkeys::Vector{Symbol})
+    if ndims(ct) > 1
+        return view(ct, indkeys, ntuple(_->:, ndims(ct)-1)...)
+    else
+        return view(data(ct), computeRange(ct, indkeys))
+    end
+end
+
+function Base.view(ct::ComponentTensor, key::Symbol)
+    if ndims(ct) > 1
+        return view(ct, key, ntuple(_->:, ndims(ct)-1)...)
+    else
+        ind1, shape = index(ct)[key]
+        return view(data(ct), ind1)
+    end
 end
