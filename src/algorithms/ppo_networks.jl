@@ -23,7 +23,7 @@ function ActorCritic(env::MuJoCoEnv, params::NamedTuple)
                       Dense(params.hidden1_size => params.hidden2_size, tanh),
                       Dense(params.hidden2_size => 2*action_size, tanh;
                             init=zeros32, bias=actor_bias))
-    critic_net = Chain(Dense(state_size => params.hidden1_size, tanh),
+    critic_net = Chain(Dense((prop_size+params.latent_dimension) => params.hidden1_size, tanh),
                        Dense(params.hidden1_size => params.hidden2_size, tanh),
                        Dense(params.hidden2_size => 1; init=zeros32))
     com_encoder = Dense(com_size=> params.latent_dimension÷2, tanh)
@@ -31,14 +31,17 @@ function ActorCritic(env::MuJoCoEnv, params::NamedTuple)
     return ActorCritic(actor_net, critic_net, com_encoder, xmat_encoder)
 end
 
-
-function actor(actor_critic::ActorCritic, state, params, action=nothing)
+function encoder(actor_critic::ActorCritic, state)
     com_target_array = Flux.ignore(()->state[:com_target_array])
     xmat_target_array = Flux.ignore(()->state[:xmat_target_array])
     prop = Flux.ignore(()->view(state, prop_keys()))
     com_encoded = actor_critic.com_encoder(com_target_array)
     xmat_encoded = actor_critic.xmat_encoder(xmat_target_array)
-    input = cat(prop, com_encoded, xmat_encoded; dims=1)
+    cat(prop, com_encoded, xmat_encoded; dims=1)
+end
+
+function actor(actor_critic::ActorCritic, state, params, action=nothing)
+    input = encoder(actor_critic, state)
     actor_net_output = actor_critic.actor(input)
     action_size = size(actor_net_output, 1) ÷ 2
     batch_dims = ntuple(_->:, ndims(actor_net_output)-1)
@@ -58,7 +61,7 @@ function actor(actor_critic::ActorCritic, state, params, action=nothing)
 end
 
 function critic(actor_critic::ActorCritic, state, params)
-    input = data(state)
+    input = encoder(actor_critic, state)#data(state)
     return view(actor_critic.critic(input), 1, :, :) ./ (1.0-params.gamma)
 end
 
