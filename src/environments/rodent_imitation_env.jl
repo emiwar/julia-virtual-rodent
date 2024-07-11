@@ -17,7 +17,8 @@ end
 function RodentImitationEnv()
     modelPath = "src/environments/assets/rodent_with_floor_scale080_edits.xml"
     trajectoryPath = "src/environments/assets/com_trajectory2.h5"
-    com_targets, xquat_targets, xmat_targets = HDF5.h5open(fid->(fid["com"][:, :], fid["xquat"][:, :], fid["xmat"][:, :]), trajectoryPath, "r")
+    offs = params.imitation_skip
+    com_targets, xquat_targets, xmat_targets = HDF5.h5open(fid->(fid["com"][:, offs:end], fid["xquat"][:, offs:end], fid["xmat"][:, offs:end]), trajectoryPath, "r")
     #com_targets[3, :] .= 0.043
     model = MuJoCo.load_model(modelPath)
     data = MuJoCo.init_data(model)

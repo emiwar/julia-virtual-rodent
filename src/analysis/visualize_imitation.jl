@@ -13,12 +13,13 @@ MuJoCo.init_visualiser()
 dubbleModelPath = "src/environments/assets/imitation_viz_scale080.xml"
 dubbleModel = MuJoCo.load_model(dubbleModelPath)
 dubbleData = MuJoCo.init_data(dubbleModel)
-qpos_targets = HDF5.h5open(fid->(fid["qpos"][:, :]), "src/environments/assets/com_trajectory2.h5", "r")
+qpos_targets = HDF5.h5open(fid->(fid["qpos"][:, params.imitation_skip:end]),
+                           "src/environments/assets/com_trajectory2.h5", "r")
 
 
-runname = "RodentComAndDirImitation-2024-07-03T11:16:48.443"
+runname = "RodentComAndDirImitation-2024-07-11T11:00:37.685"
 params = HDF5.h5open(fid->NamedTuple(Symbol(k)=>v[] for (k,v) in pairs(fid["params"])), "runs/$runname.h5", "r")
-filename = "runs/checkpoints/$runname/step-11000.bson"
+filename = "runs/checkpoints/$runname/step-2000.bson"
 T = 1000
 
 actor_critic = BSON.load(filename)[:actor_critic] |> Flux.gpu
@@ -60,3 +61,4 @@ MuJoCo.visualise!(dubbleModel, new_data, trajectories = physics_states)
 import Plots
 
 Plots.plot(angle_to_target)
+Plots.plot(com_target[1, :])
