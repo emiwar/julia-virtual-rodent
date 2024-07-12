@@ -26,8 +26,8 @@ params = (;hidden1_size=256,
            lambda=0.95,
            clip_range=0.2,
            n_epochs=25_000,
-           sigma_min=1f-2,
-           sigma_max=1f0,
+           sigma_min=1.5f-1,
+           sigma_max=2.5f-1,
            actor_sigma_init_bias=0f0,
            reset_epoch_start=false,
            imitation_steps_ahead=20,
@@ -36,13 +36,13 @@ params = (;hidden1_size=256,
            reward_sigma_sqr=(1e-1)^2,
            reward_angle_sigma_sqr=(1.0)^2,
            latent_dimension=32,
-           imitation_skip=120)
+           imitation_startrange=200)
 
 function run_ppo(params)
     test_env = RodentImitationEnv()
     actor_critic = ActorCritic(test_env, params) |> Flux.gpu
     opt_state = Flux.setup(Flux.Adam(), actor_critic)
-    envs = [clone(test_env) for _=1:params.n_envs]
+    envs = [clone(test_env, params) for _=1:params.n_envs]
     starttime = Dates.now()
     run_name = "RodentComAndDirImitation-$(starttime)"
     logger = create_logger("runs/$(run_name).h5", params.n_epochs, 32)

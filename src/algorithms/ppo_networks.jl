@@ -23,7 +23,7 @@ function ActorCritic(env::MuJoCoEnv, params::NamedTuple)
                       Dense(params.hidden1_size => params.hidden2_size, tanh),
                       Dense(params.hidden2_size => 2*action_size, tanh;
                             init=zeros32, bias=actor_bias))
-    critic_net = Chain(Dense((prop_size+params.latent_dimension) => params.hidden1_size, tanh),
+    critic_net = Chain(Dense(state_size => params.hidden1_size, tanh),
                        Dense(params.hidden1_size => params.hidden2_size, tanh),
                        Dense(params.hidden2_size => 1; init=zeros32))
     com_encoder = Dense(com_size=> params.latent_dimension÷2, tanh)
@@ -61,7 +61,7 @@ function actor(actor_critic::ActorCritic, state, params, action=nothing)
 end
 
 function critic(actor_critic::ActorCritic, state, params)
-    input = encoder(actor_critic, state)#data(state)
+    input = data(state)
     return view(actor_critic.critic(input), 1, :, :) ./ (1.0-params.gamma)
 end
 

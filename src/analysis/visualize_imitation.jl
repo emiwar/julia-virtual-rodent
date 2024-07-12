@@ -17,15 +17,15 @@ qpos_targets = HDF5.h5open(fid->(fid["qpos"][:, params.imitation_skip:end]),
                            "src/environments/assets/com_trajectory2.h5", "r")
 
 
-runname = "RodentComAndDirImitation-2024-07-11T11:00:37.685"
+runname = "RodentComAndDirImitation-2024-07-11T13:07:35.946"
 params = HDF5.h5open(fid->NamedTuple(Symbol(k)=>v[] for (k,v) in pairs(fid["params"])), "runs/$runname.h5", "r")
-filename = "runs/checkpoints/$runname/step-2000.bson"
+filename = "runs/checkpoints/$runname/step-16000.bson"
 T = 1000
 
 actor_critic = BSON.load(filename)[:actor_critic] |> Flux.gpu
 
 env = RodentImitationEnv()
-reset!(env)
+reset!(env, params)
 nx = dubbleModel.nq + dubbleModel.nv + dubbleModel.na
 physics_states = zeros(nx, T*params.n_physics_steps)
 com = zeros(3, T)
@@ -45,13 +45,13 @@ ProgressMeter.@showprogress for t=1:T
     end
     env.lifetime += 1
     com[:, t] = MuJoCo.body(env.data, "torso").com
-    com_target_ind = env.lifetime ÷ 2 + 1
+    com_target_ind = get_com_ind(env)#env.lifetime ÷ 2 + 1
     com_target[:, t] = env.com_targets[:, com_target_ind]
     envinfo = info(env)
     dist_to_target[t] = envinfo.target_distance[1]
     angle_to_target[t] = envinfo.angle_to_target[1]
     if is_terminated(env, params)
-        reset!(env)
+        reset!(env, params)
     end
 end
 

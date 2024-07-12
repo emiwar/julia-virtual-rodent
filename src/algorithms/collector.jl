@@ -24,7 +24,7 @@ function collect_batch(envs, actor_critic, params)
     #States for the first timestep
     @Threads.threads for i=1:n_envs
         if params.reset_epoch_start
-            reset!(envs[i])
+            reset!(envs[i], params)
         end
         step_states[:, i] = state(envs[i], params)
     end
@@ -41,7 +41,7 @@ function collect_batch(envs, actor_critic, params)
             step_terminated[i] = is_terminated(env, params)
             infos[:, i, t] = info(env)
             if step_terminated[i]
-                reset!(env)
+                reset!(env, params)
             end
         end
         #Move the CPU arrays to the correct index of the bigger GPU arrays
