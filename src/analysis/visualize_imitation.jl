@@ -13,14 +13,13 @@ MuJoCo.init_visualiser()
 dubbleModelPath = "src/environments/assets/imitation_viz_scale080.xml"
 dubbleModel = MuJoCo.load_model(dubbleModelPath)
 dubbleData = MuJoCo.init_data(dubbleModel)
-qpos_targets = HDF5.h5open(fid->(fid["qpos"][:, params.imitation_skip:end]),
-                           "src/environments/assets/com_trajectory2.h5", "r")
+qpos_targets = HDF5.h5open(fid->(fid["qpos"][:, :]), "src/environments/assets/com_trajectory2.h5", "r")
 
 
-runname = "RodentComAndDirImitation-2024-07-11T13:07:35.946"
+runname = "RodentComAndDirImitation-2024-08-06T17:56:05.990"
 params = HDF5.h5open(fid->NamedTuple(Symbol(k)=>v[] for (k,v) in pairs(fid["params"])), "runs/$runname.h5", "r")
-filename = "runs/checkpoints/$runname/step-16000.bson"
-T = 1000
+filename = "runs/checkpoints/$runname/step-5000.bson"
+T = 5000
 
 actor_critic = BSON.load(filename)[:actor_critic] |> Flux.gpu
 
@@ -32,13 +31,15 @@ com = zeros(3, T)
 com_target = zeros(3, T)
 dist_to_target = zeros(T)
 angle_to_target = zeros(T)
+actions = zeros(env.model.nu, T)
 ProgressMeter.@showprogress for t=1:T
     env_state = state(env, params)
     actor_output = actor(actor_critic, ComponentTensor(CUDA.cu(data(env_state)), index(env_state)), params)
-    env.data.ctrl .= clamp.(actor_output.action, -1.0, 1.0) |> Array
+    actions[:, t] .= clamp.(actor_output.action, -1.0, 1.0) |> Array
+    env.data.ctrl .= actions[:, t]
     for tt=1:params.n_physics_steps
         dubbleData.qpos[1:(env.model.nq)] .= env.data.qpos
-        dubbleData.qpos[(env.model.nq+1):end] = qpos_targets[:, env.lifetime ÷ 2 + 1]
+        dubbleData.qpos[(env.model.nq+1):end] = qpos_targets[:, get_com_ind(env)]
         MuJoCo.forward!(dubbleModel, dubbleData)
         physics_states[:,(t-1)*params.n_physics_steps + tt] = MuJoCo.get_physics_state(dubbleModel, dubbleData)
         MuJoCo.step!(env.model, env.data)
@@ -62,3 +63,4 @@ import Plots
 
 Plots.plot(angle_to_target)
 Plots.plot(com_target[1, :])
+

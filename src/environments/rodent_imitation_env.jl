@@ -16,7 +16,7 @@ mutable struct RodentImitationEnv <: RodentFollowEnv
 end
 
 function RodentImitationEnv()
-    modelPath = "src/environments/assets/rodent_with_floor_scale080_edits.xml"
+    modelPath = "src/environments/assets/rodent_with_floor_scale080_torques.xml"
     trajectoryPath = "src/environments/assets/com_trajectory2.h5"
     com_targets, xquat_targets, xmat_targets = HDF5.h5open(fid->(fid["com"][:, :], fid["xquat"][:, :], fid["xmat"][:, :]), trajectoryPath, "r")
     #com_targets[3, :] .= 0.043
