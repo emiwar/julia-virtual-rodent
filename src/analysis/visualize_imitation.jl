@@ -16,9 +16,9 @@ dubbleData = MuJoCo.init_data(dubbleModel)
 qpos_targets = HDF5.h5open(fid->(fid["qpos"][:, :]), "src/environments/assets/com_trajectory2.h5", "r")
 
 
-runname = "RodentComAndDirImitation-2024-08-06T17:56:05.990"
+runname = "RodentComAndDirImitation-2024-08-16T18:26:44.105"
 params = HDF5.h5open(fid->NamedTuple(Symbol(k)=>v[] for (k,v) in pairs(fid["params"])), "runs/$runname.h5", "r")
-filename = "runs/checkpoints/$runname/step-5000.bson"
+filename = "runs/checkpoints/$runname/step-1000.bson"
 T = 5000
 
 actor_critic = BSON.load(filename)[:actor_critic] |> Flux.gpu
@@ -35,7 +35,7 @@ actions = zeros(env.model.nu, T)
 ProgressMeter.@showprogress for t=1:T
     env_state = state(env, params)
     actor_output = actor(actor_critic, ComponentTensor(CUDA.cu(data(env_state)), index(env_state)), params)
-    actions[:, t] .= clamp.(actor_output.action, -1.0, 1.0) |> Array
+    actions[:, t] .= clamp.(actor_output.mu, -1.0, 1.0) |> Array#clamp.(actor_output.action, -1.0, 1.0) |> Array
     env.data.ctrl .= actions[:, t]
     for tt=1:params.n_physics_steps
         dubbleData.qpos[1:(env.model.nq)] .= env.data.qpos

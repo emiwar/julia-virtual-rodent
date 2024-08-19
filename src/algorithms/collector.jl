@@ -4,7 +4,7 @@ function collect_batch(envs, actor_critic, params)
     steps_per_batch = params.n_steps_per_batch
     n_envs = length(envs)
 
-    #Big GPU arrays/NamedBatchTuples for storing the entire batch
+    #Big GPU arrays/BatchComponentTensor for storing the entire batch
     template_state = state(envs[1], params)
     states = BatchComponentTensor(template_state, n_envs, steps_per_batch+1; array_fcn=CUDA.zeros)
     template_actor_output = actor(actor_critic, view(states, :, 1, 1), params) |> ComponentTensor

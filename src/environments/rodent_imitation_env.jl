@@ -16,7 +16,7 @@ mutable struct RodentImitationEnv <: RodentFollowEnv
 end
 
 function RodentImitationEnv()
-    modelPath = "src/environments/assets/rodent_with_floor_scale080_torques.xml"
+    modelPath = "src/environments/assets/rodent_with_floor_scale080_edits.xml"
     trajectoryPath = "src/environments/assets/com_trajectory2.h5"
     com_targets, xquat_targets, xmat_targets = HDF5.h5open(fid->(fid["com"][:, :], fid["xquat"][:, :], fid["xmat"][:, :]), trajectoryPath, "r")
     #com_targets[3, :] .= 0.043
@@ -64,20 +64,21 @@ end
 
 function reward(env::RodentFollowEnv, params)
     target_vec = get_target_vector(env, params)
-    target_vec[3] *= 0.05 #Downplay importance of rearing
+    target_vec[3] *= 0.2 #Downplay importance of rearing
     closeness_reward = exp(-sum(target_vec.^2) / params.reward_sigma_sqr)
     angle_reward = exp(-(get_angle_to_target(env, params)^2) / params.reward_angle_sigma_sqr)
     ctrl_reward = -params.ctrl_reward_weight * sum(env.data.ctrl.^2)
-    return closeness_reward + angle_reward + ctrl_reward + params.healthy_reward_weight
+    total_reward = closeness_reward + angle_reward + ctrl_reward + params.healthy_reward_weight
+    return clamp(total_reward, 0.0, Inf)
 end
 
 function is_terminated(env::RodentFollowEnv, params)
     if torso_z(env) < params.min_torso_z || 
-        env.lifetime ÷ 2 + 1 + params.imitation_steps_ahead > size(env.com_targets, 2)
+        get_com_ind(env) + params.imitation_steps_ahead + 10 > size(env.com_targets, 2)
         return true
     end
     target_vec = get_target_vector(env, params)
-    target_vec[3] *= 0.05 #Downplay importance of rearing
+    target_vec[3] *= 0.2 #Downplay importance of rearing
     LinearAlgebra.norm(target_vec) > params.max_target_distance
 end
 
@@ -122,7 +123,9 @@ get_com_ind(env::RodentImitationEnv) = env.lifetime ÷ 2 + env.offs
 function get_future_targets(env::RodentImitationEnv, params)
     com_ind = get_com_ind(env)
     range = (com_ind + 1):(com_ind + params.imitation_steps_ahead)
-    view(env.com_targets, :, range) .- MuJoCo.body(env.data, "torso").com
+    current_com = MuJoCo.body(env.data, "torso").com
+    current_xmat = reshape(MuJoCo.body(env.data, "torso").xmat, 3, 3)
+    current_xmat * (view(env.com_targets, :, range) .- current_com)
 end
 
 function get_target_vector(env::RodentImitationEnv, params)
