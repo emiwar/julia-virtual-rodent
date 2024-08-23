@@ -16,8 +16,8 @@ params = (;hidden1_size=256,
            n_physics_steps=5,
            n_miniepochs=5,
            forward_reward_weight = 10.0,
-           healthy_reward_weight = 0.5,
-           ctrl_reward_weight = 0.1,#0.025,#30.0,#0.1,
+           healthy_reward_weight = 1.0,
+           ctrl_reward_weight = 0.01,#0.025,#30.0,#0.1,
            loss_weight_actor = 1.0,
            loss_weight_critic = 0.5,
            loss_weight_entropy = 0.00,#-0.00,#-0.5,
@@ -27,7 +27,7 @@ params = (;hidden1_size=256,
            clip_range=0.2,
            n_epochs=25_000,
            sigma_min=1f-2,
-           sigma_max=2.5f-1,
+           sigma_max=5f-1,
            actor_sigma_init_bias=0f0,
            reset_epoch_start=false,
            imitation_steps_ahead=20,
@@ -36,7 +36,7 @@ params = (;hidden1_size=256,
            reward_sigma_sqr=(5e-2)^2,
            reward_angle_sigma_sqr=(0.5)^2,
            latent_dimension=32,
-           imitation_startrange=200)
+           min_reward=0.0)
 
 function run_ppo(params)
     test_env = RodentImitationEnv()
@@ -65,8 +65,10 @@ function run_ppo(params)
         logfcn("actor/action_ctrl", view(batch.actor_output, :action, :, :))
         logfcn("actor/action_ctrl_sum_squared", sum(view(batch.actor_output, :action, :, :).^2; dims=1))
         logfcn("rollout_batch/rewards", batch.rewards)
-        logfcn("rollout_batch/failure_rate", sum(batch.terminated) / length(batch.terminated))
-        logfcn("rollout_batch/lifespan", view(batch.infos.lifetime, 1, :, :)[Array(batch.terminated)])
+        logfcn("rollout_batch/termination_rate", sum(batch.terminated) / length(batch.terminated))
+        batch_terminated = Array(batch.terminated)
+        logfcn("rollout_batch/lifespan", view(batch.infos.lifetime, 1, :, :)[batch_terminated])
+        logfcn("rollout_batch/termination_frame", view(batch.infos.target_frame, 1, :, :)[batch_terminated])
         for key in keys(index(batch.infos))
             logfcn("rollout_batch/$key", batch.infos[key])
         end

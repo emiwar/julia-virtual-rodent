@@ -1,4 +1,5 @@
 include("mujoco_env.jl")
+include("imitation_trajectory.jl")
 import LinearAlgebra
 
 abstract type RodentFollowEnv <: MuJoCoEnv end
@@ -6,23 +7,19 @@ abstract type RodentFollowEnv <: MuJoCoEnv end
 mutable struct RodentImitationEnv <: RodentFollowEnv
     model::MuJoCo.Model
     data::MuJoCo.Data
+    target::ImitationTarget
+    target_frame::Int64
     lifetime::Int64
     cumulative_reward::Float64
-    com_targets::Matrix{Float64}
-    xquat_targets::Matrix{Float64}
-    xmat_targets::Matrix{Float64}
-    offs::Int64
     #torso::MuJoCo.Wrappers.NamedAccess.DataBody
 end
 
 function RodentImitationEnv()
     modelPath = "src/environments/assets/rodent_with_floor_scale080_edits.xml"
-    trajectoryPath = "src/environments/assets/com_trajectory2.h5"
-    com_targets, xquat_targets, xmat_targets = HDF5.h5open(fid->(fid["com"][:, :], fid["xquat"][:, :], fid["xmat"][:, :]), trajectoryPath, "r")
-    #com_targets[3, :] .= 0.043
     model = MuJoCo.load_model(modelPath)
     data = MuJoCo.init_data(model)
-    env = RodentImitationEnv(model, data, 0, 0.0, com_targets, xquat_targets, xmat_targets, 1)
+    target = ImitationTarget(model)
+    env = RodentImitationEnv(model, data, target, 0, 0, 0.0)
     reset!(env, params)
     return env
 end
@@ -31,11 +28,8 @@ function clone(env::RodentImitationEnv, params)
     new_env = RodentImitationEnv(
         env.model,
         MuJoCo.init_data(env.model),
-        0, 0.0,
-        env.com_targets,
-        env.xquat_targets,
-        env.xmat_targets,
-        env.offs
+        env.target,
+        0,0,0.0
     )
     reset!(new_env, params)
     return new_env
@@ -57,27 +51,27 @@ function state(env::RodentFollowEnv, params)
      torso_linvel = read_sensor_value(env, "torso"),
      torso_xmat = MuJoCo.body(env.data, "torso").xmat,
      torso_height = MuJoCo.body(env.data, "torso").com[3] .* 10.0,
-     com_target_array = reshape(get_future_targets(env, params), Val(1)) .* 5.0,
-     xmat_target_array = reshape(get_future_xmats(env, params), Val(1))
+     com_target_array = reshape(future_targets(env, params), Val(1)) .* 5.0,
+     xmat_target_array = reshape(future_xmats(env, params), Val(1))
     )
 end
 
 function reward(env::RodentFollowEnv, params)
-    target_vec = get_target_vector(env, params)
+    target_vec = target_vector(env, params)
     target_vec[3] *= 0.2 #Downplay importance of rearing
     closeness_reward = exp(-sum(target_vec.^2) / params.reward_sigma_sqr)
-    angle_reward = exp(-(get_angle_to_target(env, params)^2) / params.reward_angle_sigma_sqr)
+    angle_reward = exp(-(angle_to_target(env, params)^2) / params.reward_angle_sigma_sqr)
     ctrl_reward = -params.ctrl_reward_weight * sum(env.data.ctrl.^2)
     total_reward = closeness_reward + angle_reward + ctrl_reward + params.healthy_reward_weight
-    return clamp(total_reward, 0.0, Inf)
+    return clamp(total_reward, params.min_reward, Inf)
 end
 
 function is_terminated(env::RodentFollowEnv, params)
     if torso_z(env) < params.min_torso_z || 
-        get_com_ind(env) + params.imitation_steps_ahead + 10 > size(env.com_targets, 2)
+        target_frame(env) + params.imitation_steps_ahead + 10 > length(env.target)
         return true
     end
-    target_vec = get_target_vector(env, params)
+    target_vec = target_vector(env, params)
     target_vec[3] *= 0.2 #Downplay importance of rearing
     LinearAlgebra.norm(target_vec) > params.max_target_distance
 end
@@ -90,7 +84,7 @@ function info(env::RodentFollowEnv)
         lifetime=float(env.lifetime),
         cumulative_reward=env.cumulative_reward,
         actuator_force_sum_sqr=sum(env.data.actuator_force.^2),
-        angle_to_target=get_angle_to_target(env, params) |> rad2deg,
+        angle_to_target=angle_to_target(env, params) |> rad2deg,
         com_target_info(env, params)...
     )
 end
@@ -102,15 +96,21 @@ function act!(env::RodentFollowEnv, action, params)
         MuJoCo.step!(env.model, env.data)
     end
     env.lifetime += 1
+    if env.lifetime % 2 == 0 #Hack since target update each 20ms but simulation each 10ms (but this depends on params so shouldn't be hard-coded here)
+        env.target_frame += 1
+    end
     env.cumulative_reward += reward(env, params)
 end
 
 function reset!(env::RodentFollowEnv, params)
-    MuJoCo.reset!(env.model, env.data)
-    MuJoCo.forward!(env.model, env.data) #Run model forward to get correct initial state
     env.lifetime = 0
     env.cumulative_reward = 0.0
-    env.offs = rand(1:params.imitation_startrange)
+    env.target_frame = rand(1:(length(env.target)-200))
+
+    MuJoCo.reset!(env.model, env.data)
+    env.data.qpos .= view(env.target.qpos, :, target_frame(env))
+    env.data.qvel .= view(env.target.qvel, :, target_frame(env))
+    MuJoCo.forward!(env.model, env.data) #Run model forward to get correct initial state
 end
 
 #Utils
@@ -119,44 +119,45 @@ torso_y(env::RodentFollowEnv) = MuJoCo.body(env.data, "torso").com[2]
 torso_z(env::RodentFollowEnv) = MuJoCo.body(env.data, "torso").com[3]
 
 #Targets
-get_com_ind(env::RodentImitationEnv) = env.lifetime ÷ 2 + env.offs
-function get_future_targets(env::RodentImitationEnv, params)
-    com_ind = get_com_ind(env)
-    range = (com_ind + 1):(com_ind + params.imitation_steps_ahead)
+target_frame(env::RodentImitationEnv) = env.target_frame
+function future_targets(env::RodentImitationEnv, params)
     current_com = MuJoCo.body(env.data, "torso").com
     current_xmat = reshape(MuJoCo.body(env.data, "torso").xmat, 3, 3)
-    current_xmat * (view(env.com_targets, :, range) .- current_com)
+    current_xmat * (view(env.target.com, :, imitation_horizon(env, params)) .- current_com)
 end
 
-function get_target_vector(env::RodentImitationEnv, params)
-    com_ind = get_com_ind(env)
-    view(env.com_targets, :, com_ind) .- MuJoCo.body(env.data, "torso").com
+function target_vector(env::RodentImitationEnv, params)
+    com_ind = target_frame(env)
+    view(env.target.com, :, com_ind) .- MuJoCo.body(env.data, "torso").com
 end
 
 function com_target_info(env::RodentFollowEnv, params)
-    target_vec = get_target_vector(env, params)
+    target_vec = target_vector(env, params)
     dist = LinearAlgebra.norm(target_vec)
-    (target_vec_x=target_vec[1],
+    (target_frame=target_frame(env),
+     target_vec_x=target_vec[1],
      target_vec_y=target_vec[2],
      target_vec_z=target_vec[3],
      target_distance=dist)
 end
 
-function get_future_quats(env::RodentImitationEnv, params)
-    com_ind = get_com_ind(env)
-    range = (com_ind + 1):(com_ind + params.imitation_steps_ahead)
-    view(env.xquat_targets, :, range)
+function imitation_horizon(env::RodentImitationEnv, params)
+    (target_frame(env) + 1):(target_frame(env) + params.imitation_steps_ahead)
 end
 
-function get_future_xmats(env::RodentImitationEnv, params)
-    com_ind = get_com_ind(env)
-    range = (com_ind + 1):(com_ind + params.imitation_steps_ahead)
-    view(env.xmat_targets, :, range)
+function future_quats(env::RodentImitationEnv, params)
+    view(env.target.xquat, :, imitation_horizon(env, params))
 end
 
-function get_angle_to_target(env::RodentImitationEnv, params)
-    com_ind = get_com_ind(env)
-    2*acos(abs(view(env.xquat_targets, :, com_ind)' * MuJoCo.body(env.data, "torso").xquat))
+function future_xmats(env::RodentImitationEnv, params)
+    view(env.target.xmat, :, imitation_horizon(env, params))
+end
+
+function angle_to_target(env::RodentImitationEnv, params)
+    target_quat = view(env.target.xquat, :, target_frame(env))
+    current_quat = MuJoCo.body(env.data, "torso").xquat
+    quat_prod = target_quat' * current_quat
+    return 2*acos(abs(clamp(quat_prod, -1, 1))) #Concerning that clamp is needed here
 end
 
 mutable struct RodentEightPathEnv <: RodentFollowEnv
