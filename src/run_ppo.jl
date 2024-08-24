@@ -36,7 +36,8 @@ params = (;hidden1_size=256,
            reward_sigma_sqr=(5e-2)^2,
            reward_angle_sigma_sqr=(0.5)^2,
            latent_dimension=32,
-           min_reward=0.0)
+           min_reward=0.0,
+           spawn_z_offset=0.01)
 
 function run_ppo(params)
     test_env = RodentImitationEnv()

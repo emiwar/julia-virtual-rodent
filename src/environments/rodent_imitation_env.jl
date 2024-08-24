@@ -109,6 +109,7 @@ function reset!(env::RodentFollowEnv, params)
 
     MuJoCo.reset!(env.model, env.data)
     env.data.qpos .= view(env.target.qpos, :, target_frame(env))
+    env.data.qpos[3] += params.spawn_z_offset
     env.data.qvel .= view(env.target.qvel, :, target_frame(env))
     MuJoCo.forward!(env.model, env.data) #Run model forward to get correct initial state
 end
