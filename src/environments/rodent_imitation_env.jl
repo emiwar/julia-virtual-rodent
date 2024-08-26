@@ -105,7 +105,7 @@ end
 function reset!(env::RodentFollowEnv, params)
     env.lifetime = 0
     env.cumulative_reward = 0.0
-    env.target_frame = rand(1:(length(env.target)-200))
+    env.target_frame = rand(1:(div(length(env.target), 2)))
 
     MuJoCo.reset!(env.model, env.data)
     env.data.qpos .= view(env.target.qpos, :, target_frame(env))
