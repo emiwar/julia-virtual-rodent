@@ -7,7 +7,7 @@ struct ImitationTarget
 end
 
 function ImitationTarget(model)
-    trajectoryPath = "src/environments/assets/com_trajectory2.h5"
+    trajectoryPath = "src/environments/assets/com_trajectory3.h5"
     qpos, com, xquat, xmat = HDF5.h5open(trajectoryPath, "r") do fid
         map(k->fid[k][:, :], ("qpos", "com", "xquat", "xmat"))
     end
