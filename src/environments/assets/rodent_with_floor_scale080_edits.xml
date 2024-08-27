@@ -157,7 +157,7 @@
   </asset>
   <worldbody>
     <geom name="floor" class="/" type="plane" condim="3" size="0 0 0.080000000000000016" material="grid"/>
-    <body name="">
+    <body name="rodent">
       <freejoint name="root"/>
     <body name="torso" pos="0.024796208436626305 1.6468199501211665e-07 0.052071658104959742">
      

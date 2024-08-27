@@ -1,0 +1,5 @@
+outs:
+- md5: d867cbe79995bde0b5ed550823f6ca0f
+  size: 521131600
+  hash: md5
+  path: diego_curated_snippets.h5
