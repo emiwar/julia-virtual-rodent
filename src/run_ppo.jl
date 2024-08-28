@@ -40,7 +40,7 @@ params = (;hidden1_size=256,
            spawn_z_offset=0.01)
 
 function run_ppo(params)
-    test_env = RodentImitationEnv()
+    test_env = RodentImitationEnv(params)
     actor_critic = ActorCritic(test_env, params) |> Flux.gpu
     opt_state = Flux.setup(Flux.Adam(), actor_critic)
     envs = [clone(test_env, params) for _=1:params.n_envs]
@@ -66,10 +66,11 @@ function run_ppo(params)
         logfcn("actor/action_ctrl", view(batch.actor_output, :action, :, :))
         logfcn("actor/action_ctrl_sum_squared", sum(view(batch.actor_output, :action, :, :).^2; dims=1))
         logfcn("rollout_batch/rewards", batch.rewards)
-        logfcn("rollout_batch/termination_rate", sum(batch.terminated) / length(batch.terminated))
-        batch_terminated = Array(batch.terminated)
-        logfcn("rollout_batch/lifespan", view(batch.infos.lifetime, 1, :, :)[batch_terminated])
-        logfcn("rollout_batch/termination_frame", view(batch.infos.target_frame, 1, :, :)[batch_terminated])
+        logfcn("rollout_batch/termination_rate", sum(batch.status .== TERMINATED) / length(batch.status))
+        logfcn("rollout_batch/truncation_rate", sum(batch.status .== TRUNCATED) / length(batch.status))
+        batch_done = Array(batch.status .!= RUNNING)
+        logfcn("rollout_batch/lifespan", view(batch.infos.lifetime, 1, :, :)[batch_done])
+        logfcn("rollout_batch/termination_frame", view(batch.infos.target_frame, 1, :, :)[batch_done])
         for key in keys(index(batch.infos))
             logfcn("rollout_batch/$key", batch.infos[key])
         end

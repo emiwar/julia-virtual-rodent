@@ -2,27 +2,37 @@ import CUDA
 import Flux
 import Statistics
 
-function compute_advantages(rewards, values, terminateds, params)
+function compute_advantages(rewards, values, statuses, params)
     advantages = zero(rewards)
     n_envs, n_steps_per_batch = size(advantages)
     for t in reverse(1:n_steps_per_batch)
         reward = view(rewards, :, t)
         value = view(values, :, t)
-        terminated = view(terminateds, :, t)
-        next_value = view(values, :, t+1)
-        advantages[:, t] .= reward .+ params.gamma .* next_value .* (.!terminated) .- value
+        status = view(statuses, :, t)
+        next_value = next_value_f.(view(values, :, t), view(values, :, t+1), status)
+        advantages[:, t] .= reward .+ params.gamma .* next_value .- value
         if t<n_steps_per_batch
             next_advantage = view(advantages, :, t+1)
-            advantages[:, t] .+= params.gamma .* params.lambda .* (.!terminated) .* next_advantage
+            advantages[:, t] .+= params.gamma .* params.lambda .* next_advantage .* (status .== RUNNING)
         end
     end
     return advantages
 end
 
+function next_value_f(current_state_value, next_state_value, status)
+    if status == RUNNING
+        return next_state_value
+    elseif status == TRUNCATED
+        return current_state_value
+    else#elseif status==TERMINATED
+        return zero(current_state_value)
+    end
+end
+
 function ppo_update!(batch, actor_critic, opt_state, params; logfcn=nothing)
     n_envs, n_steps_per_batch = size(batch.rewards)
     old_values = critic(actor_critic, batch.states, params)
-    advantages = compute_advantages(batch.rewards, old_values, batch.terminated, params)
+    advantages = compute_advantages(batch.rewards, old_values, batch.status, params)
     non_final_states = view(batch.states, :, :, 1:n_steps_per_batch)
     non_final_statevalues = view(old_values, :, 1:n_steps_per_batch)
     target_values = non_final_statevalues .+ advantages

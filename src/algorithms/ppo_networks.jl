@@ -17,7 +17,7 @@ function ActorCritic(env::MuJoCoEnv, params::NamedTuple)
     action_size =  mapreduce(s->length(s), +, null_action(env, params))
     prop_size = length(computeRange(s, prop_keys()))
     com_size = length(computeRange(s, [:com_target_array]))
-    xmat_size = length(computeRange(s, [:xmat_target_array]))
+    xmat_size = length(computeRange(s, [:xquat_target_array]))
     actor_bias = [zeros32(action_size); params.actor_sigma_init_bias*ones32(action_size)]
     actor_net = Chain(Dense((prop_size+params.latent_dimension) => params.hidden1_size, tanh),
                       Dense(params.hidden1_size => params.hidden2_size, tanh),
@@ -33,11 +33,11 @@ end
 
 function encoder(actor_critic::ActorCritic, state)
     com_target_array = Flux.ignore(()->state[:com_target_array])
-    xmat_target_array = Flux.ignore(()->state[:xmat_target_array])
+    xquat_target_array = Flux.ignore(()->state[:xquat_target_array])
     prop = Flux.ignore(()->view(state, prop_keys()))
     com_encoded = actor_critic.com_encoder(com_target_array)
-    xmat_encoded = actor_critic.xmat_encoder(xmat_target_array)
-    cat(prop, com_encoded, xmat_encoded; dims=1)
+    xquat_encoded = actor_critic.xmat_encoder(xquat_target_array)
+    cat(prop, com_encoded, xquat_encoded; dims=1)
 end
 
 function actor(actor_critic::ActorCritic, state, params, action=nothing)

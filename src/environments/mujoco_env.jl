@@ -1,7 +1,12 @@
 
 import MuJoCo
+include("../utils/component_tensor.jl")
 
 abstract type MuJoCoEnv end
+
+const RUNNING = 0
+const TRUNCATED = 1
+const TERMINATED = 2
 
 function read_sensor_value(env::MuJoCoEnv, sensor_id::Integer)
     ind = env.model.sensor_adr[sensor_id+1]
