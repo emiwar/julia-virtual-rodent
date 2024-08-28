@@ -37,12 +37,13 @@ params = (;hidden1_size=256,
            reward_angle_sigma_sqr=(0.5)^2,
            latent_dimension=32,
            min_reward=0.0,
-           spawn_z_offset=0.01)
+           spawn_z_offset=0.01,
+           learning_rate=1e-4)
 
 function run_ppo(params)
     test_env = RodentImitationEnv(params)
     actor_critic = ActorCritic(test_env, params) |> Flux.gpu
-    opt_state = Flux.setup(Flux.Adam(), actor_critic)
+    opt_state = Flux.setup(Flux.Adam(params.learning_rate), actor_critic)
     envs = [clone(test_env, params) for _=1:params.n_envs]
     starttime = Dates.now()
     run_name = "RodentComAndDirImitation-$(starttime)"

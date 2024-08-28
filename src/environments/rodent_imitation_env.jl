@@ -150,7 +150,14 @@ function imitation_horizon(env::RodentImitationEnv, params)
 end
 
 function future_quats(env::RodentImitationEnv, params)
-    view(env.target.qpos, 4:7, imitation_horizon(env, params), env.target_clip)
+    rot_vec = zeros(3, params.imitation_steps_ahead)
+    #target_qpos = view(env.target.qpos, 4:7, imitation_horizon(env, params), env.target_clip)
+    diff = zeros(3)
+    for (i, t) in enumerate(imitation_horizon(env, params))
+        MuJoCo.mju_subQuat(diff, env.target.qpos[4:7, t, env.target_clip], env.data.qpos[4:7])
+        rot_vec[:, i] .= diff
+    end
+    return rot_vec
 end
 
 #function future_xmats(env::RodentImitationEnv, params)

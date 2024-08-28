@@ -13,17 +13,15 @@ MuJoCo.init_visualiser()
 dubbleModelPath = "src/environments/assets/imitation_viz_scale080.xml"
 dubbleModel = MuJoCo.load_model(dubbleModelPath)
 dubbleData = MuJoCo.init_data(dubbleModel)
-#qpos_targets = HDF5.h5open(fid->(fid["qpos"][:, :]), "src/environments/assets/com_trajectory2.h5", "r")
 
-
-runname = "RodentComAndDirImitation-2024-08-23T18:36:56.706"
+runname = "RodentComAndDirImitation-2024-08-27T22:36:23.994"
 params = HDF5.h5open(fid->NamedTuple(Symbol(k)=>v[] for (k,v) in pairs(fid["params"])), "runs/$runname.h5", "r")
-filename = "runs/checkpoints/$runname/step-20000.bson"
+filename = "runs/checkpoints/$runname/step-1000.bson"
 T = 10000
 
 actor_critic = BSON.load(filename)[:actor_critic] |> Flux.gpu
 
-env = RodentImitationEnv()
+env = RodentImitationEnv(params)
 reset!(env, params)
 nx = dubbleModel.nq + dubbleModel.nv + dubbleModel.na
 physics_states = zeros(nx, T*params.n_physics_steps)
@@ -39,7 +37,7 @@ ProgressMeter.@showprogress for t=1:T
     env.data.ctrl .= actions[:, t]
     for tt=1:params.n_physics_steps
         dubbleData.qpos[1:(env.model.nq)] .= env.data.qpos
-        dubbleData.qpos[(env.model.nq+1):end] = env.target.qpos[:, target_frame(env)]
+        dubbleData.qpos[(env.model.nq+1):end] = env.target.qpos[:, target_frame(env), env.target_clip]
         MuJoCo.forward!(dubbleModel, dubbleData)
         physics_states[:,(t-1)*params.n_physics_steps + tt] = MuJoCo.get_physics_state(dubbleModel, dubbleData)
         MuJoCo.step!(env.model, env.data)
@@ -49,11 +47,11 @@ ProgressMeter.@showprogress for t=1:T
         env.target_frame += 1
     end
     com[:, t] = MuJoCo.body(env.data, "torso").com
-    com_target[:, t] = env.target.com[:, target_frame(env)]
+    com_target[:, t] = env.target.com[:, target_frame(env), env.target_clip]
     envinfo = info(env)
     dist_to_target[t] = envinfo.target_distance[1]
     ang_to_target[t] = envinfo.angle_to_target[1]
-    if is_terminated(env, params)
+    if status(env, params) != RUNNING
         reset!(env, params)
     end
 end
