@@ -16,23 +16,23 @@ params = (;hidden1_size=256,
            n_physics_steps=5,
            n_miniepochs=5,
            forward_reward_weight = 10.0,
-           healthy_reward_weight = 1.0,
-           ctrl_reward_weight = 0.01,#0.025,#30.0,#0.1,
+           healthy_reward_weight = 0.1,
+           ctrl_reward_weight = 0.001,#0.025,#30.0,#0.1,
            loss_weight_actor = 1.0,
            loss_weight_critic = 0.5,
-           loss_weight_entropy = 0.00,#-0.00,#-0.5,
+           loss_weight_entropy = -0.25,#-0.00,#-0.5,
            min_torso_z = 0.03,
            gamma=0.99,
            lambda=0.95,
            clip_range=0.2,
            n_epochs=25_000,
-           sigma_min=1f-2,
-           sigma_max=5f-1,
+           sigma_min=5f-2,
+           sigma_max=1f0,
            actor_sigma_init_bias=0f0,
            reset_epoch_start=false,
-           imitation_steps_ahead=20,
+           imitation_steps_ahead=10,
            checkpoint_interval=1000,
-           max_target_distance=3e-1,
+           max_target_distance=2e-1,
            reward_sigma_sqr=(5e-2)^2,
            reward_angle_sigma_sqr=(0.5)^2,
            latent_dimension=32,
@@ -55,9 +55,6 @@ function run_ppo(params)
         epoch_starttime = Dates.now()
         logfcn = (k,v)->logger(epoch, k, v)
         batch = collect_batch(envs, actor_critic, params)
-        for j=1:(params.n_miniepochs-1)
-            ppo_update!(batch, actor_critic, opt_state, params)
-        end
         ppo_update!(batch, actor_critic, opt_state, params; logfcn)
         if epoch % params.checkpoint_interval == 0
             BSON.bson("runs/checkpoints/$(run_name)/step-$(epoch).bson"; actor_critic=Flux.cpu(actor_critic))

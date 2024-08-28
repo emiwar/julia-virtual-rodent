@@ -59,7 +59,7 @@ end
 
 function reward(env::RodentFollowEnv, params)
     target_vec = target_vector(env, params)
-    #target_vec[3] *= 0.2 #Downplay importance of rearing
+    target_vec[3] *= 0.2 #Downplay importance of rearing
     closeness_reward = exp(-sum(target_vec.^2) / params.reward_sigma_sqr)
     angle_reward = exp(-(angle_to_target(env, params)^2) / params.reward_angle_sigma_sqr)
     ctrl_reward = -params.ctrl_reward_weight * sum(env.data.ctrl.^2)
@@ -137,12 +137,14 @@ end
 
 function com_target_info(env::RodentFollowEnv, params)
     target_vec = target_vector(env, params)
+    target_vec[3] *= 0.2 #Downplay importance of rearing
     dist = LinearAlgebra.norm(target_vec)
     (target_frame=target_frame(env),
      target_vec_x=target_vec[1],
      target_vec_y=target_vec[2],
      target_vec_z=target_vec[3],
-     target_distance=dist)
+     target_distance=dist,
+     distance_from_spawpoint=LinearAlgebra.norm(view(env.target.com, :, 1, env.target_clip) .- MuJoCo.body(env.data, "torso").com))
 end
 
 function imitation_horizon(env::RodentImitationEnv, params)
