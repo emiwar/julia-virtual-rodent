@@ -9,25 +9,25 @@ include("algorithms/ppo_loss.jl")
 include("algorithms/ppo_networks.jl")
 include("utils/logger.jl")
 
-params = (;hidden1_size=256,
-           hidden2_size=128,
+params = (;hidden1_size=512,
+           hidden2_size=256,
            n_envs=512,
            n_steps_per_batch=16,
            n_physics_steps=5,
-           n_miniepochs=5,
+           n_miniepochs=2,
            forward_reward_weight = 10.0,
            healthy_reward_weight = 0.1,
            ctrl_reward_weight = 0.001,#0.025,#30.0,#0.1,
            loss_weight_actor = 1.0,
            loss_weight_critic = 0.5,
-           loss_weight_entropy = -0.25,#-0.00,#-0.5,
+           loss_weight_entropy = -0.2,#-0.00,#-0.5,
            min_torso_z = 0.03,
            gamma=0.99,
            lambda=0.95,
            clip_range=0.2,
            n_epochs=25_000,
-           sigma_min=5f-2,
-           sigma_max=1f0,
+           sigma_min=2f-1,
+           sigma_max=5f-1,
            actor_sigma_init_bias=0f0,
            reset_epoch_start=false,
            imitation_steps_ahead=10,
@@ -35,10 +35,11 @@ params = (;hidden1_size=256,
            max_target_distance=2e-1,
            reward_sigma_sqr=(5e-2)^2,
            reward_angle_sigma_sqr=(0.5)^2,
-           latent_dimension=32,
+           reward_joint_sigma_sqr=(2.0)^2,
+           latent_dimension=16,
            min_reward=0.0,
            spawn_z_offset=0.01,
-           learning_rate=1e-4)
+           learning_rate=1e-5)
 
 function run_ppo(params)
     test_env = RodentImitationEnv(params)

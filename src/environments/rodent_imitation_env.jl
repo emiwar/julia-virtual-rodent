@@ -52,18 +52,20 @@ function state(env::RodentFollowEnv, params)
      torso_linvel = read_sensor_value(env, "torso"),
      torso_xmat = MuJoCo.body(env.data, "torso").xmat,
      torso_height = MuJoCo.body(env.data, "torso").com[3] .* 10.0,
-     com_target_array = reshape(future_targets(env, params), Val(1)) .* 5.0,
-     xquat_target_array = reshape(future_quats(env, params), Val(1))
+     com_target_array = reshape(future_targets(env, params), Val(1)),
+     xquat_target_array = reshape(future_quats(env, params), Val(1)),
+     joint_target_array = reshape(future_joint_pos(env, params), Val(1))
     )
 end
 
 function reward(env::RodentFollowEnv, params)
     target_vec = target_vector(env, params)
-    target_vec[3] *= 0.2 #Downplay importance of rearing
     closeness_reward = exp(-sum(target_vec.^2) / params.reward_sigma_sqr)
     angle_reward = exp(-(angle_to_target(env, params)^2) / params.reward_angle_sigma_sqr)
+    joint_reward = exp(-sum(joint_error(env, params).^2) / params.reward_joint_sigma_sqr)
+
     ctrl_reward = -params.ctrl_reward_weight * sum(env.data.ctrl.^2)
-    total_reward = closeness_reward + angle_reward + ctrl_reward + params.healthy_reward_weight
+    total_reward = closeness_reward + angle_reward + joint_reward + ctrl_reward + params.healthy_reward_weight
     return clamp(total_reward, params.min_reward, Inf)
 end
 
@@ -88,6 +90,7 @@ function info(env::RodentFollowEnv)
         cumulative_reward=env.cumulative_reward,
         actuator_force_sum_sqr=sum(env.data.actuator_force.^2),
         angle_to_target=angle_to_target(env, params) |> rad2deg,
+        joint_reward = exp(-sum(joint_error(env, params).^2) / params.reward_joint_sigma_sqr),
         com_target_info(env, params)...
     )
 end
@@ -137,14 +140,14 @@ end
 
 function com_target_info(env::RodentFollowEnv, params)
     target_vec = target_vector(env, params)
-    target_vec[3] *= 0.2 #Downplay importance of rearing
     dist = LinearAlgebra.norm(target_vec)
     (target_frame=target_frame(env),
      target_vec_x=target_vec[1],
      target_vec_y=target_vec[2],
      target_vec_z=target_vec[3],
      target_distance=dist,
-     distance_from_spawpoint=LinearAlgebra.norm(view(env.target.com, :, 1, env.target_clip) .- MuJoCo.body(env.data, "torso").com))
+     distance_from_spawpoint=LinearAlgebra.norm(view(env.target.com, :, 1, env.target_clip) .- MuJoCo.body(env.data, "torso").com),
+     joint_error=LinearAlgebra.norm(joint_error(env, params)))
 end
 
 function imitation_horizon(env::RodentImitationEnv, params)
@@ -171,6 +174,16 @@ function angle_to_target(env::RodentImitationEnv, params)
     current_quat = MuJoCo.body(env.data, "torso").xquat
     quat_prod = target_quat' * current_quat
     return 2*acos(abs(clamp(quat_prod, -1, 1))) #Concerning that clamp is needed here
+end
+
+function future_joint_pos(env::RodentImitationEnv, params)
+    joint_indices = 8:size(env.target.qpos, 1)
+    view(env.target.qpos, joint_indices, imitation_horizon(env, params), env.target_clip)# .- env.data.qpos[joint_indices]
+end
+
+function joint_error(env::RodentImitationEnv, params)
+    joint_indices = 8:size(env.target.qpos, 1)
+    view(env.target.qpos, joint_indices, target_frame(env), env.target_clip) .- env.data.qpos[joint_indices]
 end
 
 mutable struct RodentEightPathEnv <: RodentFollowEnv

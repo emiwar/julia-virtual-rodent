@@ -6,8 +6,7 @@ import h5py
 import numpy as np
 import pathlib
 
-log_y_plots = {"cumulative_reward", "actuator_force_sum_sqr",
-               "critic_loss"} #"lifetime"}
+log_y_plots = { "actuator_force_sum_sqr", "critic_loss"} #"lifetime", "cumulative_reward",}
 
 def create_simple_line(vals, title):
     fig = go.Figure()
