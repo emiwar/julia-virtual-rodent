@@ -16,7 +16,11 @@ mutable struct RodentImitationEnv <: RodentFollowEnv
 end
 
 function RodentImitationEnv(params)
-    modelPath = "src/environments/assets/rodent_with_floor_scale080_edits.xml"
+    if params.torque_control
+        modelPath = "src/environments/assets/rodent_with_floor_scale080_edits.xml"
+    else
+        modelPath = "src/environments/assets/rodent_with_floor_scale080_torques.xml"
+    end
     model = MuJoCo.load_model(modelPath)
     data = MuJoCo.init_data(model)
     target = ImitationTarget()

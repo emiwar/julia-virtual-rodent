@@ -26,9 +26,9 @@ params = (;hidden1_size=512,
            lambda=0.95,
            clip_range=0.2,
            n_epochs=25_000,
-           sigma_min=2f-1,
-           sigma_max=5f-1,
-           actor_sigma_init_bias=0f0,
+           sigma_min=1f-2,
+           sigma_max=2f-1,
+           actor_sigma_init_bias=-1f0,
            reset_epoch_start=false,
            imitation_steps_ahead=10,
            checkpoint_interval=1000,
@@ -39,7 +39,8 @@ params = (;hidden1_size=512,
            latent_dimension=16,
            min_reward=0.0,
            spawn_z_offset=0.01,
-           learning_rate=1e-5)
+           learning_rate=1e-4,
+           torque_control=true)
 
 function run_ppo(params)
     test_env = RodentImitationEnv(params)
