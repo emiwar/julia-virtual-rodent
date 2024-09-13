@@ -17,9 +17,9 @@ end
 
 function RodentImitationEnv(params)
     if params.torque_control
-        modelPath = "src/environments/assets/rodent_with_floor_scale080_edits.xml"
-    else
         modelPath = "src/environments/assets/rodent_with_floor_scale080_torques.xml"
+    else
+        modelPath = "src/environments/assets/rodent_with_floor_scale080_edits.xml"
     end
     model = MuJoCo.load_model(modelPath)
     data = MuJoCo.init_data(model)
