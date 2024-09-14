@@ -20,12 +20,12 @@ params = (;hidden1_size=1024,
            ctrl_reward_weight = 0.001,#0.025,#30.0,#0.1,
            loss_weight_actor = 1.0,
            loss_weight_critic = 0.5,
-           loss_weight_entropy = -0.02,#-0.00,#-0.5,
+           loss_weight_entropy = -0.2,#-0.00,#-0.5,
            min_torso_z = 0.03,
            gamma=0.9,
            lambda=0.95,
            clip_range=0.2,
-           n_epochs=1000,
+           n_epochs=150_000,
            sigma_min=1f-2,
            sigma_max=5f-1,
            actor_sigma_init_bias=0f0,
@@ -40,7 +40,7 @@ params = (;hidden1_size=1024,
            min_reward=0.0,
            spawn_z_offset=0.01,
            learning_rate=1e-4,
-           torque_control=true)
+           torque_control=false)
 
 function run_ppo(params)
     test_env = RodentImitationEnv(params)
