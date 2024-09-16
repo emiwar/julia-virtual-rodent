@@ -46,7 +46,7 @@ function encoder(actor_critic::ActorCritic, state)
     com_encoded   = actor_critic.com_encoder(com_target_array)
     xquat_encoded = actor_critic.xmat_encoder(xquat_target_array)
     joint_encoded = actor_critic.joint_encoder(joint_target_array)
-    appendages_encoded = actor_critic.joint_encoder(appendages_target_array)
+    appendages_encoded = actor_critic.appendages_encoder(appendages_target_array)
     cat(prop, com_encoded, xquat_encoded, joint_encoded, appendages_encoded; dims=1)
 end
 
