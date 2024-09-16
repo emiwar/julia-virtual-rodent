@@ -1,9 +1,10 @@
-struct ActorCritic{A,C,E,X,J}
+struct ActorCritic{A,C,E,X,J,Ap}
     actor::A
     critic::C
     com_encoder::E
     xmat_encoder::X
     joint_encoder::J
+    appendages_encoder::Ap
 end
 
 Flux.@layer ActorCritic
@@ -20,8 +21,9 @@ function ActorCritic(env::MuJoCoEnv, params::NamedTuple)
     com_size = length(computeRange(s, [:com_target_array]))
     xmat_size = length(computeRange(s, [:xquat_target_array]))
     joint_size = length(computeRange(s, [:joint_target_array]))
+    appendages_size = length(computeRange(s, [:appendages_target_array]))
     actor_bias = [zeros32(action_size); params.actor_sigma_init_bias*ones32(action_size)]
-    actor_net = Chain(Dense((prop_size+params.latent_dimension*3) => params.hidden1_size, tanh),
+    actor_net = Chain(Dense((prop_size+params.latent_dimension*4) => params.hidden1_size, tanh),
                       Dense(params.hidden1_size => params.hidden2_size, tanh),
                       Dense(params.hidden2_size => 2*action_size, tanh;
                             init=zeros32, bias=actor_bias))
@@ -31,18 +33,21 @@ function ActorCritic(env::MuJoCoEnv, params::NamedTuple)
     com_encoder = Dense(com_size=> params.latent_dimension, tanh)
     xmat_encoder = Dense(xmat_size => params.latent_dimension, tanh)
     joint_encoder = Dense(joint_size => params.latent_dimension, tanh)
-    return ActorCritic(actor_net, critic_net, com_encoder, xmat_encoder, joint_encoder)
+    appendages_encoder = Dense(appendages_size => params.latent_dimension, tanh)
+    return ActorCritic(actor_net, critic_net, com_encoder, xmat_encoder, joint_encoder, appendages_encoder)
 end
 
 function encoder(actor_critic::ActorCritic, state)
     com_target_array = Flux.ignore(()->state[:com_target_array])
     xquat_target_array = Flux.ignore(()->state[:xquat_target_array])
     joint_target_array = Flux.ignore(()->state[:joint_target_array])
+    appendages_target_array = Flux.ignore(()->state[:appendages_target_array])
     prop = Flux.ignore(()->view(state, prop_keys()))
     com_encoded   = actor_critic.com_encoder(com_target_array)
     xquat_encoded = actor_critic.xmat_encoder(xquat_target_array)
     joint_encoded = actor_critic.joint_encoder(joint_target_array)
-    cat(prop, com_encoded, xquat_encoded, joint_encoded; dims=1)
+    appendages_encoded = actor_critic.joint_encoder(appendages_target_array)
+    cat(prop, com_encoded, xquat_encoded, joint_encoded, appendages_encoded; dims=1)
 end
 
 function actor(actor_critic::ActorCritic, state, params, action=nothing)

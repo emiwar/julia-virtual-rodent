@@ -22,10 +22,10 @@ params = (;hidden1_size=1024,
            loss_weight_critic = 0.5,
            loss_weight_entropy = -0.2,#-0.00,#-0.5,
            min_torso_z = 0.03,
-           gamma=0.9,
+           gamma=0.95,
            lambda=0.95,
            clip_range=0.2,
-           n_epochs=150_000,
+           n_epochs=100_000,
            sigma_min=1f-2,
            sigma_max=5f-1,
            actor_sigma_init_bias=0f0,
@@ -36,6 +36,7 @@ params = (;hidden1_size=1024,
            reward_sigma_sqr=(5e-2)^2,
            reward_angle_sigma_sqr=(0.5)^2,
            reward_joint_sigma_sqr=(2.0)^2,
+           reward_appendages_sigma_sqr=(0.02)^2,
            latent_dimension=128,
            min_reward=0.0,
            spawn_z_offset=0.01,
@@ -48,7 +49,7 @@ function run_ppo(params)
     opt_state = Flux.setup(Flux.Adam(params.learning_rate), actor_critic)
     envs = [clone(test_env, params) for _=1:params.n_envs]
     starttime = Dates.now()
-    run_name = "Imitation-$(starttime)"
+    run_name = "ImitationWithAppendages-$(starttime)"
     lg = Wandb.WandbLogger(project = "Rodent-Imitation",
                            name = run_name,
                            config = Dict(string(k)=>v for (k,v) in pairs(params)))

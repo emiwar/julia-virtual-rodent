@@ -23,7 +23,7 @@ function RodentImitationEnv(params)
     end
     model = MuJoCo.load_model(modelPath)
     data = MuJoCo.init_data(model)
-    target = ImitationTarget()
+    target = ImitationTarget(model)
     env = RodentImitationEnv(model, data, target, 0, 1, 0, 0.0)
     reset!(env, params)
     return env
@@ -56,9 +56,10 @@ function state(env::RodentFollowEnv, params)
      torso_linvel = read_sensor_value(env, "torso"),
      torso_xmat = MuJoCo.body(env.data, "torso").xmat,
      torso_height = MuJoCo.body(env.data, "torso").com[3] .* 10.0,
-     com_target_array = reshape(future_targets(env, params), Val(1)),
-     xquat_target_array = reshape(future_quats(env, params), Val(1)),
-     joint_target_array = reshape(future_joint_pos(env, params), Val(1))
+     com_target_array = reshape(future_targets(env, params), :),
+     xquat_target_array = reshape(future_quats(env, params), :),
+     joint_target_array = reshape(future_joint_pos(env, params), :),
+     appendages_target_array = reshape(future_appendages_pos(env, params), :)
     )
 end
 
@@ -69,7 +70,8 @@ function reward(env::RodentFollowEnv, params)
     joint_reward = exp(-sum(joint_error(env, params).^2) / params.reward_joint_sigma_sqr)
 
     ctrl_reward = -params.ctrl_reward_weight * sum(env.data.ctrl.^2)
-    total_reward = closeness_reward + angle_reward + joint_reward + ctrl_reward + params.healthy_reward_weight
+    total_reward = closeness_reward + angle_reward + joint_reward + appendages_reward(env, params)
+    total_reward += ctrl_reward + params.healthy_reward_weight
     return clamp(total_reward, params.min_reward, Inf)
 end
 
@@ -95,6 +97,7 @@ function info(env::RodentFollowEnv)
         actuator_force_sum_sqr=sum(env.data.actuator_force.^2),
         angle_to_target=angle_to_target(env, params) |> rad2deg,
         joint_reward = exp(-sum(joint_error(env, params).^2) / params.reward_joint_sigma_sqr),
+        appendages_reward = appendages_reward(env, params),
         com_target_info(env, params)...
     )
 end
@@ -145,13 +148,20 @@ end
 function com_target_info(env::RodentFollowEnv, params)
     target_vec = target_vector(env, params)
     dist = LinearAlgebra.norm(target_vec)
+    app_error = appendages_error(env, params)
     (target_frame=target_frame(env),
      target_vec_x=target_vec[1],
      target_vec_y=target_vec[2],
      target_vec_z=target_vec[3],
      target_distance=dist,
      distance_from_spawpoint=LinearAlgebra.norm(view(env.target.com, :, 1, env.target_clip) .- MuJoCo.body(env.data, "torso").com),
-     joint_error=LinearAlgebra.norm(joint_error(env, params)))
+     joint_error=LinearAlgebra.norm(joint_error(env, params)),
+     lower_arm_R_error=LinearAlgebra.norm(view(app_error, :, 1)),
+     lower_arm_L_error=LinearAlgebra.norm(view(app_error, :, 2)),
+     foot_R_error=LinearAlgebra.norm(view(app_error, :, 3)),
+     foot_L_error=LinearAlgebra.norm(view(app_error, :, 4)),
+     jaw_error=LinearAlgebra.norm(view(app_error, :, 5))
+     )
 end
 
 function imitation_horizon(env::RodentImitationEnv, params)
@@ -188,6 +198,30 @@ end
 function joint_error(env::RodentImitationEnv, params)
     joint_indices = 8:size(env.target.qpos, 1)
     view(env.target.qpos, joint_indices, target_frame(env), env.target_clip) .- env.data.qpos[joint_indices]
+end
+
+function future_appendages_pos(env::RodentImitationEnv, params)
+    view(env.target.appendages, :, :, imitation_horizon(env, params), env.target_clip)
+end
+
+function appendages_pos(env::RodentImitationEnv, params)
+    torso = MuJoCo.body(env.data, "torso")
+    torso_xmat = reshape(torso.xmat, 3, 3)
+    positions = zeros(3, length(appendages()))
+    for (i, app_name) in enumerate(appendages())
+        app_body = MuJoCo.body(env.data, app_name)
+        positions[:, i] = torso_xmat*(app_body.xpos .- torso.xpos)
+    end
+    return positions
+end
+
+function appendages_error(env::RodentImitationEnv, params)
+    view(env.target.appendages, :, :, target_frame(env), env.target_clip) .- appendages_pos(env, params)
+end
+
+function appendages_reward(env::RodentImitationEnv, params)
+    app_error = appendages_error(env, params)
+    sum(exp(-sum(view(app_error, :, i).^2) / params.reward_appendages_sigma_sqr) for i=1:5) / 5.0
 end
 
 mutable struct RodentEightPathEnv <: RodentFollowEnv
