@@ -30,6 +30,7 @@ function next_value_f(current_state_value, next_state_value, status)
 end
 
 function ppo_update!(batch, actor_critic, opt_state, params; logfcn=nothing)
+    logdict = Dict{String, Float64}()
     n_envs, n_steps_per_batch = size(batch.rewards)
     old_values = critic(actor_critic, batch.states, params)
     advantages = compute_advantages(batch.rewards, old_values, batch.status, params)
@@ -63,22 +64,18 @@ function ppo_update!(batch, actor_critic, opt_state, params; logfcn=nothing)
                         params.loss_weight_entropy * entropy_loss
             
             Flux.ignore() do
-                if !isnothing(logfcn)
-                    logfcn("losses/total_loss", total_loss)
-                    logfcn("losses/critic_loss", critic_loss)
-                    logfcn("losses/actor_loss", actor_loss)
-                    logfcn("losses/entropy_loss", entropy_loss)
-                    logfcn("critic/predicted_values", new_values)
-                    logfcn("critic/target_values", target_values)
-                    logfcn("critic/advantages", advantages)
-                    logfcn("critic/explained_variance", 1.0 - critic_loss / Statistics.var(target_values))
-                    #TODO: this might be quite inefficient
-                    logfcn("critic/prediction_corr", Statistics.cor(reshape(Array(new_values), :),
-                                                                    reshape(Array(target_values), :)))
-                end
+                logdict["losses/total_loss"] = total_loss
+                logdict["losses/critic_loss"] = critic_loss
+                logdict["losses/actor_loss"] = actor_loss
+                logdict["losses/entropy_loss"] = entropy_loss
+                merge!(logdict, quantile_dict("critic/predicted_values", new_values))
+                merge!(logdict, quantile_dict("critic/target_values", target_values))
+                merge!(logdict, quantile_dict("critic/advantages", advantages))
+                logdict["critic/explained_variance"] = 1.0 - critic_loss / Statistics.var(target_values)
             end
             return total_loss
         end
         Flux.update!(opt_state, actor_critic, gradients[1])
     end
+    return logdict
 end
