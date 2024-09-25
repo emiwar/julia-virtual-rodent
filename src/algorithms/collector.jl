@@ -1,7 +1,7 @@
 include("../utils/component_tensor.jl")
 
 function collect_batch(envs, actor_critic, params)
-    steps_per_batch = params.n_steps_per_batch
+    steps_per_batch = params.rollout.n_steps_per_epoch
     n_envs = length(envs)
 
     #Big GPU arrays/BatchComponentTensor for storing the entire batch
@@ -23,7 +23,7 @@ function collect_batch(envs, actor_critic, params)
 
     #States for the first timestep
     @Threads.threads for i=1:n_envs
-        if params.reset_epoch_start
+        if params.rollout.reset_on_epoch_start
             reset!(envs[i], params)
         end
         step_states[:, i] = state(envs[i], params)

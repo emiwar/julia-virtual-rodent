@@ -40,7 +40,7 @@ function infer_com_and_appendages(model, fullphysics)
     _, T, n_clips = size(fullphysics)
     center_of_mass = zeros(3, T, n_clips)
     appendages_pos = zeros(3, 5, T, n_clips)
-    @showprogress "Precomputing targets" for clip_id = 1:n_clips
+    @Threads.threads for clip_id = 1:n_clips
         d = MuJoCo.init_data(model)
         for t = 1:T
             MuJoCo.set_physics_state!(model, d, view(fullphysics, :, t, clip_id))

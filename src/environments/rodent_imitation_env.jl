@@ -1,6 +1,6 @@
 include("mujoco_env.jl")
 include("imitation_trajectory.jl")
-import LinearAlgebra
+import LinearAlgebra: norm
 
 abstract type RodentFollowEnv <: MuJoCoEnv end
 
@@ -16,7 +16,7 @@ mutable struct RodentImitationEnv <: RodentFollowEnv
 end
 
 function RodentImitationEnv(params)
-    if params.torque_control
+    if params.physics.torque_control
         modelPath = "src/environments/assets/rodent_with_floor_scale080_torques.xml"
     else
         modelPath = "src/environments/assets/rodent_with_floor_scale080_edits.xml"
@@ -65,22 +65,22 @@ end
 
 function reward(env::RodentFollowEnv, params)
     target_vec = target_vector(env, params)
-    closeness_reward = exp(-sum(target_vec.^2) / params.reward_sigma_sqr)
-    angle_reward = exp(-(angle_to_target(env, params)^2) / params.reward_angle_sigma_sqr)
-    joint_reward = exp(-sum(joint_error(env, params).^2) / params.reward_joint_sigma_sqr)
-
-    ctrl_reward = -params.ctrl_reward_weight * sum(env.data.ctrl.^2)
-    total_reward = closeness_reward + angle_reward + joint_reward + appendages_reward(env, params)
-    total_reward += ctrl_reward + params.healthy_reward_weight
-    return clamp(total_reward, params.min_reward, Inf)
+    com_reward = exp(-sum(target_vec.^2) / (params.reward.falloff.com^2))
+    angle_reward = exp(-(angle_to_target(env, params)^2) / (params.reward.falloff.rotation^2))
+    joint_reward = exp(-sum(joint_error(env, params).^2) / (params.reward.falloff.joint^2))
+    append_reward = appendages_reward(env, params)
+    ctrl_reward = -params.reward.control_cost * sum(env.data.ctrl.^2)
+    total_reward  = com_reward + angle_reward + joint_reward + append_reward
+    total_reward += ctrl_reward + params.reward.alive_bonus
+    total_reward #return clamp(total_reward, params.min_reward, Inf)
 end
 
 function status(env::RodentFollowEnv, params)
-    if torso_z(env) < params.min_torso_z 
+    if torso_z(env) < params.physics.min_torso_z 
         return TERMINATED
-    elseif target_frame(env) + params.imitation_steps_ahead > 245
+    elseif target_frame(env) + params.imitation.horizon >= length(env.target)
         return TRUNCATED
-    elseif LinearAlgebra.norm(target_vector(env, params)) > params.max_target_distance
+    elseif norm(target_vector(env, params)) > params.imitation.max_target_distance
         return TERMINATED
     else
         return RUNNING
@@ -96,7 +96,7 @@ function info(env::RodentFollowEnv)
         cumulative_reward=env.cumulative_reward,
         actuator_force_sum_sqr=sum(env.data.actuator_force.^2),
         angle_to_target=angle_to_target(env, params) |> rad2deg,
-        joint_reward = exp(-sum(joint_error(env, params).^2) / params.reward_joint_sigma_sqr),
+        joint_reward = exp(-sum(joint_error(env, params).^2) / (params.reward.falloff.joint)^2),
         appendages_reward = appendages_reward(env, params),
         com_target_info(env, params)...
     )
@@ -105,7 +105,7 @@ end
 #Actions
 function act!(env::RodentFollowEnv, action, params)
     env.data.ctrl .= clamp.(action, -1.0, 1.0)
-    for _=1:params.n_physics_steps
+    for _=1:params.physics.n_physics_steps
         MuJoCo.step!(env.model, env.data)
     end
     env.lifetime += 1
@@ -123,7 +123,7 @@ function reset!(env::RodentFollowEnv, params)
 
     MuJoCo.reset!(env.model, env.data)
     env.data.qpos .= view(env.target.qpos, :, target_frame(env), env.target_clip)
-    env.data.qpos[3] += params.spawn_z_offset
+    env.data.qpos[3] += params.physics.spawn_z_offset
     env.data.qvel .= view(env.target.qvel, :, target_frame(env), env.target_clip)
     MuJoCo.forward!(env.model, env.data) #Run model forward to get correct initial state
 end
@@ -147,30 +147,31 @@ end
 
 function com_target_info(env::RodentFollowEnv, params)
     target_vec = target_vector(env, params)
-    dist = LinearAlgebra.norm(target_vec)
+    dist = norm(target_vec)
     app_error = appendages_error(env, params)
+    spawn_point = view(env.target.com, :, 1, env.target_clip)
+    com = MuJoCo.body(env.data, "torso").com
     (target_frame=target_frame(env),
      target_vec_x=target_vec[1],
      target_vec_y=target_vec[2],
      target_vec_z=target_vec[3],
      target_distance=dist,
-     distance_from_spawpoint=LinearAlgebra.norm(view(env.target.com, :, 1, env.target_clip) .- MuJoCo.body(env.data, "torso").com),
-     joint_error=LinearAlgebra.norm(joint_error(env, params)),
-     lower_arm_R_error=LinearAlgebra.norm(view(app_error, :, 1)),
-     lower_arm_L_error=LinearAlgebra.norm(view(app_error, :, 2)),
-     foot_R_error=LinearAlgebra.norm(view(app_error, :, 3)),
-     foot_L_error=LinearAlgebra.norm(view(app_error, :, 4)),
-     jaw_error=LinearAlgebra.norm(view(app_error, :, 5))
+     distance_from_spawpoint=norm(spawn_point .- com),
+     joint_error=norm(joint_error(env, params)),
+     lower_arm_R_error=norm(view(app_error, :, 1)),
+     lower_arm_L_error=norm(view(app_error, :, 2)),
+     foot_R_error=norm(view(app_error, :, 3)),
+     foot_L_error=norm(view(app_error, :, 4)),
+     jaw_error=norm(view(app_error, :, 5))
      )
 end
 
 function imitation_horizon(env::RodentImitationEnv, params)
-    (target_frame(env) + 1):(target_frame(env) + params.imitation_steps_ahead)
+    (target_frame(env) + 1):(target_frame(env) + params.imitation.horizon)
 end
 
 function future_quats(env::RodentImitationEnv, params)
-    rot_vec = zeros(3, params.imitation_steps_ahead)
-    #target_qpos = view(env.target.qpos, 4:7, imitation_horizon(env, params), env.target_clip)
+    rot_vec = zeros(3, params.imitation.horizon)
     diff = zeros(3)
     for (i, t) in enumerate(imitation_horizon(env, params))
         MuJoCo.mju_subQuat(diff, env.target.qpos[4:7, t, env.target_clip], env.data.qpos[4:7])
@@ -178,10 +179,6 @@ function future_quats(env::RodentImitationEnv, params)
     end
     return rot_vec
 end
-
-#function future_xmats(env::RodentImitationEnv, params)
-#    view(env.target.xmat, :, imitation_horizon(env, params))
-#end
 
 function angle_to_target(env::RodentImitationEnv, params)
     target_quat = view(env.target.qpos, 4:7, target_frame(env), env.target_clip)
@@ -221,50 +218,5 @@ end
 
 function appendages_reward(env::RodentImitationEnv, params)
     app_error = appendages_error(env, params)
-    sum(exp(-sum(view(app_error, :, i).^2) / params.reward_appendages_sigma_sqr) for i=1:5) / 5.0
+    sum(exp(-sum(view(app_error, :, i).^2) / (params.reward.falloff.appendages^2)) for i=1:5) / 5.0
 end
-
-mutable struct RodentEightPathEnv <: RodentFollowEnv
-    model::MuJoCo.Model
-    data::MuJoCo.Data
-    lifetime::Int64
-    cumulative_reward::Float64
-end
-
-function RodentEightPathEnv()
-    modelPath = "src/environments/assets/rodent_with_floor_scale080_edits.xml"
-    model = MuJoCo.load_model(modelPath)
-    data = MuJoCo.init_data(model)
-    env = RodentEightPathEnv(model, data, 0, 0.0)
-    reset!(env)
-    return env
-end
-
-function clone(env::RodentEightPathEnv)
-    new_env = RodentEightPathEnv(
-        env.model,
-        MuJoCo.init_data(env.model),
-        0, 0.0)
-    reset!(new_env)
-    return new_env
-end
-
-target_speed(env::RodentEightPathEnv) = 0.2
-radius(env::RodentEightPathEnv) = 1.0
-
-function get_future_targets(env::RodentEightPathEnv, params)
-    factor = 2pi * radius(env) / target_speed(env) / env.model.opt.timestep / params.n_physics_steps
-    t = (env.lifetime:(env.lifetime+params.imitation_steps_ahead)) ./ factor
-    com = MuJoCo.body(env.data, "torso").com
-    vcat(radius(env).*sin.(2.0 .* 2pi .* t') .- com[1],
-         radius(env).*(cos.(2pi .* t') .- 1.0) .- com[2],
-         zero(t'))
-end
-
-function get_target_vector(env::RodentEightPathEnv, params)
-    factor = 2pi / target_speed(env) / env.model.opt.timestep / params.n_physics_steps
-    t = (env.lifetime-1) / factor
-    com = MuJoCo.body(env.data, "torso").com
-    [radius(env)*sin(2.0*2pi*t) - com[1], radius(env)*(cos(2pi*t)-1.0) - com[2], 0.0]
-end
-

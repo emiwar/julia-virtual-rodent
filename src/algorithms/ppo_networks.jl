@@ -22,18 +22,18 @@ function ActorCritic(env::MuJoCoEnv, params::NamedTuple)
     xmat_size = length(computeRange(s, [:xquat_target_array]))
     joint_size = length(computeRange(s, [:joint_target_array]))
     appendages_size = length(computeRange(s, [:appendages_target_array]))
-    actor_bias = [zeros32(action_size); params.actor_sigma_init_bias*ones32(action_size)]
-    actor_net = Chain(Dense((prop_size+params.latent_dimension*4) => params.hidden1_size, tanh),
-                      Dense(params.hidden1_size => params.hidden2_size, tanh),
-                      Dense(params.hidden2_size => 2*action_size, tanh;
+    actor_bias = [zeros32(action_size); params.network.sigma_init_bias*ones32(action_size)]
+    actor_net = Chain(Dense((prop_size+params.network.latent_dimension*4) => params.network.hidden1_size, tanh),
+                      Dense(params.network.hidden1_size => params.network.hidden2_size, tanh),
+                      Dense(params.network.hidden2_size => 2*action_size, tanh;
                             init=zeros32, bias=actor_bias))
-    critic_net = Chain(Dense(state_size => params.hidden1_size, tanh),
-                       Dense(params.hidden1_size => params.hidden2_size, tanh),
-                       Dense(params.hidden2_size => 1; init=zeros32))
-    com_encoder = Dense(com_size=> params.latent_dimension, tanh)
-    xmat_encoder = Dense(xmat_size => params.latent_dimension, tanh)
-    joint_encoder = Dense(joint_size => params.latent_dimension, tanh)
-    appendages_encoder = Dense(appendages_size => params.latent_dimension, tanh)
+    critic_net = Chain(Dense(state_size => params.network.hidden1_size, tanh),
+                       Dense(params.network.hidden1_size => params.network.hidden2_size, tanh),
+                       Dense(params.network.hidden2_size => 1; init=zeros32))
+    com_encoder = Dense(com_size=> params.network.latent_dimension, tanh)
+    xmat_encoder = Dense(xmat_size => params.network.latent_dimension, tanh)
+    joint_encoder = Dense(joint_size => params.network.latent_dimension, tanh)
+    appendages_encoder = Dense(appendages_size => params.network.latent_dimension, tanh)
     return ActorCritic(actor_net, critic_net, com_encoder, xmat_encoder, joint_encoder, appendages_encoder)
 end
 
@@ -57,7 +57,9 @@ function actor(actor_critic::ActorCritic, state, params, action=nothing)
     batch_dims = ntuple(_->:, ndims(actor_net_output)-1)
     mu = view(actor_net_output, 1:action_size, batch_dims...)
     unscaled_sigma = view(actor_net_output, (action_size+1):2*action_size, batch_dims...)
-    sigma = params.sigma_min .+ 0.5f0.*(params.sigma_max .- params.sigma_min).*(1 .+ unscaled_sigma)
+    sigma_min = params.network.sigma_min
+    sigma_max = params.network.sigma_max
+    sigma = sigma_min .+ 0.5f0.*(sigma_max .- sigma_min).*(1 .+ unscaled_sigma)
     if isnothing(action)
         if mu isa CUDA.AnyCuArray
             xsi = CUDA.randn(size(mu)...)
@@ -72,7 +74,7 @@ end
 
 function critic(actor_critic::ActorCritic, state, params)
     input = data(state)
-    return view(actor_critic.critic(input), 1, :, :) ./ (1.0-params.gamma)
+    return view(actor_critic.critic(input), 1, :, :) ./ (1.0-params.training.gamma)
 end
 
 action_size(actor_critic::ActorCritic) = size(actor_critic.actor[end].weight, 1) ÷ 2
