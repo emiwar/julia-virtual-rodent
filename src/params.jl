@@ -11,7 +11,9 @@ params = (;
         n_physics_steps=5,
         min_torso_z = 0.03,
         spawn_z_offset=0.01,
-        torque_control=false
+        torque_control=false,
+        iterations = 10,
+        ls_iterations = 10
     ),
     reward = (;
         alive_bonus = 0.1,

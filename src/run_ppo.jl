@@ -15,7 +15,7 @@ function run_ppo(params)
     opt_state = Flux.setup(Flux.Adam(params.training.learning_rate), actor_critic)
     envs = [clone(test_env, params) for _=1:params.rollout.n_envs]
     starttime = Dates.now()
-    run_name = "TestCheckpointLogging-$(starttime)" #ImitationWithAppendages
+    run_name = "FastPhysicsTest-$(starttime)" #ImitationWithAppendages
     lg = Wandb.WandbLogger(project = "Rodent-Imitation", name = run_name, config = params_to_dict(params))
     mkdir("runs/checkpoints/$(run_name)")
     @showprogress for epoch = 1:params.rollout.n_epochs

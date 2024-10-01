@@ -22,6 +22,16 @@ function RodentImitationEnv(params)
         modelPath = "src/environments/assets/rodent_with_floor_scale080_edits.xml"
     end
     model = MuJoCo.load_model(modelPath)
+    if params.physics.iterations !== nothing
+        unsafe_store!(Ptr{Int32}(model.opt.internal_pointer + 264), Int32(params.physics.iterations))
+        @assert model.opt.iterations == params.physics.iterations
+        #model.opt.iterations = params.physics.iterations
+    end
+    if params.physics.ls_iterations !== nothing
+        unsafe_store!(Ptr{Int32}(model.opt.internal_pointer + 268), Int32(params.physics.ls_iterations))
+        @assert model.opt.ls_iterations == params.physics.ls_iterations
+        #model.opt.ls_iterations = params.physics.ls_iterations
+    end
     data = MuJoCo.init_data(model)
     target = ImitationTarget(model)
     env = RodentImitationEnv(model, data, target, 0, 1, 0, 0.0)
@@ -220,3 +230,4 @@ function appendages_reward(env::RodentImitationEnv, params)
     app_error = appendages_error(env, params)
     sum(exp(-sum(view(app_error, :, i).^2) / (params.reward.falloff.appendages^2)) for i=1:5) / 5.0
 end
+
