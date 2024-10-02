@@ -1,7 +1,7 @@
 #!/bin/bash
-#SBATCH --nodes=1 --ntasks-per-node=1 --cpus-per-task 32 --mem-per-cpu 1000 -p gpu -t 1-00:00 -o %j_gpu.out -e %j_gpu.err --gres=gpu
+#SBATCH --ntasks=1 --cpus-per-task 32 --mem-per-cpu 1000 -p gpu -t 0-00:15 -o %j_gpu.out -e %j_gpu.err --gres=gpu
 #SBATCH hetjob
-#SBATCH --nodes=7 --ntasks-per-node=1 --cpus-per-task 32 --mem-per-cpu 1000 -p sapphire -t 1-00:00 -o %j.out -e %j.err
+#SBATCH --ntasks=7 --cpus-per-task 32 --mem-per-cpu 1000 -p sapphire -t 0-00:15 -o %j.out -e %j.err
 
 module add intel
 module add openmpi

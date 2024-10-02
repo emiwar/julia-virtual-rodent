@@ -41,10 +41,14 @@ function collect_batch_root(envs, actor_critic, params)
     states[:, :, 1] = step_states
     println("  [$(Dates.now())] Starting main loop...")
     for t=1:steps_per_batch
+    	println("    [$(Dates.now()), step $t] Running actor...")
         actor_output[:, :, t] = actor(actor_critic, view(states, :, :, t), params) |> ComponentTensor
-        step_actions = Array(view(actor_output, :action, :, t))
+    	println("    [$(Dates.now()), step $t] Moving actions to CPU...")
+	step_actions = Array(view(actor_output, :action, :, t))
         local_step_actions = zeros(eltype(step_actions), size(step_actions, 1), n_local_envs)
-        MPI.Scatter!(step_actions, local_step_actions, MPI.COMM_WORLD)
+	println("    [$(Dates.now()), step $t] Transferring actions...")
+	MPI.Scatter!(step_actions, local_step_actions, MPI.COMM_WORLD)
+	println("    [$(Dates.now()), step $t] Running physics...")
         @Threads.threads for i=1:n_local_envs
             env = envs[i]
             action = view(local_step_actions, :, i)
@@ -57,16 +61,19 @@ function collect_batch_root(envs, actor_critic, params)
                 reset!(env, params)
             end
         end
+	println("    [$(Dates.now()), step $t] Collectiong state info on root...")
         MPI.Gather!(local_step_states |> data, step_states |> data, MPI.COMM_WORLD)
         MPI.Gather!(local_step_infos |> data, step_info |> data, MPI.COMM_WORLD)
         MPI.Gather!(local_step_reward, step_reward, MPI.COMM_WORLD)
         MPI.Gather!(local_step_status, step_status, MPI.COMM_WORLD)
-	MPI.Barrier(MPI.COMM_WORLD)
+	#MPI.Barrier(MPI.COMM_WORLD)
         #Move the CPU arrays to the correct index of the bigger GPU arrays
-        states[:, :, t+1] = step_states
+        println("    [$(Dates.now()), step $t] Moving state info to the GPU...")
+	states[:, :, t+1] = step_states
         infos[:, :, t] = step_info
         rewards[:, t] = step_reward
         env_status[:, t] = step_status
+	println("    [$(Dates.now()), step $t] Step $t done.")
     end
 
     return (;states, actor_output, rewards, status=env_status, infos)
@@ -113,7 +120,7 @@ function collect_batch_worker(envs, params)
         MPI.Gather!(local_step_infos |> data, nothing, MPI.COMM_WORLD)
         MPI.Gather!(local_step_reward, nothing, MPI.COMM_WORLD)
         MPI.Gather!(local_step_status, nothing, MPI.COMM_WORLD)
-	MPI.Barrier(MPI.COMM_WORLD)
+	#MPI.Barrier(MPI.COMM_WORLD)
     end
 
     return nothing
