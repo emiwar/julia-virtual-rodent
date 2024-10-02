@@ -2,6 +2,8 @@ import Dates
 import MPI
 println("[$(Dates.now())] Initalizing MPI...")
 MPI.Init(threadlevel=:funneled)
+println("[$(Dates.now())] MPI initialized")
+include("utils/profiler.jl")
 include("environments/rodent_imitation_env.jl")
 include("algorithms/collector.jl")
 include("params.jl")
@@ -34,20 +36,21 @@ function run_ppo(params)
         mkdir("runs/checkpoints/$(run_name)")
         println("[$(Dates.now())] Root ready...")
         for epoch = 1:params.rollout.n_epochs
-	    println("[$(Dates.now()); Ep $epoch] Collecting batch...")
- 	    batch = collect_batch_root(envs, actor_critic, params)
-    	    println("[$(Dates.now()); Ep $epoch] Updating network...")
-            ppo_log = ppo_update!(batch, actor_critic, opt_state, params)
-	    println("[$(Dates.now()); Ep $epoch] Logging...")
+            lapTimer = LapTimer()
+            batch = collect_batch_root(envs, actor_critic, params, lapTimer)
+            ppo_log = ppo_update!(batch, actor_critic, opt_state, params, lapTimer)
+            lap(lapTimer, :logging_batch_stats)
             logdict = compute_batch_stats(batch)
             merge!(logdict, ppo_log)
             logdict["total_steps"] = epoch * params.rollout.n_envs * params.rollout.n_steps_per_epoch
-
+            lap(lapTimer, :checkpointing)
             if epoch % params.training.checkpoint_interval == 0
                 checkpoint_fn = "runs/checkpoints/$(run_name)/step-$(epoch).bson"
                 BSON.bson(checkpoint_fn; actor_critic=Flux.cpu(actor_critic))
                 lg.wrun.log_model(checkpoint_fn, "checkpoint-step-$(epoch).bson")
             end
+            lap(lapTimer, :logging_submitting)
+            merge!(logdict, to_stringdict(lapTimer))
             Wandb.log(lg, logdict)
         end
         Wandb.close(lg);

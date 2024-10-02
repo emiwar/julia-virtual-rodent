@@ -29,23 +29,24 @@ function next_value_f(current_state_value, next_state_value, status)
     end
 end
 
-function ppo_update!(batch, actor_critic, opt_state, params)
-    println("  [$(Dates.now())] Preparing gradient update...")
+function ppo_update!(batch, actor_critic, opt_state, params, lapTimer::LapTimer)
+    lap(lapTimer, :ppo_update_init)
     logdict = Dict{String, Float64}()
     n_envs, n_steps_per_batch = size(batch.rewards)
-    println("  [$(Dates.now())] Running critic...")
+    lap(lapTimer, :ppo_critic)
     old_values = critic(actor_critic, batch.states, params)
-    println("  [$(Dates.now())] Computing advantages...")
+    lap(lapTimer, :ppo_advantages)
     advantages = compute_advantages(batch.rewards, old_values, batch.status,
                                     params.training.gamma, params.training.lambda)
+    lap(lapTimer, :ppo_target_values)
     non_final_states = view(batch.states, :, :, 1:n_steps_per_batch)
     non_final_statevalues = view(old_values, :, 1:n_steps_per_batch)
     target_values = non_final_statevalues .+ advantages
     actions = view(batch.actor_output, :action, :, :)
     batch_loglikelihoods = view(batch.actor_output, :loglikelihood, :, :)
     clip_range = Float32(params.training.clip_range)
-    println("  [$(Dates.now())] Starting miniepochs...")
     for j = params.training.n_miniepochs
+        lap(lapTimer, :ppo_gradients)
         gradients = Flux.gradient(actor_critic) do actor_critic
             #Actor loss
             actor_output = actor(actor_critic, non_final_states, params, actions)
@@ -68,6 +69,7 @@ function ppo_update!(batch, actor_critic, opt_state, params)
                         params.training.loss_weight_entropy * entropy_loss
             
             Flux.ignore() do
+                lap(lapTimer, :logging_ppo_stats)
                 logdict["losses/total_loss"] = total_loss
                 logdict["losses/critic_loss"] = critic_loss
                 logdict["losses/actor_loss"] = actor_loss
