@@ -33,10 +33,12 @@ function run_ppo(params)
         lg = Wandb.WandbLogger(project = "Rodent-Imitation", name = run_name, config = params_to_dict(params))
         mkdir("runs/checkpoints/$(run_name)")
         println("[$(Dates.now())] Root ready...")
-        @showprogress for epoch = 1:params.rollout.n_epochs
-            batch = collect_batch_root(envs, actor_critic, params)
+        for epoch = 1:params.rollout.n_epochs
+	    println("[$(Dates.now()); Ep $epoch] Collecting batch...")
+ 	    batch = collect_batch_root(envs, actor_critic, params)
+    	    println("[$(Dates.now()); Ep $epoch] Updating network...")
             ppo_log = ppo_update!(batch, actor_critic, opt_state, params)
-
+	    println("[$(Dates.now()); Ep $epoch] Logging...")
             logdict = compute_batch_stats(batch)
             merge!(logdict, ppo_log)
             logdict["total_steps"] = epoch * params.rollout.n_envs * params.rollout.n_steps_per_epoch

@@ -30,9 +30,12 @@ function next_value_f(current_state_value, next_state_value, status)
 end
 
 function ppo_update!(batch, actor_critic, opt_state, params)
+    println("  [$(Dates.now())] Preparing gradient update...")
     logdict = Dict{String, Float64}()
     n_envs, n_steps_per_batch = size(batch.rewards)
+    println("  [$(Dates.now())] Running critic...")
     old_values = critic(actor_critic, batch.states, params)
+    println("  [$(Dates.now())] Computing advantages...")
     advantages = compute_advantages(batch.rewards, old_values, batch.status,
                                     params.training.gamma, params.training.lambda)
     non_final_states = view(batch.states, :, :, 1:n_steps_per_batch)
@@ -41,6 +44,7 @@ function ppo_update!(batch, actor_critic, opt_state, params)
     actions = view(batch.actor_output, :action, :, :)
     batch_loglikelihoods = view(batch.actor_output, :loglikelihood, :, :)
     clip_range = Float32(params.training.clip_range)
+    println("  [$(Dates.now())] Starting miniepochs...")
     for j = params.training.n_miniepochs
         gradients = Flux.gradient(actor_critic) do actor_critic
             #Actor loss

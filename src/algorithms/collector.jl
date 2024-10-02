@@ -6,6 +6,7 @@ function collect_batch_root(envs, actor_critic, params)
     n_local_envs = length(envs)
 
     #Big GPU arrays/BatchComponentTensor for storing the entire batch
+    println("  [$(Dates.now())] Allocating GPU arrays...")
     template_state = state(envs[1], params)
     states = BatchComponentTensor(template_state, n_envs, steps_per_batch+1; array_fcn=CUDA.zeros)
     template_actor_output = actor(actor_critic, view(states, :, 1, 1), params) |> ComponentTensor
@@ -28,6 +29,7 @@ function collect_batch_root(envs, actor_critic, params)
     local_step_status = zeros(UInt8, n_local_envs)
     local_step_infos  = BatchComponentTensor(template_info, n_local_envs)
 
+    println("  [$(Dates.now())] Resetting environments...")
     #States for the first timestep
     @Threads.threads for i=1:n_local_envs
         if params.rollout.reset_on_epoch_start
@@ -36,8 +38,8 @@ function collect_batch_root(envs, actor_critic, params)
         local_step_states[:, i] = state(envs[i], params)
     end
     MPI.Gather!(local_step_states |> data, step_states |> data, MPI.COMM_WORLD)
-
     states[:, :, 1] = step_states
+    println("  [$(Dates.now())] Starting main loop...")
     for t=1:steps_per_batch
         actor_output[:, :, t] = actor(actor_critic, view(states, :, :, t), params) |> ComponentTensor
         step_actions = Array(view(actor_output, :action, :, t))
@@ -59,6 +61,7 @@ function collect_batch_root(envs, actor_critic, params)
         MPI.Gather!(local_step_infos |> data, step_info |> data, MPI.COMM_WORLD)
         MPI.Gather!(local_step_reward, step_reward, MPI.COMM_WORLD)
         MPI.Gather!(local_step_status, step_status, MPI.COMM_WORLD)
+	MPI.Barrier(MPI.COMM_WORLD)
         #Move the CPU arrays to the correct index of the bigger GPU arrays
         states[:, :, t+1] = step_states
         infos[:, :, t] = step_info
@@ -110,6 +113,7 @@ function collect_batch_worker(envs, params)
         MPI.Gather!(local_step_infos |> data, nothing, MPI.COMM_WORLD)
         MPI.Gather!(local_step_reward, nothing, MPI.COMM_WORLD)
         MPI.Gather!(local_step_status, nothing, MPI.COMM_WORLD)
+	MPI.Barrier(MPI.COMM_WORLD)
     end
 
     return nothing
