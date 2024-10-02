@@ -29,15 +29,15 @@ function run_ppo(params)
     if mpi_rank == 0
         actor_critic = ActorCritic(test_env, params) |> Flux.gpu
         opt_state = Flux.setup(Flux.Adam(params.training.learning_rate), actor_critic)
-        
+        batch_collector = BatchCollectorRoot(envs, actor_critic, params)
         starttime = Dates.now()
         run_name = "TestMPI-$(starttime)" #ImitationWithAppendages
         lg = Wandb.WandbLogger(project = "Rodent-Imitation", name = run_name, config = params_to_dict(params))
         mkdir("runs/checkpoints/$(run_name)")
         println("[$(Dates.now())] Root ready...")
-        for epoch = 1:params.rollout.n_epochs
+        @showprogress for epoch = 1:params.rollout.n_epochs
             lapTimer = LapTimer()
-            batch = collect_batch_root(envs, actor_critic, params, lapTimer)
+            batch = batch_collector(lapTimer)
             ppo_log = ppo_update!(batch, actor_critic, opt_state, params, lapTimer)
             lap(lapTimer, :logging_batch_stats)
             logdict = compute_batch_stats(batch)
@@ -55,9 +55,10 @@ function run_ppo(params)
         end
         Wandb.close(lg);
     else
+        batch_collector = BatchCollectorWorker(envs, params)
         println("[$(Dates.now())] Worker $mpi_rank ready...")
         for epoch = 1:params.rollout.n_epochs
-            collect_batch_worker(envs, params)
+            batch_collector()
         end
     end
 end

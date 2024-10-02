@@ -41,7 +41,7 @@ params = (;
     rollout = (;
         n_envs=512,
         n_steps_per_epoch=16,
-        n_epochs=50,#150_000,
+        n_epochs=200,#150_000,
         reset_on_epoch_start=false,
     )
 )
