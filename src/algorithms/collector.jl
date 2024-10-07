@@ -16,7 +16,7 @@ function BatchCollectorRoot(envs, actor_critic, params)#, lapTimer::LapTimer)
     env_status = CUDA.zeros(UInt8, n_envs, steps_per_batch)
 
     #...except infos, which never have to be moved to the GPU
-    template_info = info(envs[1])
+    template_info = info(envs[1], params)
     infos = BatchComponentTensor(template_info, n_envs, steps_per_batch; array_fcn=zeros)
 
     #lap(lapTimer, :collector_cpu_array_alloc)
@@ -39,8 +39,9 @@ function BatchCollectorRoot(envs, actor_critic, params)#, lapTimer::LapTimer)
             if params.rollout.reset_on_epoch_start
                 reset!(envs[i], params)
             end
-            local_step_states[:, i] = state(envs[i], params)
+            state!(view(local_step_states, :, i), envs[i], params)
         end
+
         lap(lapTimer, :mpi_gather_first_state)
         MPI.Gather!(local_step_states |> data, step_states |> data, MPI.COMM_WORLD)
         lap(lapTimer, :first_state_to_gpu)
@@ -57,10 +58,10 @@ function BatchCollectorRoot(envs, actor_critic, params)#, lapTimer::LapTimer)
                 env = envs[i]
                 action = view(local_step_actions, :, i)
                 act!(env, action, params)
-                local_step_states[:, i] = state(env, params)
+                state!(view(local_step_states, :, i), env, params)
                 local_step_reward[i] = reward(env, params)
                 local_step_status[i] = status(env, params)
-                local_step_infos[:, i] = info(env)
+                info!(view(local_step_infos, :, i), env, params)
                 if local_step_status[i] != RUNNING
                     reset!(env, params)
                 end
@@ -92,7 +93,7 @@ function BatchCollectorWorker(envs, params)
     n_envs = params.rollout.n_envs
     n_local_envs = length(envs)
     template_state = state(envs[1], params)
-    template_info = info(envs[1])
+    template_info = info(envs[1], params)
     local_step_states = BatchComponentTensor(template_state, n_local_envs)
     local_step_reward = zeros(Float32, n_local_envs)
     local_step_status = zeros(UInt8, n_local_envs)
@@ -105,20 +106,19 @@ function BatchCollectorWorker(envs, params)
             if params.rollout.reset_on_epoch_start
                 reset!(envs[i], params)
             end
-            local_step_states[:, i] = state(envs[i], params)
+            state!(view(local_step_states, :, i), envs[i], params)
         end
         MPI.Gather!(local_step_states |> data, nothing, MPI.COMM_WORLD)
-
         for t=1:steps_per_batch
             MPI.Scatter!(nothing, local_step_actions, MPI.COMM_WORLD)
             @Threads.threads for i=1:n_local_envs
                 env = envs[i]
                 action = view(local_step_actions, :, i)
                 act!(env, action, params)
-                local_step_states[:, i] = state(env, params)
+                state!(view(local_step_states, :, i), env, params)
                 local_step_reward[i] = reward(env, params)
                 local_step_status[i] = status(env, params)
-                local_step_infos[:, i] = info(env)
+                info!(view(local_step_infos, :, i), env, params)
                 if local_step_status[i] != RUNNING
                     reset!(env, params)
                 end
@@ -128,7 +128,6 @@ function BatchCollectorWorker(envs, params)
             MPI.Gather!(local_step_infos |> data, nothing, MPI.COMM_WORLD)
             MPI.Gather!(local_step_reward, nothing, MPI.COMM_WORLD)
             MPI.Gather!(local_step_status, nothing, MPI.COMM_WORLD)
-        #MPI.Barrier(MPI.COMM_WORLD)
         end
         return nothing
     end

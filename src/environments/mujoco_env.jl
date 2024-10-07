@@ -23,3 +23,17 @@ function read_sensor_value(env::MuJoCoEnv, sensor_name::String)
 end
 
 null_action(env::MuJoCoEnv, params) = zeros(env.model.nu)
+
+function prepare_sensorranges(model, sensors)
+    sensorranges = Dict{String, UnitRange{Int64}}()
+    for sensor in sensors
+        sensor_id = MuJoCo.mj_name2id(model, MuJoCo.mjOBJ_SENSOR, sensor)
+        if sensor_id == -1
+            error("Cannot find sensor '$sensor_name'")
+        end
+        ind = model.sensor_adr[sensor_id+1]
+        len = model.sensor_dim[sensor_id+1]
+        sensorranges[sensor] = (ind+1):(ind+len)
+    end
+    return sensorranges
+end
