@@ -8,7 +8,7 @@ function BatchCollectorRoot(envs, actor_critic, params)#, lapTimer::LapTimer)
 
     #Big GPU arrays/BatchComponentTensor for storing the entire batch
     #lap(lapTimer, :collector_gpu_array_alloc)
-    template_state = state(envs[1], params)
+    template_state = ComponentTensor(state(envs[1], params))
     states = BatchComponentTensor(template_state, n_envs, steps_per_batch+1; array_fcn=CUDA.zeros)
     template_actor_output = actor(actor_critic, view(states, :, 1, 1), params) |> ComponentTensor
     actor_output =  BatchComponentTensor(template_actor_output, n_envs, steps_per_batch; array_fcn=CUDA.zeros)
@@ -16,7 +16,7 @@ function BatchCollectorRoot(envs, actor_critic, params)#, lapTimer::LapTimer)
     env_status = CUDA.zeros(UInt8, n_envs, steps_per_batch)
 
     #...except infos, which never have to be moved to the GPU
-    template_info = info(envs[1], params)
+    template_info = ComponentTensor(info(envs[1], params))
     infos = BatchComponentTensor(template_info, n_envs, steps_per_batch; array_fcn=zeros)
 
     #lap(lapTimer, :collector_cpu_array_alloc)
@@ -39,7 +39,8 @@ function BatchCollectorRoot(envs, actor_critic, params)#, lapTimer::LapTimer)
             if params.rollout.reset_on_epoch_start
                 reset!(envs[i], params)
             end
-            state!(view(local_step_states, :, i), envs[i], params)
+            local_step_states[:, i] = state(envs[i], params)
+            #state!(view(local_step_states, :, i), envs[i], params)
         end
 
         lap(lapTimer, :mpi_gather_first_state)
@@ -48,7 +49,7 @@ function BatchCollectorRoot(envs, actor_critic, params)#, lapTimer::LapTimer)
         states[:, :, 1] = step_states
         for t=1:steps_per_batch
             lap(lapTimer, :rollout_actor)
-            actor_output[:, :, t] = actor(actor_critic, view(states, :, :, t), params) |> ComponentTensor
+            actor_output[:, :, t] = actor(actor_critic, view(states, :, :, t), params)# |> ComponentTensor
             lap(lapTimer, :rollout_action_to_cpu)
             CUDA.copyto!(step_actions, view(actor_output, :action, :, t))
             lap(lapTimer, :mpi_scatter_actions)
@@ -58,10 +59,12 @@ function BatchCollectorRoot(envs, actor_critic, params)#, lapTimer::LapTimer)
                 env = envs[i]
                 action = view(local_step_actions, :, i)
                 act!(env, action, params)
-                state!(view(local_step_states, :, i), env, params)
+                local_step_states[:, i] = state(envs[i], params)
+                #state!(view(local_step_states, :, i), env, params)
                 local_step_reward[i] = reward(env, params)
                 local_step_status[i] = status(env, params)
-                info!(view(local_step_infos, :, i), env, params)
+                local_step_infos[:, i] = info(envs[i], params)
+                #info!(view(local_step_infos, :, i), env, params)
                 if local_step_status[i] != RUNNING
                     reset!(env, params)
                 end
@@ -92,8 +95,8 @@ function BatchCollectorWorker(envs, params)
     steps_per_batch = params.rollout.n_steps_per_epoch
     n_envs = params.rollout.n_envs
     n_local_envs = length(envs)
-    template_state = state(envs[1], params)
-    template_info = info(envs[1], params)
+    template_state = ComponentTensor(state(envs[1], params))
+    template_info = ComponentTensor(info(envs[1], params))
     local_step_states = BatchComponentTensor(template_state, n_local_envs)
     local_step_reward = zeros(Float32, n_local_envs)
     local_step_status = zeros(UInt8, n_local_envs)
@@ -106,8 +109,9 @@ function BatchCollectorWorker(envs, params)
             if params.rollout.reset_on_epoch_start
                 reset!(envs[i], params)
             end
-            state!(view(local_step_states, :, i), envs[i], params)
+            local_step_states[:, i] = state(envs[i], params)
         end
+        return nothing
         MPI.Gather!(local_step_states |> data, nothing, MPI.COMM_WORLD)
         for t=1:steps_per_batch
             MPI.Scatter!(nothing, local_step_actions, MPI.COMM_WORLD)
@@ -115,10 +119,10 @@ function BatchCollectorWorker(envs, params)
                 env = envs[i]
                 action = view(local_step_actions, :, i)
                 act!(env, action, params)
-                state!(view(local_step_states, :, i), env, params)
+                local_step_states[:, i] = state(envs[i], params)
                 local_step_reward[i] = reward(env, params)
                 local_step_status[i] = status(env, params)
-                info!(view(local_step_infos, :, i), env, params)
+                local_step_infos[:, i] = info(envs[i], params)
                 if local_step_status[i] != RUNNING
                     reset!(env, params)
                 end
@@ -142,7 +146,7 @@ function compute_batch_stats(batch)
     merge!(logdict, quantile_dict("rollout_batch/rewards", batch.rewards))
     logdict["rollout_batch/termination_rate"] = sum(batch.status .== TERMINATED) / length(batch.status)
     batch_done = Array(batch.status .!= RUNNING)
-    merge!(logdict, quantile_dict("rollout_batch/lifespan", view(batch.infos.lifetime, 1, :, :)[batch_done]))
+    merge!(logdict, quantile_dict("rollout_batch/lifespan", view(array(batch.infos.lifetime), 1, :, :)[batch_done]))
     for key in keys(index(batch.infos))
         merge!(logdict, quantile_dict("rollout_batch/$key", batch.infos[key]))
     end

@@ -37,3 +37,27 @@ function prepare_sensorranges(model, sensors)
     end
     return sensorranges
 end
+
+function subtree_com(env::MuJoCoEnv, body::String)
+    ind = MuJoCo.NamedAccess.index_by_name(env.data, MuJoCo.mjOBJ_BODY, body)+1
+    SVector{3}(view(env.data.subtree_com, ind, :))
+end
+
+function body_xmat(env::MuJoCoEnv, body::String)
+    ind = MuJoCo.NamedAccess.index_by_name(env.data, MuJoCo.mjOBJ_BODY, body)+1
+    SMatrix{3, 3}(reshape(view(env.data.xmat, ind, :), 3, 3))
+end
+
+function body_xpos(env::MuJoCoEnv, body::String)
+    ind = MuJoCo.NamedAccess.index_by_name(env.data, MuJoCo.mjOBJ_BODY, body)+1
+    SVector{3}(view(env.data.xpos, ind, :))
+end
+
+function body_xquat(env::MuJoCoEnv, body::String)
+    ind = MuJoCo.NamedAccess.index_by_name(env.data, MuJoCo.mjOBJ_BODY, body)+1
+    SVector{4}(view(env.data.xquat, ind, :))
+end
+
+function sensor(env::MuJoCoEnv, sensorname::String)
+    return view(env.data.sensordata, env.sensorranges[sensorname])
+end

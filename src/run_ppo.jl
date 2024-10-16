@@ -24,14 +24,14 @@ function run_ppo(params)
     test_env = RodentImitationEnv(params)
     n_local_envs = params.rollout.n_envs ÷ mpi_size
     
-    envs = [clone(test_env, params) for _=1:n_local_envs]
+    envs = [clone(test_env, params) for _=1:n_local_envs];
 
     if mpi_rank == 0
         actor_critic = ActorCritic(test_env, params) |> Flux.gpu
         opt_state = Flux.setup(Flux.Adam(params.training.learning_rate), actor_critic)
         batch_collector = BatchCollectorRoot(envs, actor_critic, params)
         starttime = Dates.now()
-        run_name = "TestMPI-$(starttime)" #ImitationWithAppendages
+        run_name = "TestRefactor-$(starttime)" #ImitationWithAppendages
         lg = Wandb.WandbLogger(project = "Rodent-Imitation", name = run_name, config = params_to_dict(params))
         mkdir("runs/checkpoints/$(run_name)")
         println("[$(Dates.now())] Root ready...")
