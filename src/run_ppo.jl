@@ -1,5 +1,6 @@
 import Dates
 import MPI
+import CUDA
 println("[$(Dates.now())] Initalizing MPI...")
 MPI.Init(threadlevel=:funneled)
 println("[$(Dates.now())] MPI initialized")

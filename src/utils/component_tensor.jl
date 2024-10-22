@@ -25,7 +25,7 @@ function ComponentTensor(nt::NamedTuple)
             if value isa Number
                 data[range[key]] .= value
             elseif value isa AbstractArray
-                data[range[key]] .= reshape(value, :)
+                data[range[key]] .= value#reshape(value, :)
             else
                 copyData(range[key], arrays[key])
             end
@@ -35,19 +35,6 @@ function ComponentTensor(nt::NamedTuple)
     return ComponentTensor(data, ranges)
 end
 
-#function ComponentTensor(arrays::NamedTuple)
-#    data = cat(values(arrays)...; dims=1)
-#    sizes = [size(a, 1) for a=values(arrays)]
-#    cmsm = cumsum(sizes)
-#    start = [1; cmsm[1:end-1] .+ 1]
-#    stop = cmsm
-#    ks = keys(arrays)
-#    #::NamedTuple{ks, NTuple{length(arrays), Tuple{UnitRange{Int64}, Tuple{Int64}}}}
-#    indicies = NamedTuple{ks}(
-#        (start[i]:stop[i], (sizes[i],)) for i=1:length(arrays)
-#    )
-#    ComponentTensor(data, indicies)
-#end
 ComponentTensor(;arrays...) = ComponentTensor(NamedTuple(arrays))
 data(ct::ComponentTensor) = getfield(ct, :data)
 index(ct::ComponentTensor) = getfield(ct, :index)
@@ -65,7 +52,6 @@ end
 Base.length(ct::ComponentTensor) = prod(size(ct))
 Base.eltype(ct::ComponentTensor) = eltype(data(ct))
 Base.ndims(ct::ComponentTensor) = ndims(data(ct))
-
 
 function Base.getindex(ct::ComponentTensor, key::Symbol, inds...)
     data(ct)[range(ct, key), inds...]
@@ -100,94 +86,47 @@ end
 
 function Base.setindex!(ct::ComponentTensor, value::ComponentTensor, inds...)
     @assert index(ct) == index(value)
-    array(ct)[inds...] = array(value)
-end
-
-#function Base.setindex!(ct::ComponentTensor, value::ComponentTensor, key::Symbol, inds...)
-#    data(ct)[range(ct, key), inds...] = data(value)
-#end
-
-function Base.setindex!(ct::ComponentTensor, value::NamedTuple, ind1::Colon, inds...)
-    @assert keys(index(ct)) == keys(value)
-    t(v::NamedTuple) = v
-    t(v::AbstractArray) = reshape(v, :)
-    t(v::Number) = SVector(v)
-    for (k, v) in pairs(value)
-        ct[k, inds...] = t(v)
-    end
-end
-
-#function genFcnTest(nt::NamedTuple)
-#    #@assert keys(index(ct)) == keys(nt)
-#    lines = Expr[]
-#    rec(nt::NamedTuple, prefix) = map(k->rec(nt[k], :($prefix.$k)), keys(nt))
-#    rec(k, prefix) = push!(lines, :((ct).$prefix = nt.$prefix))#
-#    map(k->rec(nt[k], k), keys(nt))
-#    Expr(:block, lines...)
-#end
-
-
-function Base.setindex!(ct::ComponentTensor, value::NamedTuple, key::Symbol, inds...)
-    @assert keys(index(ct)[key]) == keys(value)
-    view(ct, key)[:, inds...] = value
+    data(ct)[inds...] = data(value)
+    #array(ct)[inds...] = array(value)
 end
 
 function BatchComponentTensor(template::ComponentTensor, batch_dims...; array_fcn=zeros)
     ComponentTensor(array_fcn(size(template)..., batch_dims...), index(template))
 end
 
-function genFcnTest(nt::NamedTuple)
+@generated function Base.setindex!(ct::ComponentTensor, nt::NamedTuple, ind1::Colon, inds...)
+    #Hacky meta-programming to avoid heap-allocations.
+    #TODO: recursively check keys(ct) == keys(nt)
     lines = Expr[]
     
     # Recursive function to handle nested NamedTuples
-    function rec(nt, prefix)
-        for k in keys(nt)
-            new_prefix = Expr(:., prefix, k)  # Construct valid field access
-            if nt[k] isa NamedTuple
-                rec(nt[k], new_prefix)
+    function rec(nt, lvalue, rvalue)
+        keys, types = nt.parameters
+        for (k, T) in zip(keys, types.parameters)
+            new_lvalue = :(getproperty($lvalue, $(QuoteNode(k))))
+            new_rvalue = :(getproperty($rvalue, $(QuoteNode(k))))
+            if T <: NamedTuple
+                rec(T, new_lvalue, new_rvalue)
             else
-                push!(lines, :(ct.$new_prefix = nt.$new_prefix))
+                push!(lines, quote 
+                    lsize = size(view(data(ct), $new_lvalue, inds...))
+                    rsize = size($new_rvalue)
+                    ks = $(QuoteNode(k))
+                    if lsize != rsize && !(lsize==(1,) && rsize==())
+                        error("Size of key $ks does not match ($lsize vs $rsize)")
+                    end
+                    data(ct)[$new_lvalue, inds...] .= $new_rvalue
+                end)
             end
         end
     end
-    
-    rec(nt, :nt)
+    rec(nt, :(index(ct)), :nt)
+    push!(lines, quote nothing end)
     return Expr(:block, lines...)  # Return a block of expressions
 end
 
-#function computeRange(ct::ComponentTensor, indkeys::Vector{Symbol})
-#    for i = 2:length(indkeys)
-#        @assert index(ct)[indkeys[i]][1].start == index(ct)[indkeys[i-1]][1].stop + 1
-#    end
-#    start = index(ct)[first(indkeys)][1].start
-#    stop = index(ct)[last(indkeys)][1].stop
-#    return start:stop
-#end
-
-#function Base.getindex(ct::ComponentTensor, keys::Vector{Symbol}, inds...)
-#    data(ct)[computeRange(ct, keys), inds...]
-#end
-#Base.getindex(ct::ComponentTensor, key::Vector{Symbol}) = ct[key, ntuple(_->:, ndims(ct)-1)...]
-
-#function Base.view(ct::ComponentTensor, indkeys::Vector{Symbol}, inds...)
-#    view(data(ct), computeRange(ct, indkeys), inds...)
-#end
-#function Base.view(ct::ComponentTensor, indkeys::Vector{Symbol})
-#    if ndims(ct) > 1
-#        return view(ct, indkeys, ntuple(_->:, ndims(ct)-1)...)
-#    else
-#        return view(data(ct), computeRange(ct, indkeys))
-#    end
-#end
-
 function Base.view(ct::ComponentTensor, key::Symbol)
     getproperty(ct, key)
-    #if ndims(ct) > 1
-    #    return view(ct, key, ntuple(_->:, ndims(ct)-1)...)
-    #else
-    #    return view(data(ct), range(ct, key))
-    #end
 end
 
-Base.setproperty!(ct::ComponentTensor, key::Symbol) = view(ct, key, ntuple(_->:, ndims(ct)-1)...)
 

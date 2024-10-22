@@ -21,16 +21,16 @@ function BatchCollectorRoot(envs, actor_critic, params)#, lapTimer::LapTimer)
 
     #lap(lapTimer, :collector_cpu_array_alloc)
     #Smaller arrays/ComponentTensor for keeping one timestep in CPU memory while multithreading
-    step_states = BatchComponentTensor(template_state, n_envs)
+    step_states = BatchComponentTensor(template_state, n_envs, array_fcn=(inds...)->zeros(Float32, inds...))
     step_reward = zeros(Float32, n_envs)
     step_status = zeros(UInt8, n_envs)
-    step_info  = BatchComponentTensor(template_info, n_envs)
+    step_info  = BatchComponentTensor(template_info, n_envs, array_fcn=(inds...)->zeros(Float32, inds...))
     step_actions = zeros(Float32, action_size, n_envs)
 
-    local_step_states = BatchComponentTensor(template_state, n_local_envs)
+    local_step_states = BatchComponentTensor(template_state, n_local_envs, array_fcn=(inds...)->zeros(Float32, inds...))
     local_step_reward = zeros(Float32, n_local_envs)
     local_step_status = zeros(UInt8, n_local_envs)
-    local_step_infos  = BatchComponentTensor(template_info, n_local_envs)
+    local_step_infos  = BatchComponentTensor(template_info, n_local_envs, array_fcn=(inds...)->zeros(Float32, inds...))
     local_step_actions = zeros(Float32, action_size, n_local_envs)
     function collect(lapTimer::LapTimer)
         lap(lapTimer, :resetting_envs)
@@ -40,9 +40,7 @@ function BatchCollectorRoot(envs, actor_critic, params)#, lapTimer::LapTimer)
                 reset!(envs[i], params)
             end
             local_step_states[:, i] = state(envs[i], params)
-            #state!(view(local_step_states, :, i), envs[i], params)
         end
-
         lap(lapTimer, :mpi_gather_first_state)
         MPI.Gather!(local_step_states |> data, step_states |> data, MPI.COMM_WORLD)
         lap(lapTimer, :first_state_to_gpu)
@@ -60,11 +58,9 @@ function BatchCollectorRoot(envs, actor_critic, params)#, lapTimer::LapTimer)
                 action = view(local_step_actions, :, i)
                 act!(env, action, params)
                 local_step_states[:, i] = state(envs[i], params)
-                #state!(view(local_step_states, :, i), env, params)
                 local_step_reward[i] = reward(env, params)
                 local_step_status[i] = status(env, params)
                 local_step_infos[:, i] = info(envs[i], params)
-                #info!(view(local_step_infos, :, i), env, params)
                 if local_step_status[i] != RUNNING
                     reset!(env, params)
                 end
@@ -97,13 +93,14 @@ function BatchCollectorWorker(envs, params)
     n_local_envs = length(envs)
     template_state = ComponentTensor(state(envs[1], params))
     template_info = ComponentTensor(info(envs[1], params))
-    local_step_states = BatchComponentTensor(template_state, n_local_envs)
+    local_step_states = BatchComponentTensor(template_state, n_local_envs, array_fcn=(inds...)->zeros(Float32, inds...))
     local_step_reward = zeros(Float32, n_local_envs)
     local_step_status = zeros(UInt8, n_local_envs)
-    local_step_infos  = BatchComponentTensor(template_info, n_local_envs)
+    local_step_infos  = BatchComponentTensor(template_info, n_local_envs, array_fcn=(inds...)->zeros(Float32, inds...))
     local_step_actions = zeros(Float32, action_size, n_local_envs)
 
     function collect()
+        
         #States for the first timestep
         @Threads.threads for i=1:n_local_envs
             if params.rollout.reset_on_epoch_start
@@ -111,7 +108,6 @@ function BatchCollectorWorker(envs, params)
             end
             local_step_states[:, i] = state(envs[i], params)
         end
-        return nothing
         MPI.Gather!(local_step_states |> data, nothing, MPI.COMM_WORLD)
         for t=1:steps_per_batch
             MPI.Scatter!(nothing, local_step_actions, MPI.COMM_WORLD)

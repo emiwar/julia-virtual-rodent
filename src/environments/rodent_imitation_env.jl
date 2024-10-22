@@ -56,7 +56,7 @@ function state(env::RodentImitationEnv, params)
             ),
             torso = (
                 velocity = sensor(env, "torso"),
-                xmat = body_xmat(env, "torso"),
+                xmat = reshape(body_xmat(env, "torso"), :),
                 com = subtree_com(env, "torso")
             ),
             paw_contacts = (
@@ -67,10 +67,10 @@ function state(env::RodentImitationEnv, params)
             )
         ),
         imitation_target = (
-            com = com_horizon(env),
-            root_quat = root_quat_horizon(env),
-            joints = joints_horizon(env),
-            appendages = appendages_pos_horizon(env)
+            com = reshape(com_horizon(env), :),
+            root_quat = reshape(root_quat_horizon(env), :),
+            joints = reshape(joints_horizon(env), :),
+            appendages = reshape(appendages_pos_horizon(env), :)
         )
     )
 end
