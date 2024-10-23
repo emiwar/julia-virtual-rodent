@@ -108,7 +108,7 @@ function info(env::RodentFollowEnv, params)
         torso_z=torso_z(env),
         lifetime=float(env.lifetime),
         cumulative_reward=env.cumulative_reward,
-        actuator_force_sum_sqr=sum(env.data.actuator_force.^2),
+        actuator_force_sum_sqr=norm(env.data.actuator_force)^2,
         angle_to_target=angle_to_target(env) |> rad2deg,
         joint_reward = exp(-sum(joint_error(env).^2) / (params.reward.falloff.joint)^2),
         appendages_reward = appendages_reward(env, params),
