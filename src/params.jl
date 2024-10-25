@@ -8,19 +8,22 @@ params = (
         latent_dimension=128
     ),
     physics = (
-        n_physics_steps=5,
+        n_physics_steps = 5,
         min_torso_z = 0.03,
-        spawn_z_offset=0.01,
-        torque_control=false
+        spawn_z_offset = 0.01,
+        torque_control = false,
+        body_scale = 1.0,
+        timestep = 0.001,
+        foot_mods = false
     ),
     reward = (
         alive_bonus = 0.1,
         control_cost = 0.001,
         falloff = (
-            com = 0.05,
-            rotation = 0.5,
-            joint = 2.0,
-            appendages = 0.02
+            com = 0.05,       #meter
+            rotation = 0.5,   #radians
+            joint = 2.0,      #root-sum-square of radians
+            appendages = 0.02 #meter
         ),
     ),
     imitation = (
@@ -41,7 +44,7 @@ params = (
     rollout = (
         n_envs=512,
         n_steps_per_epoch=16,
-        n_epochs=150_000,
+        n_epochs=20,
         reset_on_epoch_start=false,
     )
 )

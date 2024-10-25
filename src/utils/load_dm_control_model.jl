@@ -1,11 +1,11 @@
 import PyCall
 import MuJoCo
 const dm_locomotion = PyCall.pyimport("dm_control.locomotion")
-for mod in ("walkers", "arenas", "tasks")
-    PyCall.pyimport("dm_control.locomotion.$mod")
+for submod in ("walkers", "arenas", "tasks")
+    PyCall.pyimport("dm_control.locomotion.$submod")
 end
 
-function dm_control_rodent(;torque_actuators=true, foot_mods=true, scale=0.9,
+function dm_control_rodent(;torque_actuators=true, foot_mods=true, scale=1.0,
                             physics_timestep=0.002, control_timestep=0.02)
     walker = dm_locomotion.walkers.rodent.Rat(;torque_actuators, foot_mods)
     dm_locomotion.walkers.rescale.rescale_subtree(walker.root_body, scale, scale)
