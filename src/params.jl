@@ -12,7 +12,7 @@ params = (
         min_torso_z = 0.03,
         spawn_z_offset = 0.01,
         torque_control = false,
-        body_scale = 1.0,
+        body_scale = 0.8,
         timestep = 0.001,
         foot_mods = false
     ),
@@ -44,7 +44,7 @@ params = (
     rollout = (
         n_envs=512,
         n_steps_per_epoch=16,
-        n_epochs=20,
+        n_epochs=100_000,
         reset_on_epoch_start=false,
     )
 )

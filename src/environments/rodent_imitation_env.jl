@@ -17,16 +17,16 @@ mutable struct RodentImitationEnv{ImLen} <: RodentFollowEnv
 end
 
 function RodentImitationEnv(params)
-    model = dm_control_rodent(torque_actuators = params.physics.torque_control,
-                              foot_mods = params.physics.foot_mods,
-                              scale = params.physics.body_scale,
-                              physics_timestep = params.physics.timestep,
-                              control_timestep = params.physics.timestep * params.physics.n_physics_steps)
+    if params.physics.torque_control
+        modelPath = "src/environments/assets/rodent_with_floor_scale080_torques.xml"
+    else
+        modelPath = "src/environments/assets/rodent_with_floor_scale080_edits.xml"
+    end
+    model = MuJoCo.load_model(modelPath)
     data = MuJoCo.init_data(model)
     target = ImitationTarget(model)
-    sensorranges = prepare_sensorranges(model, "walker/" .* ["accelerometer", "velocimeter",
-                                                            "gyro", "palm_L", "palm_R",
-                                                            "sole_L", "sole_R", "torso"])
+    sensorranges = prepare_sensorranges(model, ["accelerometer", "velocimeter", "gyro",
+                                                "palm_L", "palm_R", "sole_L", "sole_R", "torso"])
     env = RodentImitationEnv{params.imitation.horizon}(model, data, target, 0, 1, 0, 0.0, sensorranges)
     reset!(env, params)
     return env
@@ -50,20 +50,20 @@ function state(env::RodentImitationEnv, params)
             joint_vel = (@view env.data.qvel[7:end]),
             actuations = (@view env.data.act[:]),
             head = (
-                velocity = sensor(env, "walker/velocimeter"),
-                accel = sensor(env, "walker/accelerometer"),
-                gyro = sensor(env, "walker/gyro")
+                velocity = sensor(env, "velocimeter"),
+                accel = sensor(env, "accelerometer"),
+                gyro = sensor(env, "gyro")
             ),
             torso = (
-                velocity = sensor(env, "walker/torso"),
-                xmat = reshape(body_xmat(env, "walker/torso"), :),
-                com = subtree_com(env, "walker/torso")
+                velocity = sensor(env, "torso"),
+                xmat = reshape(body_xmat(env, "torso"), :),
+                com = subtree_com(env, "torso")
             ),
             paw_contacts = (
-                palm_L = sensor(env, "walker/palm_L"),
-                palm_R = sensor(env, "walker/palm_R"),
-                sole_L = sensor(env, "walker/sole_L"),
-                sole_R = sensor(env, "walker/sole_R")
+                palm_L = sensor(env, "palm_L"),
+                palm_R = sensor(env, "palm_R"),
+                sole_L = sensor(env, "sole_L"),
+                sole_R = sensor(env, "sole_R")
             )
         ),
         imitation_target = (
@@ -143,9 +143,9 @@ function reset!(env::RodentFollowEnv, params)
 end
 
 #Utils
-torso_x(env::RodentFollowEnv) = subtree_com(env, "walker/torso")[1]
-torso_y(env::RodentFollowEnv) = subtree_com(env, "walker/torso")[2]
-torso_z(env::RodentFollowEnv) = subtree_com(env, "walker/torso")[3]
+torso_x(env::RodentFollowEnv) = subtree_com(env, "torso")[1]
+torso_y(env::RodentFollowEnv) = subtree_com(env, "torso")[2]
+torso_z(env::RodentFollowEnv) = subtree_com(env, "torso")[3]
 
 #Targets
 target_frame(env::RodentImitationEnv) = env.target_frame
@@ -157,24 +157,24 @@ end
 target_com(env::RodentImitationEnv) = target_com(env, target_frame(env))
 target_com(env::RodentImitationEnv, t) = SVector{3}(view(env.target.com, :, t, env.target_clip))
 function relative_com(env::RodentImitationEnv, t::Int64)
-    body_xmat(env, "walker/torso") * (target_com(env, t) - subtree_com(env, "walker/torso"))
+    body_xmat(env, "torso") * (target_com(env, t) - subtree_com(env, "torso"))
 end
 @generated function com_horizon(env::RodentImitationEnv{N}) where N
     return :(hcat($((:(relative_com(env, target_frame(env) + $i)) for i=1:N)...)))
 end
-com_error(env::RodentImitationEnv) = target_com(env) - subtree_com(env, "walker/torso")
+com_error(env::RodentImitationEnv) = target_com(env) - subtree_com(env, "torso")
 
 #Root quaternion target
 target_root_quat(env::RodentImitationEnv) = target_root_quat(env, target_frame(env))
 target_root_quat(env::RodentImitationEnv, t) = SVector{4}(view(env.target.qpos, 4:7, t, env.target_clip))
 function relative_root_quat(env::RodentImitationEnv, t::Int64)::SVector{3, Float64}
-    subQuat(target_root_quat(env, t), body_xquat(env, "walker/torso"))
+    subQuat(target_root_quat(env, t), body_xquat(env, "torso"))
 end
 @generated function root_quat_horizon(env::RodentImitationEnv{N}) where N
     return :(hcat($((:(relative_root_quat(env, target_frame(env) + $i)) for i=1:N)...)))
 end
 function angle_to_target(env::RodentImitationEnv)
-    quat_prod = target_root_quat(env)' * body_xquat(env, "walker/torso")
+    quat_prod = target_root_quat(env)' * body_xquat(env, "torso")
     return 2*acos(abs(clamp(quat_prod, -1, 1))) #Concerning that clamp is needed here
 end
 
@@ -197,7 +197,7 @@ end
 
 #Appendages
 function appendage_pos(env::RodentImitationEnv, appendage_name::String)
-    body_xmat(env, "walker/torso")*(body_xpos(env, appendage_name) .- body_xpos(env, "walker/torso"))
+    body_xmat(env, "torso")*(body_xpos(env, appendage_name) .- body_xpos(env, "torso"))
 end
 @generated function appendages_pos(env::RodentImitationEnv)
     :(hcat($((:(appendage_pos(env, $a)) for a=appendages())...)))
@@ -219,7 +219,7 @@ function appendages_reward(env::RodentImitationEnv, params)
 end
 
 function com_target_info(env::RodentFollowEnv, params)
-    target_vec = target_com(env) - subtree_com(env, "walker/torso")
+    target_vec = target_com(env) - subtree_com(env, "torso")
     dist = norm(target_vec)
     app_error = appendages_error(env)
     spawn_point = target_com(env, 1)
@@ -228,7 +228,7 @@ function com_target_info(env::RodentFollowEnv, params)
      target_vec_y=target_vec[2],
      target_vec_z=target_vec[3],
      target_distance=dist,
-     distance_from_spawpoint=norm(spawn_point - subtree_com(env, "walker/torso")),
+     distance_from_spawpoint=norm(spawn_point - subtree_com(env, "torso")),
      joint_error=sqrt(joint_error(env)),
      lower_arm_R_error=norm(view(app_error, :, 1)),
      lower_arm_L_error=norm(view(app_error, :, 2)),

@@ -34,7 +34,7 @@ function ImitationTarget(model)
     ImitationTarget(qpos, qvel, center_of_mass, appendages_pos)
 end
 
-appendages() = ("walker/lower_arm_R", "walker/lower_arm_L", "walker/foot_R", "walker/foot_L", "walker/jaw")
+appendages() = ("lower_arm_R", "lower_arm_L", "foot_R", "foot_L", "jaw")
 
 function infer_com_and_appendages(model, fullphysics)
     _, T, n_clips = size(fullphysics)
@@ -46,7 +46,7 @@ function infer_com_and_appendages(model, fullphysics)
         for t = 1:T
             MuJoCo.set_physics_state!(model, d, view(fullphysics, :, t, clip_id))
             MuJoCo.forward!(model, d)
-            torso = MuJoCo.body(d, "walker/torso")
+            torso = MuJoCo.body(d, "torso")
             torso_xmat = reshape(torso.xmat, 3, 3)
             center_of_mass[:, t, clip_id] .= torso.com
             for (i, app_name) in enumerate(appendages())
