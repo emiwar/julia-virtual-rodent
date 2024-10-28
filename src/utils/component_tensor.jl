@@ -15,7 +15,7 @@ function ComponentTensor(nt::NamedTuple)
     firstArray(nt::NamedTuple) = firstArray(first(nt))
     firstArray(a::AbstractArray) = a
     firstArray(a::Number) = nothing
-    if firstArray(nt) isa CUDA.AnyCuArray
+    if isdefined(Main, :CUDA) && firstArray(nt) isa CUDA.AnyCuArray
         data = CUDA.zeros(counter[]-1)
     else
         data = zeros(counter[]-1)

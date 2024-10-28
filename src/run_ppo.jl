@@ -1,10 +1,10 @@
 import Dates
 import MPI
-import CUDA
 println("[$(Dates.now())] Initalizing MPI...")
 MPI.Init(threadlevel=:funneled)
 println("[$(Dates.now())] MPI initialized")
 include("utils/profiler.jl")
+include("utils/load_dm_control_model.jl")
 include("environments/rodent_imitation_env.jl")
 include("algorithms/collector.jl")
 include("params.jl")
@@ -12,6 +12,7 @@ if MPI.Comm_rank(MPI.COMM_WORLD)==0
     using Flux
     using ProgressMeter
     import BSON
+    import CUDA
     include("algorithms/ppo_loss.jl")
     include("algorithms/ppo_networks.jl")
     include("utils/wandb_logger.jl")
@@ -33,10 +34,10 @@ function run_ppo(params)
         batch_collector = BatchCollectorRoot(envs, actor_critic, params)
         starttime = Dates.now()
         run_name = "TestRefactor-$(starttime)" #ImitationWithAppendages
-        lg = Wandb.WandbLogger(project = "Rodent-Imitation", name = run_name, config = params_to_dict(params))
-        mkdir("runs/checkpoints/$(run_name)")
+        #lg = Wandb.WandbLogger(project = "Rodent-Imitation", name = run_name, config = params_to_dict(params))
+        #mkdir("runs/checkpoints/$(run_name)")
         println("[$(Dates.now())] Root ready...")
-        @showprogress for epoch = 1:params.rollout.n_epochs
+        @showprogress for epoch = 1:5#params.rollout.n_epochs
             lapTimer = LapTimer()
             batch = batch_collector(lapTimer)
             ppo_log = ppo_update!(batch, actor_critic, opt_state, params, lapTimer)
@@ -46,15 +47,15 @@ function run_ppo(params)
             logdict["total_steps"] = epoch * params.rollout.n_envs * params.rollout.n_steps_per_epoch
             lap(lapTimer, :checkpointing)
             if epoch % params.training.checkpoint_interval == 0
-                checkpoint_fn = "runs/checkpoints/$(run_name)/step-$(epoch).bson"
-                BSON.bson(checkpoint_fn; actor_critic=Flux.cpu(actor_critic))
-                lg.wrun.log_model(checkpoint_fn, "checkpoint-step-$(epoch).bson")
+                #checkpoint_fn = "runs/checkpoints/$(run_name)/step-$(epoch).bson"
+                #BSON.bson(checkpoint_fn; actor_critic=Flux.cpu(actor_critic))
+                #lg.wrun.log_model(checkpoint_fn, "checkpoint-step-$(epoch).bson")
             end
             lap(lapTimer, :logging_submitting)
             merge!(logdict, to_stringdict(lapTimer))
-            Wandb.log(lg, logdict)
+            #Wandb.log(lg, logdict)
         end
-        Wandb.close(lg);
+        #Wandb.close(lg);
     else
         batch_collector = BatchCollectorWorker(envs, params)
         println("[$(Dates.now())] Worker $mpi_rank ready...")
