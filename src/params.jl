@@ -10,11 +10,12 @@ params = (
     physics = (
         n_physics_steps = 5,
         min_torso_z = 0.03,
-        spawn_z_offset = 0.01,
+        spawn_z_offset = 0.00,
         torque_control = false,
         body_scale = 1.0,
-        timestep = 0.001,
-        foot_mods = false
+        timestep = 0.002,
+        foot_mods = true,
+        hip_mods = true
     ),
     reward = (
         alive_bonus = 0.1,
@@ -44,7 +45,7 @@ params = (
     rollout = (
         n_envs=512,
         n_steps_per_epoch=16,
-        n_epochs=20,
+        n_epochs=100_000,
         reset_on_epoch_start=false,
     )
 )

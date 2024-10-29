@@ -6,8 +6,11 @@ for submod in ("walkers", "arenas", "tasks")
 end
 
 function dm_control_rodent(;torque_actuators=true,
-                            foot_mods=true, scale=1.0,
+                            foot_mods=true, scale=1.0, hip_mods=false,
                             physics_timestep=0.002, control_timestep=0.02)
+    if torque_actuators && hip_mods
+        error("Hip mods are not defined for torque_actuators.")
+    end
     walker = dm_locomotion.walkers.rodent.Rat(;torque_actuators, foot_mods)
     dm_locomotion.walkers.rescale.rescale_subtree(walker.root_body, scale, scale)
     arena = dm_locomotion.arenas.Floor()
@@ -16,6 +19,13 @@ function dm_control_rodent(;torque_actuators=true,
     task = dm_locomotion.tasks.escape.Escape(;walker, arena,
                                               physics_timestep,
                                               control_timestep)
+    if hip_mods
+        hip_actuators = ["lumbar_extend", "lumbar_bend", "lumbar_twist",
+                         "cervical_extend", "cervical_bend", "cervical_twist"]
+        for ha in hip_actuators
+            task.root_entity.mjcf_model.find("actuator", "walker/$ha").gainprm /= 100.0
+        end
+    end
 
     #Conversion to a MuJoCo.jl model is done by saving and loading the task's xml
     mjcf_model = task.root_entity.mjcf_model

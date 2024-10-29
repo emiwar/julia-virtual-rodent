@@ -21,6 +21,7 @@ function RodentImitationEnv(params)
     model = dm_control_rodent(torque_actuators = params.physics.torque_control,
                               foot_mods = params.physics.foot_mods,
                               scale = params.physics.body_scale,
+                              hip_mods = params.physics.hip_mods,
                               physics_timestep = params.physics.timestep,
                               control_timestep = params.physics.timestep * params.physics.n_physics_steps)
     data = MuJoCo.init_data(model)
