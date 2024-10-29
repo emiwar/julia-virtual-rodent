@@ -1,6 +1,7 @@
 include("mujoco_env.jl")
 include("imitation_trajectory.jl")
 include("../utils/mujoco_quat.jl")
+include("../utils/load_dm_control_model.jl")
 import LinearAlgebra: norm
 using StaticArrays
 abstract type RodentFollowEnv <: MuJoCoEnv end
@@ -25,8 +26,8 @@ function RodentImitationEnv(params)
     data = MuJoCo.init_data(model)
     target = ImitationTarget(model)
     sensorranges = prepare_sensorranges(model, "walker/" .* ["accelerometer", "velocimeter",
-                                                            "gyro", "palm_L", "palm_R",
-                                                            "sole_L", "sole_R", "torso"])
+                                                             "gyro", "palm_L", "palm_R",
+                                                             "sole_L", "sole_R", "torso"])
     env = RodentImitationEnv{params.imitation.horizon}(model, data, target, 0, 1, 0, 0.0, sensorranges)
     reset!(env, params)
     return env
