@@ -25,7 +25,7 @@ function ActorCritic(template_env::MuJoCoEnv, params::NamedTuple)
     critic_size = params.network.critic_size
     critic  = Chain(Dense(full_state_size => critic_size[1], tanh),
                     (Dense(a => b, tanh) for (a, b) in zip(critic_size[1:end-1], critic_size[2:end]))...,
-                    Dense(critic_size[end] => 1, tanh, init=zeros32))
+                    Dense(critic_size[end] => 1, init=zeros32))
 
     return ActorCritic(encoder, decoder, critic)
 end
