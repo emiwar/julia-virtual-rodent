@@ -1,16 +1,16 @@
 params = (
     network = (
-        hidden1_size=1024,
-        hidden2_size=512,
-        sigma_init_bias=0f0,
+        encoder_size=[1024, 1024],
+        decoder_size=[1024, 1024],
+        critic_size=[1024, 1024],
         sigma_min=1f-2,
         sigma_max=5f-1,
-        latent_dimension=128
+        latent_dimension=60
     ),
     physics = (
         n_physics_steps = 5,
         min_torso_z = 0.03,
-        spawn_z_offset = 0.00,
+        spawn_z_offset = 0.01,
         torque_control = false,
         body_scale = 1.0,
         timestep = 0.002,
@@ -43,7 +43,7 @@ params = (
         checkpoint_interval=5000,
     ),
     rollout = (
-        n_envs=512,
+        n_envs=4096,
         n_steps_per_epoch=16,
         n_epochs=100_000,
         reset_on_epoch_start=false,

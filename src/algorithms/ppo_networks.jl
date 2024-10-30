@@ -1,64 +1,50 @@
-struct ActorCritic{A,C,E,X,J,Ap}
-    actor::A
+struct ActorCritic{E,D,C}
+    encoder::E
+    decoder::D
     critic::C
-    com_encoder::E
-    root_quat_encoder::X
-    joint_encoder::J
-    appendages_encoder::Ap
 end
 
 Flux.@layer ActorCritic
 
-function ActorCritic(env::MuJoCoEnv, params::NamedTuple)
-    s = ComponentTensor(state(env, params))
-    state_size = length(s)
-    action_size =  length(null_action(env, params))#mapreduce(s->length(s), +, null_action(env, params))
-    #prop_size = length(computeRange(s, prop_keys()))
-    #com_size = length(computeRange(s, [:com_target_array]))
-    #xmat_size = length(computeRange(s, [:xquat_target_array]))
-    #joint_size = length(computeRange(s, [:joint_target_array]))
-    #appendages_size = length(computeRange(s, [:appendages_target_array]))
-    actor_input_size = length(s.proprioception) + params.network.latent_dimension*4
-    actor_bias = [zeros32(action_size); params.network.sigma_init_bias*ones32(action_size)]
-    actor_net = Chain(Dense(actor_input_size => params.network.hidden1_size, tanh),
-                      Dense(params.network.hidden1_size => params.network.hidden2_size, tanh),
-                      Dense(params.network.hidden2_size => 2*action_size, tanh;
-                            init=zeros32, bias=actor_bias))
-    critic_net = Chain(Dense(state_size => params.network.hidden1_size, tanh),
-                       Dense(params.network.hidden1_size => params.network.hidden2_size, tanh),
-                       Dense(params.network.hidden2_size => 1; init=zeros32))
-    com_encoder = Dense(length(s.imitation_target.com) => params.network.latent_dimension, tanh)
-    root_quat_encoder = Dense(length(s.imitation_target.root_quat) => params.network.latent_dimension, tanh)
-    joint_encoder = Dense(length(s.imitation_target.joints) => params.network.latent_dimension, tanh)
-    appendages_encoder = Dense(length(s.imitation_target.appendages) => params.network.latent_dimension, tanh)
-    #encoders = map(keys(s.imitation_target)) do key
-    #    input_size = length(view(s.imitation_target, key))
-    #    key => Dense(input_size => params.network.latent_dimension, tanh)
-    #end |> NamedTuple
-    return ActorCritic(actor_net, critic_net, com_encoder, root_quat_encoder, joint_encoder, appendages_encoder)
-end
+function ActorCritic(template_env::MuJoCoEnv, params::NamedTuple)
+    template_state = ComponentTensor(state(template_env, params))
+    action_size = length(null_action(template_env, params))
 
-function encoder(actor_critic::ActorCritic, state)
-    com_target_array = Flux.ignore(()->state.imitation_target.com |> array |> copy)
-    root_quat_target_array = Flux.ignore(()->state.imitation_target.root_quat |> array |> copy)
-    joint_target_array = Flux.ignore(()->state.imitation_target.joints |> array |> copy)
-    appendages_target_array = Flux.ignore(()->state.imitation_target.appendages |> array |> copy)
-    proprioception = Flux.ignore(()->state.proprioception |> array |> copy)
-    #println(typeof(com_target_array), size(com_target_array))
-    com_encoded   = actor_critic.com_encoder(com_target_array)
-    root_quat_encoded = actor_critic.root_quat_encoder(root_quat_target_array)
-    joint_encoded = actor_critic.joint_encoder(joint_target_array)
-    appendages_encoded = actor_critic.appendages_encoder(appendages_target_array)
-    cat(proprioception, com_encoded, root_quat_encoded, joint_encoded, appendages_encoded; dims=1)
+    full_state_size = length(template_state)
+    encoder_input_size = length(template_state.imitation_target)
+    decoder_input_size = length(template_state.proprioception) + params.network.latent_dimension
+
+    encoder_size = params.network.encoder_size
+    encoder = Chain(Dense(encoder_input_size => encoder_size[1], tanh),
+                    (Dense(a => b, tanh) for (a, b) in zip(encoder_size[1:end-1], encoder_size[2:end]))...,
+                    Dense(encoder_size[end] => params.network.latent_dimension, tanh))
+    decoder_size = params.network.decoder_size
+    decoder = Chain(Dense(decoder_input_size => decoder_size[1], tanh),
+                    (Dense(a => b, tanh) for (a, b) in zip(decoder_size[1:end-1], decoder_size[2:end]))...,
+                    Dense(decoder_size[end] => 2*action_size, tanh, init=zeros32))
+    critic_size = params.network.critic_size
+    critic  = Chain(Dense(full_state_size => critic_size[1], tanh),
+                    (Dense(a => b, tanh) for (a, b) in zip(critic_size[1:end-1], critic_size[2:end]))...,
+                    Dense(critic_size[end] => 1, tanh, init=zeros32))
+
+    return ActorCritic(encoder, decoder, critic)
 end
 
 function actor(actor_critic::ActorCritic, state, params, action=nothing)
-    input = encoder(actor_critic, state)
-    actor_net_output = actor_critic.actor(input)
-    action_size = size(actor_net_output, 1) ÷ 2
-    batch_dims = ntuple(_->:, ndims(actor_net_output)-1)
-    mu = view(actor_net_output, 1:action_size, batch_dims...)
-    unscaled_sigma = view(actor_net_output, (action_size+1):2*action_size, batch_dims...)
+    #Annoying work-around to avoid auto-diff errors
+    imitation_target = Flux.ignore(()->state.imitation_target |> array |> copy)
+    proprioception = Flux.ignore(()->state.proprioception |> array |> copy)
+
+    #Run network
+    latent = actor_critic.encoder(imitation_target)
+    decoder_input = cat(latent, proprioception; dims=1)
+    decoder_output = actor_critic.decoder(decoder_input)
+
+    #Draw action with mean and sigma, and compute action likelihood
+    action_size = size(decoder_output, 1) ÷ 2
+    batch_dims = ntuple(_->:, ndims(decoder_output)-1)
+    mu = view(decoder_output, 1:action_size, batch_dims...)
+    unscaled_sigma = view(decoder_output, (action_size+1):2*action_size, batch_dims...)
     sigma_min = params.network.sigma_min
     sigma_max = params.network.sigma_max
     sigma = sigma_min .+ 0.5f0.*(sigma_max .- sigma_min).*(1 .+ unscaled_sigma)
@@ -79,4 +65,4 @@ function critic(actor_critic::ActorCritic, state, params)
     return view(actor_critic.critic(input), 1, :, :) ./ (1.0-params.training.gamma)
 end
 
-action_size(actor_critic::ActorCritic) = size(actor_critic.actor[end].weight, 1) ÷ 2
+#action_size(actor_critic::ActorCritic) = size(actor_critic.actor[end].weight, 1) ÷ 2

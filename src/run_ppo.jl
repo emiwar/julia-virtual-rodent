@@ -33,7 +33,7 @@ function run_ppo(params)
         opt_state = Flux.setup(Flux.Adam(params.training.learning_rate), actor_critic)
         batch_collector = BatchCollectorRoot(envs, actor_critic, params)
         starttime = Dates.now()
-        run_name = "DmControlImitation-$(starttime)" #ImitationWithAppendages
+        run_name = "ProperEncDec-$(starttime)" #ImitationWithAppendages
         lg = Wandb.WandbLogger(project = "Rodent-Imitation", name = run_name, config = params_to_dict(params))
         mkdir("runs/checkpoints/$(run_name)")
         println("[$(Dates.now())] Root ready...")
