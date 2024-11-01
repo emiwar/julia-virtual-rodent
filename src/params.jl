@@ -35,6 +35,7 @@ params = (
         loss_weight_actor = 1.0,
         loss_weight_critic = 0.5,
         loss_weight_entropy = -0.2,#-0.00,#-0.5,
+        loss_weight_kl = 0.0,
         n_miniepochs=2,
         learning_rate=1e-4,
         gamma=0.95,
@@ -43,7 +44,7 @@ params = (
         checkpoint_interval=5000,
     ),
     rollout = (
-        n_envs=4096,
+        n_envs=512,
         n_steps_per_epoch=16,
         n_epochs=100_000,
         reset_on_epoch_start=false,
