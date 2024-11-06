@@ -39,7 +39,7 @@ function load_from_wandb(run_id, checkpoint::Regex=r"\.bson"; project="emiwar-te
     end
     params = to_named_tuple(params_as_pydict, true)
     all_artifacts = collect(ex_run.logged_artifacts())
-    art_id = findlast(art->occursin(checkpoint, pyconvert(String, art.name)), all_artifacts)
+    art_id = findlast(art->occursin(checkpoint, PythonCall.pyconvert(String, art.name)), all_artifacts)
     if art_id === nothing
         error("Could not find any checkpoint mathing '$checkpoint'.")
     end

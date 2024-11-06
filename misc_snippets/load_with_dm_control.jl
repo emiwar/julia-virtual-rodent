@@ -1,7 +1,7 @@
-using PyCall
+using PythonCall
 
-dm_locomotion = PyCall.pyimport("dm_control.locomotion")
-tasks = PyCall.pyimport("dm_control.locomotion.tasks")
+dm_locomotion = PythonCall.pyimport("dm_control.locomotion")
+tasks = PythonCall.pyimport("dm_control.locomotion.tasks")
 walker = dm_locomotion.walkers.rodent.Rat()
 dm_locomotion.walkers.rescale.rescale_subtree(walker.root_body, 0.9, 0.9)
 arena = dm_locomotion.arenas.Floor()

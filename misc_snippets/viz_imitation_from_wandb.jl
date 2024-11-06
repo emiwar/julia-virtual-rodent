@@ -11,7 +11,7 @@ include("../src/algorithms/ppo_networks.jl")
 include("../src/utils/wandb_logger.jl")
 
 T = 5000
-wandb_run_id = "vo055vvi"
+wandb_run_id = "dtm8d5lr" #"7mzfglak"
 
 params, weights_file_name = load_from_wandb(wandb_run_id, r"step-.*")
 actor_critic = BSON.load(weights_file_name)[:actor_critic] |> Flux.gpu
