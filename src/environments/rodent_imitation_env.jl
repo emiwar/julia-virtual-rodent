@@ -97,7 +97,7 @@ function status(env::RodentFollowEnv, params)
     target_distance = norm(com_error(env))
     if torso_z(env) < params.physics.min_torso_z 
         return TERMINATED
-    elseif target_frame(env) + params.imitation.horizon >= size(env.target)[3]
+    elseif target_frame(env) + params.imitation.horizon >= size(env.target)[2]
         return TRUNCATED
     elseif target_distance > params.imitation.max_target_distance
         return TERMINATED
@@ -252,7 +252,7 @@ function com_target_info(env::RodentFollowEnv, params)
      target_distance=dist,
      distance_from_spawpoint=norm(spawn_point - subtree_com(env, "walker/torso")),
      joint_error=sqrt(joint_error(env)),
-     joint_vel_error=sqrt(joint_error(env)),
+     joint_vel_error=sqrt(joint_vel_error(env)),
      lower_arm_R_error=norm(view(app_error, :, 1)),
      lower_arm_L_error=norm(view(app_error, :, 2)),
      foot_R_error=norm(view(app_error, :, 3)),
@@ -269,5 +269,18 @@ function all_bodies_error(env::RodentImitationEnv)
         current_pos = body_xpos(env, "walker/"*body_name)
         error = norm(current_pos - target_pos)
         Symbol("global_error_" * body_name) => error
+    end
+end
+
+function Base.show(io::IO, env::RodentImitationEnv{ImLen}) where ImLen
+    compact = get(io, :compact, false)
+    if compact
+        print(io, "RodentImitationEnv{ImLen = $ImLen}")
+    else
+        println(io, "RodentImitationEnv{ImLen = $ImLen}:")
+        println(io, "\ttarget_clip: $(env.target_clip)")
+        println(io, "\ttarget_frame: $(env.target_frame)")
+        println(io, "\tlifetime: $(env.lifetime)")
+        println(io, "\tcumulative_reward: $(env.cumulative_reward)")
     end
 end
