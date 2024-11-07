@@ -97,7 +97,7 @@ function status(env::RodentFollowEnv, params)
     target_distance = norm(com_error(env))
     if torso_z(env) < params.physics.min_torso_z 
         return TERMINATED
-    elseif target_frame(env) + params.imitation.horizon >= length(env.target)
+    elseif target_frame(env) + params.imitation.horizon >= size(env.target)[3]
         return TRUNCATED
     elseif target_distance > params.imitation.max_target_distance
         return TERMINATED
@@ -264,8 +264,8 @@ end
 
 function all_bodies_error(env::RodentImitationEnv)
     map(bodies_order()) do body_name
-        target_pos = SVector{3}(view(test_env.target.body_positions, Symbol(body_name),
-                                      target_frame(env), env.target_clip))
+        target_pos = SVector{3}(view(env.target.body_positions, Symbol(body_name),
+                                     target_frame(env), env.target_clip))
         current_pos = body_xpos(env, "walker/"*body_name)
         error = norm(current_pos - target_pos)
         Symbol("global_error_" * body_name) => error

@@ -15,7 +15,7 @@ function ComponentTensor(nt::NamedTuple)
     firstArray(nt::NamedTuple) = firstArray(first(nt))
     firstArray(a::AbstractArray) = a
     firstArray(a::Number) = nothing
-    batch_size = size(firstArray(nt))[2:end]
+    batch_size = isnothing(firstArray(nt)) ? () : size(firstArray(nt))[2:end]
     batch_dims = ntuple(_->:, length(batch_size))
     if isdefined(Main, :CUDA) && firstArray(nt) isa CUDA.AnyCuArray
         data = CUDA.zeros(counter[]-1, batch_size...)
