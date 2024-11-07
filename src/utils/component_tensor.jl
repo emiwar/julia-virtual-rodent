@@ -7,7 +7,7 @@ function ComponentTensor(nt::NamedTuple)
     counter = Ref(1)
     function computeRanges(a)
         old_ind = counter[]
-        counter[] += length(a)
+        counter[] += size(a, 1)
         return old_ind:(counter[]-1)
     end
     computeRanges(nt::NamedTuple) = map(computeRanges, nt)
@@ -15,17 +15,19 @@ function ComponentTensor(nt::NamedTuple)
     firstArray(nt::NamedTuple) = firstArray(first(nt))
     firstArray(a::AbstractArray) = a
     firstArray(a::Number) = nothing
+    batch_size = size(firstArray(nt))[2:end]
+    batch_dims = ntuple(_->:, length(batch_size))
     if isdefined(Main, :CUDA) && firstArray(nt) isa CUDA.AnyCuArray
-        data = CUDA.zeros(counter[]-1)
+        data = CUDA.zeros(counter[]-1, batch_size...)
     else
-        data = zeros(counter[]-1)
+        data = zeros(counter[]-1, batch_size...)
     end
     function copyData(range::NamedTuple, arrays::NamedTuple)
         for (key, value) in pairs(arrays)
             if value isa Number
-                data[range[key]] .= value
+                data[range[key], batch_dims...] .= value
             elseif value isa AbstractArray
-                data[range[key]] .= value#reshape(value, :)
+                data[range[key], batch_dims...] .= value#reshape(value, :)
             else
                 copyData(range[key], arrays[key])
             end
