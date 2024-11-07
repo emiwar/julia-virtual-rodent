@@ -3,14 +3,6 @@ using ProgressMeter
 import LinearAlgebra: norm
 include("../src/utils/component_tensor.jl")
 include("../src/utils/load_dm_control_model.jl")
-function conseq_inds(names, step_size)
-    NamedTuple(Symbol(bn) => (step_size*(j-1)+1):(step_size*j) for (j, bn) in enumerate(names))
-end
-
-function read_as_batch(f, label)
-    clips = map(i->"clip_$(i-1)", 1:length(keys(f)))
-    cat((read(f["$clip/walkers/walker_0/$label"])' for clip in clips)...; dims=3)
-end
 
 bodies_order() = ["torso", "pelvis", "upper_leg_L", "lower_leg_L", "foot_L",
                   "upper_leg_R", "lower_leg_R", "foot_R", "skull", "jaw",
@@ -38,9 +30,19 @@ function load_imitation_target(src="src/environments/assets/diego_curated_snippe
         com = read_as_batch(f, "center_of_mass"),
         body_positions = map(ind->view(body_positions, ind, :, :), conseq_inds(bodies_order(), 3)),
         body_quats = map(ind->view(body_quats, ind, :, :), conseq_inds(bodies_order(), 4)),
-        appendages = map(ind->view(appendages, ind, :, :), conseq_inds(appendages_order(), 3)),
+        appendages = map(ind->view(appendages, ind, :, :), conseq_inds(appendages_order(), 3))
     )
 end
+
+function conseq_inds(names, step_size)
+    NamedTuple(Symbol(n) => (step_size*(j-1)+1):(step_size*j) for (j, n) in enumerate(names))
+end
+
+function read_as_batch(f, label)
+    clips = map(i->"clip_$(i-1)", 1:length(keys(f)))
+    cat((read(f["$clip/walkers/walker_0/$label"])' for clip in clips)...; dims=3)
+end
+
 
 im_target = load_imitation_target()
 model = dm_control_rodent(scale=1.0, physics_timestep=0.001, control_timestep=0.02,

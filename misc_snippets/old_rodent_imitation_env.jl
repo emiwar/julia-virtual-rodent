@@ -6,10 +6,10 @@ import LinearAlgebra: norm
 using StaticArrays
 abstract type RodentFollowEnv <: MuJoCoEnv end
 
-mutable struct RodentImitationEnv{ImLen, ImTarget} <: RodentFollowEnv
+mutable struct RodentImitationEnv{ImLen} <: RodentFollowEnv
     model::MuJoCo.Model
     data::MuJoCo.Data
-    target::ImTarget
+    target::ImitationTarget
     target_frame::Int64
     target_clip::Int64
     lifetime::Int64
@@ -18,9 +18,6 @@ mutable struct RodentImitationEnv{ImLen, ImTarget} <: RodentFollowEnv
 end
 
 function RodentImitationEnv(params)
-    if params.physics.body_scale != 1.0
-        @warn "Code for rescaling imitation target removed from preprocessing, will use imitation target for scale=1.0." params.physics.body_scale
-    end
     model = dm_control_rodent(torque_actuators = params.physics.torque_control,
                               foot_mods = params.physics.foot_mods,
                               scale = params.physics.body_scale,
@@ -28,17 +25,17 @@ function RodentImitationEnv(params)
                               physics_timestep = params.physics.timestep,
                               control_timestep = params.physics.timestep * params.physics.n_physics_steps)
     data = MuJoCo.init_data(model)
-    target = load_imitation_target()
+    target = ImitationTarget(model)
     sensorranges = prepare_sensorranges(model, "walker/" .* ["accelerometer", "velocimeter",
                                                              "gyro", "palm_L", "palm_R",
                                                              "sole_L", "sole_R", "torso"])
-    env = RodentImitationEnv{params.imitation.horizon, typeof(target)}(model, data, target, 0, 1, 0, 0.0, sensorranges)
+    env = RodentImitationEnv{params.imitation.horizon}(model, data, target, 0, 1, 0, 0.0, sensorranges)
     reset!(env, params)
     return env
 end
 
 function clone(env::RodentImitationEnv{ImLen}, params) where ImLen
-    new_env = RodentImitationEnv{ImLen, typeof(env.target)}(
+    new_env = RodentImitationEnv{ImLen}(
         env.model,
         MuJoCo.init_data(env.model),
         env.target,
@@ -137,13 +134,13 @@ end
 function reset!(env::RodentFollowEnv, params)
     env.lifetime = 0
     env.cumulative_reward = 0.0
-    env.target_clip = rand(1:size(env.target.qpos)[1])
+    env.target_clip = rand(1:size(env.target.qpos, 1))
     env.target_frame = 1
 
     MuJoCo.reset!(env.model, env.data)
-    env.data.qpos .= view(env.target, :qpos, target_frame(env), env.target_clip)
+    env.data.qpos .= view(env.target.qpos, :, target_frame(env), env.target_clip)
     env.data.qpos[3] += params.physics.spawn_z_offset
-    env.data.qvel .= view(env.target, :qvel, target_frame(env), env.target_clip)
+    env.data.qvel .= view(env.target.qvel, :, target_frame(env), env.target_clip)
     MuJoCo.forward!(env.model, env.data) #Run model forward to get correct initial state
 end
 
@@ -160,7 +157,7 @@ end
 
 #Center-of-mass target
 target_com(env::RodentImitationEnv) = target_com(env, target_frame(env))
-target_com(env::RodentImitationEnv, t) = SVector{3}(view(env.target, :com, t, env.target_clip))
+target_com(env::RodentImitationEnv, t) = SVector{3}(view(env.target.com, :, t, env.target_clip))
 function relative_com(env::RodentImitationEnv, t::Int64)
     body_xmat(env, "walker/torso") * (target_com(env, t) - subtree_com(env, "walker/torso"))
 end
@@ -171,7 +168,7 @@ com_error(env::RodentImitationEnv) = target_com(env) - subtree_com(env, "walker/
 
 #Root quaternion target
 target_root_quat(env::RodentImitationEnv) = target_root_quat(env, target_frame(env))
-target_root_quat(env::RodentImitationEnv, t) = SVector{4}(view(env.target.qpos, :root_quat, t, env.target_clip))
+target_root_quat(env::RodentImitationEnv, t) = SVector{4}(view(env.target.qpos, 4:7, t, env.target_clip))
 function relative_root_quat(env::RodentImitationEnv, t::Int64)::SVector{3, Float64}
     subQuat(target_root_quat(env, t), body_xquat(env, "walker/torso"))
 end
@@ -185,14 +182,14 @@ end
 
 #Joints
 function target_joints(env::RodentImitationEnv, t)
-    @view env.target.qpos[:joints, t, env.target_clip]
+    @view env.target.qpos[8:end, t, env.target_clip]
 end
 function joints_horizon(env::RodentImitationEnv)
-    @view env.target.qpos[:joints, imitation_horizon(env), env.target_clip]
+    @view env.target.qpos[8:end, imitation_horizon(env), env.target_clip]
 end
 function joint_error(env::RodentImitationEnv)
-    joint_indices = 8:size(env.target.qpos)[1]
-    target_joint = view(env.target, :qpos, target_frame(env), env.target_clip)
+    joint_indices = 8:size(env.target.qpos, 1)
+    target_joint = view(env.target.qpos, :, target_frame(env), env.target_clip)
     err = 0.0
     for ji in joint_indices
         err += (target_joint[ji] - env.data.qpos[ji])^2
@@ -202,14 +199,14 @@ end
 
 #Joint vel
 function target_joint_vels(env::RodentImitationEnv, t)
-    @view env.target.qvel[:joints, t, env.target_clip]
+    @view env.target.qvel[7:end, t, env.target_clip]
 end
 function joint_vels_horizon(env::RodentImitationEnv)
-    @view env.target.qvel[:joints, imitation_horizon(env), env.target_clip]
+    @view env.target.qvel[7:end, imitation_horizon(env), env.target_clip]
 end
 function joint_vel_error(env::RodentImitationEnv)
-    joint_indices = 7:size(env.target.qvel)[1]
-    target_joint_vel = view(env.target, :qvel, target_frame(env), env.target_clip)
+    joint_indices = 7:size(env.target.qvel, 1)
+    target_joint_vel = view(env.target.qvel, :, target_frame(env), env.target_clip)
     err = 0.0
     for ji in joint_indices
         err += (target_joint_vel[ji] - env.data.qvel[ji])^2
@@ -222,11 +219,11 @@ function appendage_pos(env::RodentImitationEnv, appendage_name::String)
     body_xmat(env, "walker/torso")*(body_xpos(env, appendage_name) .- body_xpos(env, "walker/torso"))
 end
 @generated function appendages_pos(env::RodentImitationEnv)
-    :(hcat($((:(appendage_pos(env, "walker/" * $a)) for a=appendages_order())...)))
+    :(hcat($((:(appendage_pos(env, $a)) for a=appendages())...)))
 end
 appendages_pos_horizon(env) = appendages_pos_horizon(env, target_frame(env))
 function appendages_pos_horizon(env, t)
-    SMatrix{3, length(appendages_order())}(view(env.target, :appendages, t, env.target_clip))
+    SMatrix{3, length(appendages())}(view(env.target.appendages, :, :, t, env.target_clip))
 end
 function appendages_error(env::RodentImitationEnv)
     appendages_pos_horizon(env) - appendages_pos(env)
@@ -237,7 +234,7 @@ function appendages_reward(env::RodentImitationEnv, params)
     for i = axes(errors, 2)
         reward += exp(-norm(view(errors, :, i))^2 / (params.reward.falloff.appendages^2))
     end
-    return reward / length(appendages_order())
+    return reward / length(appendages())
 end
 
 function com_target_info(env::RodentFollowEnv, params)
@@ -257,17 +254,6 @@ function com_target_info(env::RodentFollowEnv, params)
      lower_arm_L_error=norm(view(app_error, :, 2)),
      foot_R_error=norm(view(app_error, :, 3)),
      foot_L_error=norm(view(app_error, :, 4)),
-     jaw_error=norm(view(app_error, :, 5)),
-     all_bodies_error(env)...
+     jaw_error=norm(view(app_error, :, 5))
      )
-end
-
-function all_bodies_error(env::RodentImitationEnv)
-    map(bodies_order()) do body_name
-        target_pos = SVector{3}(view(test_env.target.body_positions, Symbol(body_name),
-                                      target_frame(env), env.target_clip))
-        current_pos = body_xpos(env, "walker/"*body_name)
-        error = norm(current_pos - target_pos)
-        Symbol("global_error_" * body_name) => error
-    end
 end
