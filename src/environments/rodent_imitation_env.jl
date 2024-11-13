@@ -85,7 +85,8 @@ function reward(env::RodentFollowEnv, params)
     target_vec = com_error(env)
     com_reward = exp(-(norm(target_vec)^2) / (params.reward.falloff.com^2))
     angle_reward = exp(-(angle_to_target(env)^2) / (params.reward.falloff.rotation^2))
-    joint_reward = exp(-joint_error(env) / (params.reward.falloff.joint^2))
+    #joint_reward = exp(-joint_error(env) / (params.reward.falloff.joint^2))
+    joint_reward = alt_joint_reward(env, params)
     append_reward = appendages_reward(env, params)
     ctrl_reward = -params.reward.control_cost * norm(env.data.ctrl)^2
     total_reward  = com_reward + angle_reward + joint_reward + append_reward
@@ -112,11 +113,13 @@ function info(env::RodentFollowEnv, params)
         torso_y=torso_y(env),
         torso_z=torso_z(env),
         lifetime=float(env.lifetime),
-        cumulative_reward=env.cumulative_reward,
-        actuator_force_sum_sqr=norm(env.data.actuator_force)^2,
-        angle_to_target=angle_to_target(env) |> rad2deg,
+        cumulative_reward = env.cumulative_reward,
+        actuator_force_sum_sqr = norm(env.data.actuator_force)^2,
+        angle_to_target = angle_to_target(env) |> rad2deg,
         joint_reward = exp(-sum(joint_error(env).^2) / (params.reward.falloff.joint)^2),
         appendages_reward = appendages_reward(env, params),
+        alt_joint_reward = alt_joint_reward(env, params),
+        alt_joint_vel_reward = alt_joint_vel_reward(env, params),
         com_target_info(env, params)...
     )
 end
@@ -134,17 +137,22 @@ function act!(env::RodentFollowEnv, action, params)
     env.cumulative_reward += reward(env, params)
 end
 
-function reset!(env::RodentFollowEnv, params)
+function reset!(env::RodentFollowEnv, params; next_clip)
     env.lifetime = 0
     env.cumulative_reward = 0.0
-    env.target_clip = rand(1:(size(env.target)[3]))
+    env.target_clip = next_clip
     env.target_frame = 1
 
     MuJoCo.reset!(env.model, env.data)
     env.data.qpos .= view(env.target, :qpos, target_frame(env), env.target_clip)
     env.data.qpos[3] += params.physics.spawn_z_offset
     env.data.qvel .= view(env.target, :qvel, target_frame(env), env.target_clip)
-    MuJoCo.forward!(env.model, env.data) #Run model forward to get correct initial state
+    #Run model forward to get correct initial state
+    MuJoCo.forward!(env.model, env.data) 
+end
+
+function reset!(env::RodentFollowEnv, params)
+    reset!(env, params; next_clip=rand(1:(size(env.target)[3])))
 end
 
 #Utils
@@ -199,6 +207,16 @@ function joint_error(env::RodentImitationEnv)
     end
     return err
 end
+function alt_joint_reward(env::RodentImitationEnv, params)
+    joint_indices = 8:size(env.target.qpos)[1]
+    target_joint = view(env.target, :qpos, target_frame(env), env.target_clip)
+    rew = 0.0
+    sig_sqr = params.reward.falloff.per_joint^2
+    for ji in joint_indices
+        rew += exp(-(target_joint[ji] - env.data.qpos[ji])^2 / sig_sqr)
+    end
+    return rew / length(joint_indices)
+end
 
 #Joint vel
 function target_joint_vels(env::RodentImitationEnv, t)
@@ -215,6 +233,16 @@ function joint_vel_error(env::RodentImitationEnv)
         err += (target_joint_vel[ji] - env.data.qvel[ji])^2
     end
     return err
+end
+function alt_joint_vel_reward(env::RodentImitationEnv, params)
+    joint_indices = 7:size(env.target.qvel)[1]
+    target_joint_vel = view(env.target, :qvel, target_frame(env), env.target_clip)
+    rew = 0.0
+    sig_sqr = params.reward.falloff.per_joint_vel^2
+    for ji in joint_indices
+        rew += exp(-(target_joint_vel[ji] - env.data.qvel[ji])^2 / sig_sqr)
+    end
+    return rew / length(joint_indices)
 end
 
 #Appendages
