@@ -87,9 +87,10 @@ function reward(env::RodentFollowEnv, params)
     angle_reward = exp(-(angle_to_target(env)^2) / (params.reward.falloff.rotation^2))
     #joint_reward = exp(-joint_error(env) / (params.reward.falloff.joint^2))
     joint_reward = alt_joint_reward(env, params)
+    joint_vel_reward = alt_joint_vel_reward(env, params)
     append_reward = appendages_reward(env, params)
     ctrl_reward = -params.reward.control_cost * norm(env.data.ctrl)^2
-    total_reward  = com_reward + angle_reward + joint_reward + append_reward
+    total_reward  = com_reward + angle_reward + joint_reward + joint_vel_reward + append_reward
     total_reward += ctrl_reward + params.reward.alive_bonus
     total_reward #return clamp(total_reward, params.min_reward, Inf)
 end
