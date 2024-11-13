@@ -75,6 +75,7 @@ function state(env::RodentImitationEnv, params)
             com = reshape(com_horizon(env), :),
             root_quat = reshape(root_quat_horizon(env), :),
             joints = reshape(joints_horizon(env), :),
+            joint_vels = reshape(joint_vels_horizon(env), :),
             appendages = reshape(appendages_pos_horizon(env), :)
         )
     )
@@ -224,7 +225,7 @@ function target_joint_vels(env::RodentImitationEnv, t)
     @view env.target.qvel[:joints, t, env.target_clip]
 end
 function joint_vels_horizon(env::RodentImitationEnv)
-    @view env.target.qvel[:joints, imitation_horizon(env), env.target_clip]
+    @view env.target.qvel[:joints_vel, imitation_horizon(env), env.target_clip]
 end
 function joint_vel_error(env::RodentImitationEnv)
     joint_indices = 7:size(env.target.qvel)[1]
