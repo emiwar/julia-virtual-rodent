@@ -75,7 +75,7 @@ function state(env::RodentImitationEnv, params)
             com = reshape(com_horizon(env), :),
             root_quat = reshape(root_quat_horizon(env), :),
             joints = reshape(joints_horizon(env), :),
-            joint_vels = reshape(joint_vels_horizon(env), :),
+            #joint_vels = reshape(joint_vels_horizon(env), :),
             appendages = reshape(appendages_pos_horizon(env), :)
         )
     )
@@ -88,7 +88,7 @@ function reward(env::RodentFollowEnv, params)
     angle_reward = exp(-(angle_to_target(env)^2) / (params.reward.falloff.rotation^2))
     #joint_reward = exp(-joint_error(env) / (params.reward.falloff.joint^2))
     joint_reward = alt_joint_reward(env, params)
-    joint_vel_reward = alt_joint_vel_reward(env, params)
+    joint_vel_reward = 0 #alt_joint_vel_reward(env, params)
     append_reward = appendages_reward(env, params)
     ctrl_reward = -params.reward.control_cost * norm(env.data.ctrl)^2
     total_reward  = com_reward + angle_reward + joint_reward + joint_vel_reward + append_reward

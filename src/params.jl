@@ -9,13 +9,13 @@ params = (
     ),
     physics = (
         n_physics_steps = 5,
-        min_torso_z = 0.03,
-        spawn_z_offset = 0.01,
-        torque_control = true,
+        min_torso_z = 0.035,
+        spawn_z_offset = 0.005,
+        torque_control = false,
         body_scale = 1.0,
         timestep = 0.002,
         foot_mods = true,
-        hip_mods = false
+        hip_mods = true
     ),
     reward = (
         alive_bonus = 0.1,
@@ -31,13 +31,13 @@ params = (
     ),
     imitation = (
         horizon = 5,
-        max_target_distance = 2e-1
+        max_target_distance = 1e-1
     ),
     training = (
         loss_weight_actor = 1.0,
         loss_weight_critic = 0.5,
         loss_weight_entropy = -0.2,#-0.00,#-0.5,
-        loss_weight_kl = 0.1,
+        loss_weight_kl = 0.01,
         n_miniepochs=2,
         learning_rate=1e-4,
         gamma=0.95,
@@ -46,9 +46,9 @@ params = (
         checkpoint_interval=5000,
     ),
     rollout = (
-        n_envs=512,
+        n_envs=4096,
         n_steps_per_epoch=16,
-        n_epochs=100_000,
+        n_epochs=200_000,
         reset_on_epoch_start=false,
     )
 )
