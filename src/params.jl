@@ -24,6 +24,7 @@ params = (
             com = 0.05,         #meter
             rotation = 0.5,     #radians
             joint = 2.0,        #root-sum-square of radians
+            joint_vel = 5.0,      #root-sum-square of radians/sec
             appendages = 0.02,  #meter
             per_joint = 0.2,    #radians 
             per_joint_vel = 1.0 #radians / s

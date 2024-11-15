@@ -86,9 +86,10 @@ function reward(env::RodentFollowEnv, params)
     target_vec = com_error(env)
     com_reward = exp(-(norm(target_vec)^2) / (params.reward.falloff.com^2))
     angle_reward = exp(-(angle_to_target(env)^2) / (params.reward.falloff.rotation^2))
-    #joint_reward = exp(-joint_error(env) / (params.reward.falloff.joint^2))
-    joint_reward = alt_joint_reward(env, params)
-    joint_vel_reward = 0 #alt_joint_vel_reward(env, params)
+    joint_reward = exp(-joint_error(env) / (params.reward.falloff.joint^2))
+    #joint_reward = alt_joint_reward(env, params)
+    joint_vel_reward = exp(-joint_vel_error(env) / (params.reward.falloff.joint_vel^2)),
+    #joint_vel_reward = alt_joint_vel_reward(env, params)
     append_reward = appendages_reward(env, params)
     ctrl_reward = -params.reward.control_cost * norm(env.data.ctrl)^2
     total_reward  = com_reward + angle_reward + joint_reward + joint_vel_reward + append_reward
@@ -118,7 +119,8 @@ function info(env::RodentFollowEnv, params)
         cumulative_reward = env.cumulative_reward,
         actuator_force_sum_sqr = norm(env.data.actuator_force)^2,
         angle_to_target = angle_to_target(env) |> rad2deg,
-        joint_reward = exp(-sum(joint_error(env).^2) / (params.reward.falloff.joint)^2),
+        joint_reward = exp(-joint_error(env) / (params.reward.falloff.joint^2)),
+        joint_vel_reward = exp(-joint_vel_error(env) / (params.reward.falloff.joint_vel^2)),
         appendages_reward = appendages_reward(env, params),
         alt_joint_reward = alt_joint_reward(env, params),
         alt_joint_vel_reward = alt_joint_vel_reward(env, params),
