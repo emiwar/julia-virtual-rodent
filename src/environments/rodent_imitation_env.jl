@@ -75,7 +75,7 @@ function state(env::RodentImitationEnv, params)
             com = reshape(com_horizon(env), :),
             root_quat = reshape(root_quat_horizon(env), :),
             joints = reshape(joints_horizon(env), :),
-            #joint_vels = reshape(joint_vels_horizon(env), :),
+            joint_vels = reshape(joint_vels_horizon(env), :),
             appendages = reshape(appendages_pos_horizon(env), :)
         )
     )
