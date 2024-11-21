@@ -73,4 +73,25 @@ function critic(actor_critic::ActorCritic, state, params)
     return view(actor_critic.critic(input), 1, :, :) ./ (1.0-params.training.gamma)
 end
 
+function decoder_only(actor_critic::ActorCritic, state, latent, params; action_noise=false)
+    proprioception = Flux.ignore(()->state.proprioception |> array |> copy)
+    batch_dims = ntuple(_->:, ndims(proprioception)-1)
+    decoder_input = cat(latent, proprioception; dims=1)
+    decoder_output = actor_critic.decoder(decoder_input)
+
+    #Draw action with mean and sigma, and compute action likelihood
+    action_size = size(decoder_output, 1) ÷ 2
+    mu = @view decoder_output[1:action_size, batch_dims...]
+    if action_noise
+        unscaled_sigma = @view decoder_output[action_size+1:end, batch_dims...]
+        sigma_min = params.network.sigma_min
+        sigma_max = params.network.sigma_max
+        sigma = sigma_min .+ 0.5f0.*(sigma_max .- sigma_min).*(1 .+ unscaled_sigma)
+        xsi = randn_like(mu)
+        return mu .+ sigma .* xsi
+    else
+        return mu
+    end
+end
+
 #action_size(actor_critic::ActorCritic) = size(actor_critic.actor[end].weight, 1) ÷ 2
