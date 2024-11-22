@@ -7,6 +7,7 @@ include("utils/profiler.jl")
 include("utils/load_dm_control_model.jl")
 include("environments/rodent_imitation_env.jl")
 include("algorithms/collector.jl")
+include("utils/wandb_logger.jl")
 if MPI.Comm_rank(MPI.COMM_WORLD)==0
     using Flux
     using ProgressMeter
@@ -14,7 +15,6 @@ if MPI.Comm_rank(MPI.COMM_WORLD)==0
     import CUDA
     include("algorithms/ppo_loss.jl")
     include("algorithms/ppo_networks.jl")
-    include("utils/wandb_logger.jl")
 end
 
 function run_ppo(params, run_prefix, actor_critic=nothing, epoch_start=1)
@@ -74,7 +74,12 @@ if isnothing(continue_from)
     epoch = 1
 else
     params = load_params_from_wandb(continue_from)
-    actor_critic, epoch = load_actor_critic_from_wandb(continue_from)
+    if MPI.Comm_rank(MPI.COMM_WORLD) == 0
+        actor_critic, epoch = load_actor_critic_from_wandb(continue_from)
+    else
+        actor_critic = nothing
+	epoch = 1
+    end
 end
 
 run_ppo(params, "Continue-$(continue_from)", actor_critic, epoch)
