@@ -7,7 +7,6 @@ include("utils/profiler.jl")
 include("utils/load_dm_control_model.jl")
 include("environments/rodent_imitation_env.jl")
 include("algorithms/collector.jl")
-include("params.jl")
 if MPI.Comm_rank(MPI.COMM_WORLD)==0
     using Flux
     using ProgressMeter
@@ -18,7 +17,7 @@ if MPI.Comm_rank(MPI.COMM_WORLD)==0
     include("utils/wandb_logger.jl")
 end
 
-function run_ppo(params)
+function run_ppo(params, run_prefix, actor_critic=nothing, epoch_start=1)
     @assert MPI.Is_thread_main()
     mpi_rank = MPI.Comm_rank(MPI.COMM_WORLD)
     mpi_size = MPI.Comm_size(MPI.COMM_WORLD)
@@ -29,15 +28,17 @@ function run_ppo(params)
     envs = [clone(test_env, params) for _=1:n_local_envs];
 
     if mpi_rank == 0
-        actor_critic = ActorCritic(test_env, params) |> Flux.gpu
+        if isnothing(actor_critic)
+            actor_critic = ActorCritic(test_env, params) |> Flux.gpu
+        end
         opt_state = Flux.setup(Flux.Adam(params.training.learning_rate), actor_critic)
         batch_collector = BatchCollectorRoot(envs, actor_critic, params)
         starttime = Dates.now()
-        run_name = "qvelReward-$(starttime)" #ImitationWithAppendages
+        run_name = "$(run_prefix)-$(starttime)" #ImitationWithAppendages
         lg = Wandb.WandbLogger(project = "Rodent-Imitation", name = run_name, config = params_to_dict(params))
         mkdir("runs/checkpoints/$(run_name)")
         println("[$(Dates.now())] Root ready...")
-        @showprogress for epoch = 1:params.rollout.n_epochs
+        @showprogress for epoch = epoch_start:params.rollout.n_epochs
             lapTimer = LapTimer()
             batch = batch_collector(lapTimer)
             ppo_log = ppo_update!(batch, actor_critic, opt_state, params, lapTimer)
@@ -65,5 +66,17 @@ function run_ppo(params)
     end
 end
 
-run_ppo(params)
+continue_from = "6q2a2pxw" #nothing
+
+if isnothing(continue_from)
+    include("params.jl")
+    actor_critic = nothing
+    epoch = 1
+else
+    params = load_params_from_wandb(continue_from)
+    actor_critic, epoch = load_actor_critic_from_wandb(continue_from)
+end
+
+run_ppo(params, "Continue-$(continue_from)", actor_critic, epoch)
+
 MPI.Finalize()
