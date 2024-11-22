@@ -1,7 +1,7 @@
 import HDF5
 include("../src/utils/load_dm_control_model.jl")
 MuJoCo.init_visualiser()
-oldModelPath = "src/environments/assets/rodent_with_floor_scale080_torques.xml"
+#oldModelPath = "src/environments/assets/rodent_with_floor_scale080_torques.xml"
 #model = MuJoCo.load_model(oldModelPath)
 model = dm_control_rodent(scale=1.0, physics_timestep=0.001, control_timestep=0.02,
                           torque_actuators = true, foot_mods = true)
@@ -34,16 +34,29 @@ BODY_NAMES = ["torso", "pelvis", "upper_leg_L", "lower_leg_L", "foot_L",
               "scapula_L", "upper_arm_L", "lower_arm_L", "finger_L",
               "scapula_R", "upper_arm_R", "lower_arm_R","finger_R"]
 
-data = MuJoCo.init_data(model)
+mjdata = MuJoCo.init_data(model)
 clip_id = 12 #Julia is 1-indexed
 frame = 78 #Arbitrary
-data.qpos .= qpos[:, frame, clip_id] #From Diego's HDF5
-MuJoCo.forward!(model, data)
+mjdata.qpos .= qpos[:, frame, clip_id] #From Diego's HDF5
+MuJoCo.forward!(model, mjdata)
 for (i, body_name) in enumerate(BODY_NAMES)
     ref_body_pos = body_pos[:, i, frame, clip_id]
-    err = MuJoCo.body(data, "walker/$body_name").xpos - ref_body_pos
+    err = MuJoCo.body(mjdata, "walker/$body_name").xpos - ref_body_pos
     println(i, body_name, err)
 end
+
+function estimate_qvel(model, qpos; dt)
+    T = size(qpos, 2)
+    output = zeros(model.nv)
+    qvel = zeros(model.nv, T)
+    for t=1:(T-1)
+        MuJoCo.mj_differentiatePos(model, output, dt, qpos[:, t], qpos[:, t+1])
+        qvel[:, t] .= clamp.(output, -20, 20) #Seems Diego is doing this?
+    end
+    return qvel
+end
+est_qvel = estimate_qvel(model, qpos[:, :, clip_id]; dt=1.0/50.0)
+
 
 data = MuJoCo.init_data(model)
 data.qpos .= qpos[:, 1, 100] 

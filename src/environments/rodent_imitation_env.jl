@@ -17,7 +17,7 @@ mutable struct RodentImitationEnv{ImLen, ImTarget} <: RodentFollowEnv
     sensorranges::Dict{String, UnitRange{Int64}}
 end
 
-function RodentImitationEnv(params)
+function RodentImitationEnv(params; target_data="src/environments/assets/diego_curated_snippets.h5")
     if params.physics.body_scale != 1.0
         @warn "Code for rescaling imitation target removed from preprocessing, will use imitation target for scale=1.0." params.physics.body_scale
     end
@@ -28,7 +28,7 @@ function RodentImitationEnv(params)
                               physics_timestep = params.physics.timestep,
                               control_timestep = params.physics.timestep * params.physics.n_physics_steps)
     data = MuJoCo.init_data(model)
-    target = load_imitation_target()
+    target = load_imitation_target(target_data)
     sensorranges = prepare_sensorranges(model, "walker/" .* ["accelerometer", "velocimeter",
                                                              "gyro", "palm_L", "palm_R",
                                                              "sole_L", "sole_R", "torso"])
@@ -141,11 +141,11 @@ function act!(env::RodentFollowEnv, action, params)
     env.cumulative_reward += reward(env, params)
 end
 
-function reset!(env::RodentFollowEnv, params; next_clip)
+function reset!(env::RodentFollowEnv, params, next_clip, next_frame)
     env.lifetime = 0
     env.cumulative_reward = 0.0
     env.target_clip = next_clip
-    env.target_frame = 1
+    env.target_frame = next_frame
 
     MuJoCo.reset!(env.model, env.data)
     env.data.qpos .= view(env.target, :qpos, target_frame(env), env.target_clip)
@@ -156,7 +156,7 @@ function reset!(env::RodentFollowEnv, params; next_clip)
 end
 
 function reset!(env::RodentFollowEnv, params)
-    reset!(env, params; next_clip=rand(1:(size(env.target)[3])))
+    reset!(env, params, rand(1:(size(env.target)[3])), 1)
 end
 
 #Utils

@@ -11,7 +11,7 @@ include("../src/algorithms/ppo_networks.jl")
 include("../src/utils/wandb_logger.jl")
 include("../src/utils/load_dm_control_model.jl")
 
-T = 5000
+T = 10000
 wandb_run_id = "6q2a2pxw" #"7mzfglak"
 
 params, weights_file_name = load_from_wandb(wandb_run_id, r"step-.*")
@@ -19,8 +19,8 @@ actor_critic = BSON.load(weights_file_name)[:actor_critic] |> Flux.gpu
 
 MuJoCo.init_visualiser()
 
-env = RodentImitationEnv(params)
-reset!(env, params)
+env = RodentImitationEnv(params; target_data="reference_data/2020_12_22_1_precomputed.h5")
+reset!(env, params, next_clip=1, next_frame=1)
 
 dubbleModel = dm_control_model_with_ghost(torque_actuators = params.physics.torque_control,
                                           foot_mods = params.physics.foot_mods,
@@ -46,7 +46,8 @@ ProgressMeter.@showprogress for t=1:T
         env.target_frame += 1
     end
     if status(env, params) != RUNNING
-        reset!(env, params)
+        println("Resetting at age $(env.lifetime), frame $(env.target_frame), animation step $(t*n_physics_steps)")
+        reset!(env, params, 1, env.target_frame)
     end
 end
 
