@@ -11,16 +11,16 @@ include("../src/algorithms/ppo_networks.jl")
 include("../src/utils/wandb_logger.jl")
 include("../src/utils/load_dm_control_model.jl")
 
-T = 10000
-wandb_run_id = "6q2a2pxw" #"7mzfglak"
+T = 2500
+wandb_run_id = "j0zwbgns" #"7mzfglak"
 
 params, weights_file_name = load_from_wandb(wandb_run_id, r"step-.*")
 actor_critic = BSON.load(weights_file_name)[:actor_critic] |> Flux.gpu
 
 MuJoCo.init_visualiser()
 
-env = RodentImitationEnv(params; target_data="reference_data/2020_12_22_1_precomputed.h5")
-reset!(env, params, next_clip=1, next_frame=1)
+env = RodentImitationEnv(params, target_data="reference_data/2020_12_22_1_precomputed.h5")
+reset!(env, params, 1, 25000)
 
 dubbleModel = dm_control_model_with_ghost(torque_actuators = params.physics.torque_control,
                                           foot_mods = params.physics.foot_mods,
@@ -32,7 +32,8 @@ exploration = false
 n_physics_steps = params.physics.n_physics_steps
 ProgressMeter.@showprogress for t=1:T
     env_state = state(env, params) |> ComponentTensor
-    actor_output = actor(actor_critic, ComponentTensor(CUDA.cu(data(env_state)), index(env_state)), params)
+    actor_output = actor(actor_critic, ComponentTensor(CUDA.cu(data(env_state)), index(env_state)), params,
+                         nothing, CUDA.zeros(params.network.latent_dimension))
     env.data.ctrl .= clamp.(exploration ? actor_output.action : actor_output.mu, -1.0, 1.0) |> Array
     for tt=1:n_physics_steps
         dubbleData.qpos[1:(env.model.nq)] .= env.data.qpos

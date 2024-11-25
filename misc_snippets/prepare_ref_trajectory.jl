@@ -1,9 +1,10 @@
 import HDF5
 import MuJoCo
+import StaticArrays: SVector
 using ProgressMeter
 include("../src/environments/imitation_trajectory.jl")
-HDF5.h5open(display, "src/environments/assets/diego_curated_snippets.h5", "r")
-HDF5.h5open(f->size(f["clip_0/walkers/walker_0/body_quaternions"]), "src/environments/assets/diego_curated_snippets.h5", "r")
+#HDF5.h5open(display, "src/environments/assets/diego_curated_snippets.h5", "r")
+#HDF5.h5open(f->size(f["clip_0/walkers/walker_0/body_quaternions"]), "src/environments/assets/diego_curated_snippets.h5", "r")
 
 function infer_com_and_appendages(model, qpos)
     T = size(qpos, 2)
@@ -43,9 +44,9 @@ function estimate_qvel(model, qpos; dt)
 end
 
 
-#sess_name = "2020_12_22_1"
-#qpos = HDF5.h5open(f->read(f["pose/qpos"]), "reference_data/$(sess_name).h5", "r")
-qpos = array(load_imitation_target().qpos)[:, :, 1]
+sess_name = "2020_12_23_1"
+qpos = HDF5.h5open(f->read(f["pose/qpos"]), "reference_data/$(sess_name).h5", "r")
+#qpos = array(load_imitation_target().qpos)[:, :, 1]
 
 
 model = dm_control_rodent(torque_actuators = true,
@@ -56,7 +57,7 @@ model = dm_control_rodent(torque_actuators = true,
                           control_timestep = 0.01)
 qvel = estimate_qvel(model, qpos; dt=1.0/50.0);
 center_of_mass, appendages, body_pos, body_quat = infer_com_and_appendages(model, qpos);
-HDF5.h5open("reference_data/clip0_recomputed.h5", "w") do fid
+HDF5.h5open("reference_data/$(sess_name)_precomputed.h5", "w") do fid
     fid["clip_0/walkers/walker_0/position"] = qpos[1:3, :]' |> collect
     fid["clip_0/walkers/walker_0/quaternion"] = qpos[4:7, :]' |> collect
     fid["clip_0/walkers/walker_0/joints"] = qpos[8:end, :]' |> collect
