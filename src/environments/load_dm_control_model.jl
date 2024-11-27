@@ -1,10 +1,3 @@
-import PythonCall
-import MuJoCo
-const dm_locomotion = PythonCall.pyimport("dm_control.locomotion")
-for submod in ("walkers", "arenas", "tasks")
-    PythonCall.pyimport("dm_control.locomotion.$submod")
-end
-
 function dm_control_rodent(;torque_actuators=true,
                             foot_mods=true, scale=1.0, hip_mods=false,
                             physics_timestep=0.002, control_timestep=0.02)

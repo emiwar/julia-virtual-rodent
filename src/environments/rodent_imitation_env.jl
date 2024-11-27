@@ -1,20 +1,12 @@
-include("mujoco_env.jl")
-include("imitation_trajectory.jl")
-include("../utils/mujoco_quat.jl")
-include("../utils/load_dm_control_model.jl")
-import LinearAlgebra: norm
-using StaticArrays
 abstract type RodentFollowEnv <: MuJoCoEnv end
 
 mutable struct RodentImitationEnv{ImLen, ImTarget} <: RodentFollowEnv
-    model::MuJoCo.Model
-    data::MuJoCo.Data
+    mujoco_core::MuJoCoCore
     target::ImTarget
     target_frame::Int64
     target_clip::Int64
     lifetime::Int64
     cumulative_reward::Float64
-    sensorranges::Dict{String, UnitRange{Int64}}
 end
 
 function RodentImitationEnv(params; target_data="src/environments/assets/diego_curated_snippets.h5")
@@ -32,17 +24,16 @@ function RodentImitationEnv(params; target_data="src/environments/assets/diego_c
     sensorranges = prepare_sensorranges(model, "walker/" .* ["accelerometer", "velocimeter",
                                                              "gyro", "palm_L", "palm_R",
                                                              "sole_L", "sole_R", "torso"])
-    env = RodentImitationEnv{params.imitation.horizon, typeof(target)}(model, data, target, 0, 1, 0, 0.0, sensorranges)
+    env = RodentImitationEnv{params.imitation.horizon, typeof(target)}(MuJoCoCore(model, data, sensorranges), target, 0, 1, 0, 0.0)
     reset!(env, params)
     return env
 end
 
 function clone(env::RodentImitationEnv{ImLen}, params) where ImLen
     new_env = RodentImitationEnv{ImLen, typeof(env.target)}(
-        env.model,
-        MuJoCo.init_data(env.model),
+        env.mujoco_core,
         env.target,
-        0,1,0,0.0,env.sensorranges
+        0,1,0,0.0
     )
     reset!(new_env, params)
     return new_env
@@ -50,27 +41,7 @@ end
 
 function state(env::RodentImitationEnv, params)
     (
-        proprioception = (
-            joints = (@view env.data.qpos[8:end]),
-            joint_vel = (@view env.data.qvel[7:end]),
-            actuations = (@view env.data.act[:]),
-            head = (
-                velocity = sensor(env, "walker/velocimeter"),
-                accel = sensor(env, "walker/accelerometer"),
-                gyro = sensor(env, "walker/gyro")
-            ),
-            torso = (
-                velocity = sensor(env, "walker/torso"),
-                xmat = reshape(body_xmat(env, "walker/torso"), :),
-                com = subtree_com(env, "walker/torso")
-            ),
-            paw_contacts = (
-                palm_L = sensor(env, "walker/palm_L"),
-                palm_R = sensor(env, "walker/palm_R"),
-                sole_L = sensor(env, "walker/sole_L"),
-                sole_R = sensor(env, "walker/sole_R")
-            )
-        ),
+        proprioception = default_proprioception(env.mujoco_core),
         imitation_target = (
             com = reshape(com_horizon(env), :),
             root_quat = reshape(root_quat_horizon(env), :),
@@ -91,7 +62,7 @@ function reward(env::RodentFollowEnv, params)
     joint_vel_reward = exp(-joint_vel_error(env) / (params.reward.falloff.joint_vel^2))
     #joint_vel_reward = alt_joint_vel_reward(env, params)
     append_reward = appendages_reward(env, params)
-    ctrl_reward = -params.reward.control_cost * norm(env.data.ctrl)^2
+    ctrl_reward = -params.reward.control_cost * norm(env.mujoco_core.data.ctrl)^2
     total_reward  = com_reward + angle_reward + joint_reward + joint_vel_reward + append_reward
     total_reward += ctrl_reward + params.reward.alive_bonus
     total_reward #return clamp(total_reward, params.min_reward, Inf)
@@ -117,7 +88,7 @@ function info(env::RodentFollowEnv, params)
         torso_z=torso_z(env),
         lifetime=float(env.lifetime),
         cumulative_reward = env.cumulative_reward,
-        actuator_force_sum_sqr = norm(env.data.actuator_force)^2,
+        actuator_force_sum_sqr = norm(env.mujoco_core.data.actuator_force)^2,
         angle_to_target = angle_to_target(env) |> rad2deg,
         joint_reward = exp(-joint_error(env) / (params.reward.falloff.joint^2)),
         joint_vel_reward = exp(-joint_vel_error(env) / (params.reward.falloff.joint_vel^2)),
@@ -130,9 +101,9 @@ end
 
 #Actions
 function act!(env::RodentFollowEnv, action, params)
-    env.data.ctrl .= clamp.(action, -1.0, 1.0)
+    env.mujoco_core.data.ctrl .= clamp.(action, -1.0, 1.0)
     for _=1:params.physics.n_physics_steps
-        MuJoCo.step!(env.model, env.data)
+        MuJoCo.step!(env.mujoco_core.model, env.mujoco_core.data)
     end
     env.lifetime += 1
     if env.lifetime % 2 == 0 #Hack since target update each 20ms but simulation each 10ms (but this depends on params so shouldn't be hard-coded here)
@@ -147,12 +118,12 @@ function reset!(env::RodentFollowEnv, params, next_clip, next_frame)
     env.target_clip = next_clip
     env.target_frame = next_frame
 
-    MuJoCo.reset!(env.model, env.data)
-    env.data.qpos .= view(env.target, :qpos, target_frame(env), env.target_clip)
-    env.data.qpos[3] += params.physics.spawn_z_offset
-    env.data.qvel .= view(env.target, :qvel, target_frame(env), env.target_clip)
+    MuJoCo.reset!(env.mujoco_core.model, env.mujoco_core.data)
+    env.mujoco_core.data.qpos .= view(env.target, :qpos, target_frame(env), env.target_clip)
+    env.mujoco_core.data.qpos[3] += params.physics.spawn_z_offset
+    env.mujoco_core.data.qvel .= view(env.target, :qvel, target_frame(env), env.target_clip)
     #Run model forward to get correct initial state
-    MuJoCo.forward!(env.model, env.data) 
+    MuJoCo.forward!(env.mujoco_core.model, env.mujoco_core.data) 
 end
 
 function reset!(env::RodentFollowEnv, params)
@@ -207,7 +178,7 @@ function joint_error(env::RodentImitationEnv)
     target_joint = view(env.target, :qpos, target_frame(env), env.target_clip)
     err = 0.0
     for ji in joint_indices
-        err += (target_joint[ji] - env.data.qpos[ji])^2
+        err += (target_joint[ji] - env.mujoco_core.data.qpos[ji])^2
     end
     return err
 end
@@ -217,7 +188,7 @@ function alt_joint_reward(env::RodentImitationEnv, params)
     rew = 0.0
     sig_sqr = params.reward.falloff.per_joint^2
     for ji in joint_indices
-        rew += exp(-(target_joint[ji] - env.data.qpos[ji])^2 / sig_sqr)
+        rew += exp(-(target_joint[ji] - env.mujoco_core.data.qpos[ji])^2 / sig_sqr)
     end
     return rew / length(joint_indices)
 end
@@ -234,7 +205,7 @@ function joint_vel_error(env::RodentImitationEnv)
     target_joint_vel = view(env.target, :qvel, target_frame(env), env.target_clip)
     err = 0.0
     for ji in joint_indices
-        err += (target_joint_vel[ji] - env.data.qvel[ji])^2
+        err += (target_joint_vel[ji] - env.mujoco_core.data.qvel[ji])^2
     end
     return err
 end
@@ -244,7 +215,7 @@ function alt_joint_vel_reward(env::RodentImitationEnv, params)
     rew = 0.0
     sig_sqr = params.reward.falloff.per_joint_vel^2
     for ji in joint_indices
-        rew += exp(-(target_joint_vel[ji] - env.data.qvel[ji])^2 / sig_sqr)
+        rew += exp(-(target_joint_vel[ji] - env.mujoco_core.data.qvel[ji])^2 / sig_sqr)
     end
     return rew / length(joint_indices)
 end

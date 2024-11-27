@@ -47,7 +47,7 @@ params = (
         checkpoint_interval=5000,
     ),
     rollout = (
-        n_envs=4096,
+        n_envs=64,
         n_steps_per_epoch=16,
         n_epochs=500_000,
         reset_on_epoch_start=false,

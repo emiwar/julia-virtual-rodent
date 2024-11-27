@@ -1,7 +1,3 @@
-import CUDA
-import Flux
-import Statistics
-
 function compute_advantages(rewards, values, statuses, gamma, lambda)
     advantages = zero(rewards)
     n_envs, n_steps_per_batch = size(advantages)

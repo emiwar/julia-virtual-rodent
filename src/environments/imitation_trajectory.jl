@@ -1,9 +1,3 @@
-import HDF5
-using ProgressMeter
-import LinearAlgebra: norm
-include("../utils/component_tensor.jl")
-include("../utils/load_dm_control_model.jl")
-
 bodies_order() = SVector("torso", "pelvis", "upper_leg_L", "lower_leg_L", "foot_L",
                   "upper_leg_R", "lower_leg_R", "foot_R", "skull", "jaw",
                   "scapula_L", "upper_arm_L", "lower_arm_L", "finger_L",
@@ -16,7 +10,7 @@ function load_imitation_target(src="src/environments/assets/diego_curated_snippe
     body_positions = read_as_batch(f, "body_positions")
     body_quats = read_as_batch(f, "body_quaternions")
     appendages = read_as_batch(f, "appendages")
-    ComponentTensor(
+    Main.ComponentTensor(
         qpos = (
             root_pos = read_as_batch(f, "position"),
             root_quat = read_as_batch(f, "quaternion"),
