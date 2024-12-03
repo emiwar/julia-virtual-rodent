@@ -1,5 +1,4 @@
-import PythonCall
-import MuJoCo
+
 const dm_locomotion = PythonCall.pyimport("dm_control.locomotion")
 for submod in ("walkers", "arenas", "tasks")
     PythonCall.pyimport("dm_control.locomotion.$submod")

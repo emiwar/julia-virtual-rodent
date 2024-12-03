@@ -1,9 +1,4 @@
-include("mujoco_env.jl")
-include("imitation_trajectory.jl")
-include("../utils/mujoco_quat.jl")
-include("../utils/load_dm_control_model.jl")
-import LinearAlgebra: norm
-using StaticArrays
+
 abstract type RodentFollowEnv <: MuJoCoEnv end
 
 mutable struct RodentImitationEnv{ImLen, ImTarget} <: RodentFollowEnv

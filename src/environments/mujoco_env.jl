@@ -1,7 +1,3 @@
-
-import MuJoCo
-include("../utils/component_tensor.jl")
-
 abstract type MuJoCoEnv end
 
 const RUNNING = 0

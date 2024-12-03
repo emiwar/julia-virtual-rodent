@@ -1,7 +1,3 @@
-import CUDA
-import Flux
-import Statistics
-
 function compute_advantages(rewards, values, statuses, gamma, lambda)
     advantages = zero(rewards)
     n_envs, n_steps_per_batch = size(advantages)
@@ -42,11 +38,11 @@ function ppo_update!(batch, actor_critic, opt_state, params, lapTimer::LapTimer)
     non_final_states = view(batch.states, :, :, 1:n_steps_per_batch)
     non_final_statevalues = view(old_values, :, 1:n_steps_per_batch)
     target_values = non_final_statevalues .+ advantages
-    actions = view(batch.actor_output, :action, :, :)
-    batch_loglikelihoods = view(batch.actor_output, :loglikelihood, :, :)
-    latent_eps = view(batch.actor_output, :latent_eps, :, :)
+    actions = view(batch.actor_outputs, :action, :, :)
+    batch_loglikelihoods = view(batch.actor_outputs, :loglikelihood, :, :)
+    latent_eps = view(batch.actor_outputs, :latent_eps, :, :)
     clip_range = Float32(params.training.clip_range)
-    for j = params.training.n_miniepochs
+    for j = 1:params.training.n_miniepochs
         lap(lapTimer, :ppo_gradients)
         gradients = Flux.gradient(actor_critic) do actor_critic
             #Actor loss

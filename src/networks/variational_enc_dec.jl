@@ -1,12 +1,12 @@
-struct ActorCritic{E,D,C}
+struct VariationalEncDec{E,D,C}
     encoder::E
     decoder::D
     critic::C
 end
 
-Flux.@layer ActorCritic
+Flux.@layer VariationalEncDec
 
-function ActorCritic(template_env::MuJoCoEnv, params::NamedTuple)
+function VariationalEncDec(template_env::MuJoCoEnv, params::NamedTuple)
     template_state = ComponentTensor(state(template_env, params))
     action_size = length(null_action(template_env, params))
 
@@ -27,13 +27,13 @@ function ActorCritic(template_env::MuJoCoEnv, params::NamedTuple)
                     (Dense(a => b, tanh) for (a, b) in zip(critic_size[1:end-1], critic_size[2:end]))...,
                     Dense(critic_size[end] => 1, init=zeros32))
 
-    return ActorCritic(encoder, decoder, critic)
+    return VariationalEncDec(encoder, decoder, critic)
 end
 
 randn_like(arr::AbstractArray) = randn(size(arr)...)
 randn_like(arr::CUDA.AnyCuArray) = CUDA.randn(size(arr)...)
 
-function actor(actor_critic::ActorCritic, state, params, action=nothing, latent_eps=nothing)
+function actor(actor_critic::VariationalEncDec, state, params, action=nothing, latent_eps=nothing)
     #Annoying work-around to avoid auto-diff errors
     imitation_target = Flux.ignore(()->state.imitation_target |> array |> copy)
     proprioception = Flux.ignore(()->state.proprioception |> array |> copy)
@@ -68,12 +68,12 @@ function actor(actor_critic::ActorCritic, state, params, action=nothing, latent_
     (;action, mu, sigma, loglikelihood, latent, latent_mu, latent_logsigma, latent_eps)
 end
 
-function critic(actor_critic::ActorCritic, state, params)
+function critic(actor_critic::VariationalEncDec, state, params)
     input = data(state)
     return view(actor_critic.critic(input), 1, :, :) ./ (1.0-params.training.gamma)
 end
 
-function decoder_only(actor_critic::ActorCritic, state, latent, params; action_noise=false)
+function decoder_only(actor_critic::VariationalEncDec, state, latent, params; action_noise=false)
     proprioception = Flux.ignore(()->state.proprioception |> array |> copy)
     batch_dims = ntuple(_->:, ndims(proprioception)-1)
     decoder_input = cat(latent, proprioception; dims=1)

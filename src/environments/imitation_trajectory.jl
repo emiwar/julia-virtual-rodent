@@ -1,9 +1,3 @@
-import HDF5
-using ProgressMeter
-import LinearAlgebra: norm
-include("../utils/component_tensor.jl")
-include("../utils/load_dm_control_model.jl")
-
 bodies_order() = SVector("torso", "pelvis", "upper_leg_L", "lower_leg_L", "foot_L",
                   "upper_leg_R", "lower_leg_R", "foot_R", "skull", "jaw",
                   "scapula_L", "upper_arm_L", "lower_arm_L", "finger_L",

@@ -1,6 +1,3 @@
-import Wandb
-#import CUDA
-
 function log_to_wandb(lg::Wandb.WandbLogger, key, val; quantiles=0:0.25:1)
     if ndims(val) >= 1
         Wandb.log(lg, quantile_dict(key, val; quantiles), commit=false)
