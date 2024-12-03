@@ -40,13 +40,13 @@ function ppo_update!(batch, actor_critic, opt_state, params, lapTimer::LapTimer)
     target_values = non_final_statevalues .+ advantages
     actions = view(batch.actor_outputs, :action, :, :)
     batch_loglikelihoods = view(batch.actor_outputs, :loglikelihood, :, :)
-    latent_eps = view(batch.actor_outputs, :latent_eps, :, :)
+    #latent_eps = view(batch.actor_outputs, :latent_eps, :, :)
     clip_range = Float32(params.training.clip_range)
     for j = 1:params.training.n_miniepochs
         lap(lapTimer, :ppo_gradients)
         gradients = Flux.gradient(actor_critic) do actor_critic
             #Actor loss
-            actor_output = actor(actor_critic, non_final_states, params, actions, latent_eps)
+            actor_output = actor(actor_critic, non_final_states, params, actions)#, latent_eps)
             likelihood_ratios = view(exp.(actor_output.loglikelihood .- batch_loglikelihoods), 1, :, :)
             grad_cand1 = likelihood_ratios .* advantages
             clamped_ratios = clamp.(likelihood_ratios, 1.0f0 - clip_range, 1.0f0 + clip_range)
@@ -62,14 +62,14 @@ function ppo_update!(batch, actor_critic, opt_state, params, lapTimer::LapTimer)
             entropy_loss = 0.5sum(log.((2π*exp(1)).*(sigma.^2))) / length(sigma)
 
             #KL loss
-            latent_mu = actor_output.latent_mu
-            latent_logsigma = actor_output.latent_logsigma
-            kl_loss = 0.5sum( -2 .* latent_logsigma .- 1 .+ exp.(2 .* latent_logsigma) .+ latent_mu.^2) / length(latent_mu)
+            #latent_mu = actor_output.latent_mu
+            #latent_logsigma = actor_output.latent_logsigma
+            #kl_loss = 0.5sum( -2 .* latent_logsigma .- 1 .+ exp.(2 .* latent_logsigma) .+ latent_mu.^2) / length(latent_mu)
 
             total_loss = params.training.loss_weight_actor * actor_loss + 
                          params.training.loss_weight_critic * critic_loss +
-                         params.training.loss_weight_entropy * entropy_loss + 
-                         params.training.loss_weight_kl * kl_loss 
+                         params.training.loss_weight_entropy * entropy_loss# + 
+                         #params.training.loss_weight_kl * kl_loss 
             
             Flux.ignore() do
                 lap(lapTimer, :logging_ppo_stats)
@@ -77,7 +77,7 @@ function ppo_update!(batch, actor_critic, opt_state, params, lapTimer::LapTimer)
                 logdict["losses/critic_loss"]  = critic_loss
                 logdict["losses/actor_loss"]   = actor_loss
                 logdict["losses/entropy_loss"] = entropy_loss
-                logdict["losses/kl_loss"]      = kl_loss
+                #logdict["losses/kl_loss"]      = kl_loss
                 merge!(logdict, quantile_dict("critic/predicted_values", new_values))
                 merge!(logdict, quantile_dict("critic/target_values", target_values))
                 merge!(logdict, quantile_dict("critic/advantages", advantages))

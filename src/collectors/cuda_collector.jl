@@ -26,7 +26,7 @@ function CuCollector(template_env, template_actor, n_envs, steps_per_batch)
 end
 
 function collect_batch!(actor::Function, collector::Collector, stepper,
-                        params, lapTimer; action_preprocess::Function=identity)
+                        params, lapTimer; action_preprocess::Function=(a,s,p)->a)
     steps_per_batch = params.rollout.n_steps_per_epoch
     lap(lapTimer, :first_state)
     prepareEpoch!(stepper, params)
@@ -34,7 +34,8 @@ function collect_batch!(actor::Function, collector::Collector, stepper,
     for t=1:steps_per_batch
         lap(lapTimer, :rollout_actor)
         collector.actor_outputs[:, :, t] = actor((@view collector.states[:, :, t]), params)
-        actions = action_preprocess(@view collector.actor_outputs[:action, :, t])
+        actions = action_preprocess((@view collector.actor_outputs[:action, :, t]),
+                                    (@view collector.states[:, :, t]), params)
         lap(lapTimer, :rollout_action_to_cpu)
         copyto!(stepper.actions, actions)
         step!(stepper, params, lapTimer)
@@ -59,9 +60,9 @@ function compute_batch_stats(collector::Collector)
     merge!(logdict, quantile_dict("actor/sigmas", view( collector.actor_outputs, :sigma, :, :)))
     merge!(logdict, quantile_dict("actor/action_ctrl", view( collector.actor_outputs, :action, :, :)))
     merge!(logdict, quantile_dict("actor/action_ctrl_sum_squared", sum(view(collector.actor_outputs, :action, :, :).^2; dims=1)))
-    merge!(logdict, quantile_dict("actor/latent", view(collector.actor_outputs, :latent, :, :)))
-    merge!(logdict, quantile_dict("actor/latent_mu", view(collector.actor_outputs, :latent_mu, :, :)))
-    merge!(logdict, quantile_dict("actor/latent_logsigma", view(collector.actor_outputs, :latent_logsigma, :, :)))
+    #merge!(logdict, quantile_dict("actor/latent", view(collector.actor_outputs, :latent, :, :)))
+    #merge!(logdict, quantile_dict("actor/latent_mu", view(collector.actor_outputs, :latent_mu, :, :)))
+    #merge!(logdict, quantile_dict("actor/latent_logsigma", view(collector.actor_outputs, :latent_logsigma, :, :)))
     merge!(logdict, quantile_dict("rollout_batch/rewards", collector.rewards))
     logdict["rollout_batch/termination_rate"] = sum(collector.status .== TERMINATED) / length(collector.status)
     batch_done = Array(collector.status .!= RUNNING)
