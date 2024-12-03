@@ -63,19 +63,33 @@ function state(env::RodentJoystickEnv, params)
             )
         ),
         command = (
-            forward_speed = target_forward_speed(env, params),
-            turning_speed = target_turning_speed(env, params)
+            forward_speed = params.reward.target.forward_speed,
+            turning_speed = params.reward.target.turning_speed
+        ),
+        for_critic_only = (
+            forward_speed = forward_speed(env),
+            turning_speed = turning_speed(env)
         )
     )
 end
 
+
+function forward_reward(env::RodentJoystickEnv, params)
+    #forward_falloff = params.reward.falloff.forward_speed^2
+    #forward_reward = exp(-(forward_speed(env) - target_forward_speed(env, params))^2/forward_falloff)
+    speed  = forward_speed(env)
+    target = params.reward.target.forward_speed
+    1 - (speed - target)^2/target^2
+end
+function turning_reward(env::RodentJoystickEnv, params)
+    speed  = turning_speed(env)
+    target = params.reward.target.turning_speed
+    0#1 - (speed - target)^2
+end
+
 function reward(env::RodentJoystickEnv, params)
-    forward_falloff = params.reward.falloff.forward_speed^2
-    forward_reward = exp(-(forward_speed(env) - target_forward_speed(env, params))^2/forward_falloff)
-    turn_falloff = params.reward.falloff.turning_speed^2
-    turn_reward = exp(-(turning_speed(env) - target_turning_speed(env, params))^2/turn_falloff)
     ctrl_reward = -params.reward.control_cost * norm(env.data.ctrl)^2
-    total_reward  = forward_reward + turn_reward
+    total_reward  = forward_reward(env, params) + turning_reward(env, params)
     total_reward += ctrl_reward + params.reward.alive_bonus
     total_reward #return clamp(total_reward, params.min_reward, Inf)
 end
@@ -97,7 +111,9 @@ function info(env::RodentJoystickEnv, params)
         cumulative_reward = env.cumulative_reward,
         actuator_force_sum_sqr = norm(env.data.actuator_force)^2,
         forward_speed = forward_speed(env),
-        turning_speed = turning_speed(env)
+        turning_speed = turning_speed(env),
+        forward_reward = forward_reward(env, params),
+        turning_reward = turning_reward(env, params)
     )
 end
 
@@ -134,8 +150,7 @@ function turning_speed(env::RodentJoystickEnv)
     return env.data.qvel[6] #This should be turning in global z?
 end
 
-target_forward_speed(env::RodentJoystickEnv, params) = 0.2
-target_turning_speed(env::RodentJoystickEnv, params) = 0.0
+
 
 function Base.show(io::IO, env::RodentJoystickEnv)
     compact = get(io, :compact, false)

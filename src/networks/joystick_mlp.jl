@@ -22,6 +22,7 @@ function JoystickMLP(template_env::RodentJoystickEnv, params::NamedTuple)
 
     return JoystickMLP(actor, critic)
 end
+has_latent_layer(::JoystickMLP) = false
 
 randn_like(arr::AbstractArray) = randn(size(arr)...)
 randn_like(arr::CUDA.AnyCuArray) = CUDA.randn(size(arr)...)

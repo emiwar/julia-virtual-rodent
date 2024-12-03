@@ -19,9 +19,9 @@ params = (
     reward = (
         alive_bonus = 0.1,
         control_cost = 0.001,
-        falloff = (
-            forward_speed = 0.1,
-            turning_speed = 0.5
+        target = (
+            forward_speed = 0.5,
+            turning_speed = 0.0
         ),
     ),
     training = (

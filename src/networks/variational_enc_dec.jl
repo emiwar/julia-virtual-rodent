@@ -30,6 +30,9 @@ function VariationalEncDec(template_env::MuJoCoEnv, params::NamedTuple)
     return VariationalEncDec(encoder, decoder, critic)
 end
 
+has_latent_layer(::VariationalEncDec) = true
+
+
 randn_like(arr::AbstractArray) = randn(size(arr)...)
 randn_like(arr::CUDA.AnyCuArray) = CUDA.randn(size(arr)...)
 
