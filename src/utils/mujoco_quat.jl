@@ -40,3 +40,22 @@ function subQuat(qa, qb)
     # convert to 3D velocity (assume dt = 1 for simplicity)
     return quat2Vel(qdif, 1.0)
 end
+
+
+function azimuth_between(q1, q2)
+    # Extract rotation vectors in 3D
+    function quat_to_vec(q)
+        # Normalize quaternion
+        w, x, y, z = q ./ norm(q)
+        # Compute rotation vector in the XY-plane
+        return (1 - 2y^2 - 2z^2, 2x*y + 2w*z) # Projection onto XY-plane
+    end
+
+    v1 = quat_to_vec(q1)
+    v2 = quat_to_vec(q2)
+
+    # Compute angle between vectors in the XY-plane
+    dot_product = dot(v1, v2)
+    cross_z = v1[1]*v2[2] - v1[2]*v2[1] # Cross product's Z-component
+    return atan(cross_z, dot_product) # Angle in radians
+end
