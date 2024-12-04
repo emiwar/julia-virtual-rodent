@@ -10,7 +10,7 @@ mutable struct RodentJoystickEnv <: RodentFollowEnv
     sensorranges::Dict{String, UnitRange{Int64}}
 end
 
-function RodentJoystickEnv(params; target_data="src/environments/assets/diego_curated_snippets.h5")
+function RodentJoystickEnv(params)
     if params.physics.body_scale != 1.0
         @warn "Code for rescaling imitation target removed from preprocessing, will use imitation target for scale=1.0." params.physics.body_scale
     end
@@ -88,8 +88,8 @@ function turning_reward(env::RodentJoystickEnv, params)
 end
 
 function reward(env::RodentJoystickEnv, params)
-    ctrl_reward = -params.reward.control_cost * norm(env.data.ctrl)^2
     total_reward  = forward_reward(env, params) + turning_reward(env, params)
+    ctrl_reward = -params.reward.control_cost * norm(env.data.ctrl)^2
     total_reward += ctrl_reward + params.reward.alive_bonus
     total_reward #return clamp(total_reward, params.min_reward, Inf)
 end
