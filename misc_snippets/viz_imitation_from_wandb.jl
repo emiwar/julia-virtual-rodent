@@ -19,7 +19,7 @@ actor_critic = BSON.load(weights_file_name)[:actor_critic] |> Flux.gpu
 
 MuJoCo.init_visualiser()
 
-env = RodentImitationEnv(params, target_data="reference_data/2020_12_22_1_precomputed.h5")
+env = RodentImitationEnv(params)#, target_data="reference_data/2020_12_22_1_precomputed.h5")
 reset!(env, params, 1, 25000)
 
 dubbleModel = dm_control_model_with_ghost(torque_actuators = params.physics.torque_control,
@@ -48,7 +48,7 @@ ProgressMeter.@showprogress for t=1:T
     end
     if status(env, params) != RUNNING
         println("Resetting at age $(env.lifetime), frame $(env.target_frame), animation step $(t*n_physics_steps)")
-        reset!(env, params, 1, env.target_frame)
+        reset!(env, params)#, 1, env.target_frame)
     end
 end
 

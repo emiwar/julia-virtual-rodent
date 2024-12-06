@@ -1,4 +1,3 @@
-
 import BSON
 import CUDA
 import Dates
@@ -19,6 +18,7 @@ include("../src/utils/component_tensor.jl")
 include("../src/utils/wandb_logger.jl")
 include("../src/environments/mujoco_env.jl")
 include("../src/environments/rodent_run_env.jl")
+include("../src/environments/rodent_joystick_env.jl")
 include("../src/collectors/batch_stepper.jl")
 include("../src/collectors/mpi_stepper.jl")
 include("../src/collectors/cuda_collector.jl")
@@ -27,11 +27,11 @@ include("../src/networks/variational_enc_dec.jl")
 include("../src/networks/state_invariant.jl")
 
 T = 2500
-wandb_run_id = "2d0iqqiz" #"7mzfglak"
+wandb_run_id = "obmcn538" #"2d0iqqiz" #"7mzfglak"
 
 params, weights_file_name = load_from_wandb(wandb_run_id, r"step-.*", project="emiwar-team/Rodent-Joystick")
 actor_critic = BSON.load(weights_file_name)[:actor_critic] |> Flux.gpu
-env = RodentRunEnv(params)
+env = RodentJoystickEnv(params)#RodentRunEnv(params)
 reset!(env, params)
 last_quat = body_xquat(env, "walker/torso")
 MuJoCo.init_visualiser()

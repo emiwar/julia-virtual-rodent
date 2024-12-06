@@ -65,10 +65,10 @@ function state(env::RodentJoystickEnv, params)
                 sole_R = sensor(env, "walker/sole_R")
             )
         ),
-        #command = (
-        #    forward_speed = params.reward.target.forward_speed,
-        #    turning_speed = params.reward.target.turning_speed
-        #),
+        command = (
+            forward_speed = target_forward_speed(env, params),
+            turning_speed = target_turning_speed(env, params)
+        ),
         for_critic_only = (
             forward_speed = forward_speed(env, params),
             turning_speed = turning_speed(env, params)
@@ -78,17 +78,18 @@ end
 
 
 function forward_reward(env::RodentJoystickEnv, params)
-    #forward_falloff = params.reward.falloff.forward_speed^2
-    #forward_reward = exp(-(forward_speed(env) - target_forward_speed(env, params))^2/forward_falloff)
+    falloff = params.reward.falloff.forward_speed^2
+    reward = exp(-(forward_speed(env, params) - target_forward_speed(env, params))^2/falloff)
     #speed  = forward_speed(env, params)
     #target = params.reward.target.forward_speed
     #1 - (speed - target)^2/target^2
-    return 0.0
+    return reward
 end
 function turning_reward(env::RodentJoystickEnv, params)
-    speed  = turning_speed(env, params)
+    falloff = params.reward.falloff.turning_speed^2
+    reward = exp(-(turning_speed(env, params) - target_turning_speed(env, params))^2/falloff)
     #target = params.reward.target.turning_speed
-    return speed #1 - (speed - target)^2
+    return reward #1 - (speed - target)^2
 end
 
 function reward(env::RodentJoystickEnv, params)
@@ -162,6 +163,9 @@ function turning_speed(env::RodentJoystickEnv, params)
     az_diff = azimuth_between(env.last_torso_quat, body_xquat(env, "walker/torso"))
     return az_diff / timestep
 end
+
+target_forward_speed(env::RodentJoystickEnv, params) = params.reward.target.forward_speed
+target_turning_speed(env::RodentJoystickEnv, params) = params.reward.target.turning_speed
 
 function Base.show(io::IO, env::RodentJoystickEnv)
     compact = get(io, :compact, false)
