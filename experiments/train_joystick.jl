@@ -3,7 +3,7 @@ params = (
         actor_size=[1024],
         critic_size=[1024, 1024],
         sigma_min=1f-2,
-        sigma_max=5f-1,
+        sigma_max=2f0,#5f-1,
         latent_dimension=60
     ),
     physics = (
@@ -18,11 +18,11 @@ params = (
     ),
     reward = (
         alive_bonus = 0.1,
-        control_cost = 0.001,
-        target = (
-            forward_speed = 0.5,
-            turning_speed = 0.0
-        ),
+        control_cost = 0.000,
+        falloff = (
+            forward_speed = 1.0,
+            turning_speed = 2.0,
+        )
     ),
     training = (
         loss_weight_actor = 1.0,
@@ -38,7 +38,7 @@ params = (
     rollout = (
         n_envs=512,
         n_steps_per_epoch=16,
-        n_epochs=20_000,
+        n_epochs=100_000,
         reset_on_epoch_start=false,
     )
 )
@@ -48,7 +48,7 @@ import CUDA
 import Dates
 import Statistics
 import HDF5
-import LinearAlgebra: norm
+import LinearAlgebra: norm, dot
 import MuJoCo
 import PythonCall
 import Wandb
@@ -81,7 +81,7 @@ collector = CuCollector(template_env, networks,
                         params.rollout.n_steps_per_epoch)
 networks_gpu = networks |> Flux.gpu
 opt_state = Flux.setup(Flux.Adam(params.training.learning_rate), networks_gpu)
-run_name = "FixedForwardSpeed-$(Dates.now())" #ImitationWithAppendages
+run_name = "Joystick-$(Dates.now())" #ImitationWithAppendages
 config = params_to_dict(params)
 
 action_preprocess(action, state, params) = decoder_only(pretrained_network, state, action, params)
@@ -103,7 +103,7 @@ mkdir("runs/checkpoints/$(run_name)")
     lap(lapTimer, :checkpointing)
     if epoch % params.training.checkpoint_interval == 0
         checkpoint_fn = "runs/checkpoints/$(run_name)/step-$(epoch).bson"
-        BSON.bson(checkpoint_fn; actor_critic=Flux.cpu(actor_critic))
+        BSON.bson(checkpoint_fn; actor_critic=Flux.cpu(networks_gpu))
         lg.wrun.log_model(checkpoint_fn, "checkpoint-step-$(epoch).bson")
     end
     lap(lapTimer, :logging_submitting)

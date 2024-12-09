@@ -1,8 +1,8 @@
-
+include("joystick_trajectory.jl")
 mutable struct RodentJoystickEnv <: MuJoCoEnv# <: RodentFollowEnv
     model::MuJoCo.Model
     data::MuJoCo.Data
-    control_t::Float64
+    commands::JoystickTrajectory
     last_torso_pos::SVector{3, Float64}
     last_torso_quat::SVector{4, Float64}
     lifetime::Int64
@@ -24,7 +24,7 @@ function RodentJoystickEnv(params)
     sensorranges = prepare_sensorranges(model, "walker/" .* ["accelerometer", "velocimeter",
                                                              "gyro", "palm_L", "palm_R",
                                                              "sole_L", "sole_R", "torso"])
-    env = RodentJoystickEnv(model, data, 0.0,
+    env = RodentJoystickEnv(model, data, JoystickTrajectory(),
                             SVector(0.0, 0.0, 0.0), SVector(1.0, 0.0, 0.0, 0.0),
                             0, 0.0, sensorranges)
     reset!(env, params)
@@ -33,8 +33,7 @@ end
 
 function clone(env::RodentJoystickEnv, params)
     new_env = RodentJoystickEnv(
-        env.model,
-        MuJoCo.init_data(env.model), 0.0,
+        env.model, MuJoCo.init_data(env.model), JoystickTrajectory(),
         env.last_torso_pos, env.last_torso_quat,
         0, 0.0, env.sensorranges
     )
@@ -102,6 +101,8 @@ end
 function status(env::RodentJoystickEnv, params)
     if torso_z(env) < params.physics.min_torso_z 
         return TERMINATED
+    elseif env.lifetime > length(env.commands.forward)-2
+        return TRUNCATED
     else
         return RUNNING
     end
@@ -131,13 +132,11 @@ function act!(env::RodentJoystickEnv, action, params)
         MuJoCo.step!(env.model, env.data)
     end
     env.lifetime += 1
-    env.control_t += 1.0
     env.cumulative_reward += reward(env, params)
 end
 
 function reset!(env::RodentJoystickEnv, params)
     env.lifetime = 0
-    env.control_t = 0.0
     env.cumulative_reward = 0.0
     MuJoCo.reset!(env.model, env.data)
     MuJoCo.forward!(env.model, env.data)
@@ -164,8 +163,8 @@ function turning_speed(env::RodentJoystickEnv, params)
     return az_diff / timestep
 end
 
-target_forward_speed(env::RodentJoystickEnv, params) = params.reward.target.forward_speed
-target_turning_speed(env::RodentJoystickEnv, params) = params.reward.target.turning_speed
+target_forward_speed(env::RodentJoystickEnv, params) = env.commands.forward[env.lifetime+1]
+target_turning_speed(env::RodentJoystickEnv, params) = env.commands.turning[env.lifetime+1]
 
 function Base.show(io::IO, env::RodentJoystickEnv)
     compact = get(io, :compact, false)
