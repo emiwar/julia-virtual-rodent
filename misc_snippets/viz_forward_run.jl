@@ -27,7 +27,7 @@ include("../src/networks/variational_enc_dec.jl")
 include("../src/networks/state_invariant.jl")
 
 T = 2500
-wandb_run_id = "obmcn538" #"2d0iqqiz" #"7mzfglak"
+wandb_run_id = "b1gr9brt" #"2d0iqqiz" #"7mzfglak"
 
 params, weights_file_name = load_from_wandb(wandb_run_id, r"step-.*", project="emiwar-team/Rodent-Joystick")
 actor_critic = BSON.load(weights_file_name)[:actor_critic] |> Flux.gpu

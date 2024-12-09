@@ -20,11 +20,11 @@ params = (
         alive_bonus = 0.1,
         control_cost = 0.000,
         target = (
-            forward_speed = 2.0,
+            forward_speed = 1.0,
             turning_speed = 2.0
         ),
         falloff = (
-            forward_speed = 2.0,
+            forward_speed = 1.0,
             turning_speed = 2.0,
         )
     ),
@@ -42,7 +42,7 @@ params = (
     rollout = (
         n_envs=512,
         n_steps_per_epoch=16,
-        n_epochs=20_000,
+        n_epochs=100_000,
         reset_on_epoch_start=false,
     )
 )
