@@ -2,9 +2,9 @@ params = (
     network = (
         actor_size=[1024],
         critic_size=[1024, 1024],
-        sigma_min=1f-2,
-        sigma_max=2f0,#5f-1,
-        latent_dimension=60
+        sigma_min=5f-2,
+        sigma_max=5f-1,#5f-1,
+        latent_action_scale=3f0
     ),
     physics = (
         n_physics_steps = 5,
@@ -84,10 +84,9 @@ opt_state = Flux.setup(Flux.Adam(params.training.learning_rate), networks_gpu)
 run_name = "Joystick-$(Dates.now())" #ImitationWithAppendages
 config = params_to_dict(params)
 
-action_preprocess(action, state, params) = decoder_only(pretrained_network, state, action, params)
+action_preprocess(action, state, params) = decoder_only(pretrained_network, state, action*params.network.latent_action_scale, params)
 lg = Wandb.WandbLogger(project = "Rodent-Joystick",
-                       name = run_name,
-                       config = config)
+                       name = run_name, config = config)
 mkdir("runs/checkpoints/$(run_name)")
 @showprogress for epoch = 1:params.rollout.n_epochs
     

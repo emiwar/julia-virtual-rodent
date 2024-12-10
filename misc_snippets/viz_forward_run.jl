@@ -25,9 +25,10 @@ include("../src/collectors/cuda_collector.jl")
 include("../src/algorithms/ppo_loss.jl")
 include("../src/networks/variational_enc_dec.jl")
 include("../src/networks/state_invariant.jl")
+include("../src/networks/joystick_mlp.jl")
 
-T = 2500
-wandb_run_id = "b1gr9brt" #"2d0iqqiz" #"7mzfglak"
+T = 5000
+wandb_run_id = "ehc3uf08" # "b1gr9brt" #"2d0iqqiz" #"7mzfglak"
 
 params, weights_file_name = load_from_wandb(wandb_run_id, r"step-.*", project="emiwar-team/Rodent-Joystick")
 actor_critic = BSON.load(weights_file_name)[:actor_critic] |> Flux.gpu
