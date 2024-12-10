@@ -29,7 +29,7 @@ params, weights_file_name = load_from_wandb(wandb_run_id, r"step-.*")
 ActorCritic = VariationalEncDec
 actor_critic = BSON.load(weights_file_name)[:actor_critic] |> Flux.gpu
 
-template_env = RodentImitationEnv(params, target_data="reference_data/2020_12_22_1_precomputed.h5")
+template_env = RodentImitationEnv(params, target_data="reference_data/2020_12_23_1_precomputed.h5")
 stepper = BatchStepper(template_env, size(template_env.target)[3])
 for (i, env) in enumerate(stepper.environments)
     reset!(env, params, i, 1)
@@ -53,7 +53,7 @@ ProgressMeter.@showprogress for t=1:batch_dims[1]
     end
 end
 
-HDF5.h5open("art_day1_eval_$(wandb_run_id).h5", "w") do fid
+HDF5.h5open("art_day2_eval_$(wandb_run_id).h5", "w") do fid
     fid["status"] = statuses
     for k in keys(infos)
         fid["info/$k"] = copy(array(view(infos, k)))

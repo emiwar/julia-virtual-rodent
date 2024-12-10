@@ -1,0 +1,5 @@
+outs:
+- md5: 733ee59be0942650d6dddd10b498e6e5
+  size: 838088856
+  hash: md5
+  path: 2020_12_22_1_precomputed.h5
