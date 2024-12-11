@@ -2,8 +2,8 @@ params = (
     network = (
         actor_size=[1024],
         critic_size=[1024, 1024],
-        sigma_min=5f-2,
-        sigma_max=5f-1,#5f-1,
+        sigma_min=2f-1,
+        sigma_max=5f-1,#5f-1,x
         latent_dimension=60,
         latent_action_scale=2f0
     ),
@@ -21,7 +21,7 @@ params = (
         alive_bonus = 0.1,
         control_cost = 0.000,
         falloff = (
-            forward_speed = 0.2,
+            forward_speed = 0.75,
             turning_speed = 2.0,
         )
     ),

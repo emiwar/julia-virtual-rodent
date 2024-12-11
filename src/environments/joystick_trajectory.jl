@@ -5,7 +5,7 @@ end
 
 function JoystickTrajectory()
     traj = JoystickTrajectory(Float64[], Float64[])
-    add_static!(traj, rand(100:300),  0.1 + rand()*0.6, 0.0)
+    add_static!(traj, 1000,  1.0, 0.0)
     add_static!(traj, rand(20:100),   0.0, -5.0 + rand()*10.0)
     add_static!(traj, rand(100:300), -0.2 + rand()*0.3, 0.0)
     add_static!(traj, rand(25:50),    0.3,  0.0)

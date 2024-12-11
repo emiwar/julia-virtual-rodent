@@ -39,7 +39,7 @@ params = (
         loss_weight_critic = 0.5,
         loss_weight_entropy = -0.2,#-0.00,#-0.5,
         loss_weight_kl = 0.1,
-        n_miniepochs=2,
+        n_miniepochs=1,
         learning_rate=1e-4,
         gamma=0.95,
         lambda=0.95,
@@ -47,9 +47,9 @@ params = (
         checkpoint_interval=5000,
     ),
     rollout = (
-        n_envs=512,
+        n_envs=4096,
         n_steps_per_epoch=16,
-        n_epochs=100,
+        n_epochs=500_000,
         reset_on_epoch_start=false,
     )
 )
@@ -86,7 +86,7 @@ if MPI.Comm_rank(MPI.COMM_WORLD) == 0
             lap(lapTimer, :checkpointing)
             if epoch % params.training.checkpoint_interval == 0
                 checkpoint_fn = "runs/checkpoints/$(run_name)/step-$(epoch).bson"
-                BSON.bson(checkpoint_fn; actor_critic=Flux.cpu(actor_critic))
+                BSON.bson(checkpoint_fn; actor_critic=Flux.cpu(networks_gpu))
                 lg.wrun.log_model(checkpoint_fn, "checkpoint-step-$(epoch).bson")
             end
             lap(lapTimer, :logging_submitting)

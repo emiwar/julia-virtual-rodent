@@ -30,12 +30,12 @@ params = (
         gamma=0.95,
         lambda=0.95,
         clip_range=0.2,
-        checkpoint_interval=5000,
+        checkpoint_interval=1000,
     ),
     rollout = (
         n_envs=512,
         n_steps_per_epoch=16,
-        n_epochs=20_000,
+        n_epochs=50_000,
         reset_on_epoch_start=false,
     )
 )
@@ -100,7 +100,7 @@ mkdir("runs/checkpoints/$(run_name)")
     lap(lapTimer, :checkpointing)
     if epoch % params.training.checkpoint_interval == 0
         checkpoint_fn = "runs/checkpoints/$(run_name)/step-$(epoch).bson"
-        BSON.bson(checkpoint_fn; actor_critic=Flux.cpu(actor_critic))
+        BSON.bson(checkpoint_fn; actor_critic=Flux.cpu(networks_gpu))
         lg.wrun.log_model(checkpoint_fn, "checkpoint-step-$(epoch).bson")
     end
     lap(lapTimer, :logging_submitting)
