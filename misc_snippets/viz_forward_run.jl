@@ -28,7 +28,7 @@ include("../src/networks/state_invariant.jl")
 include("../src/networks/joystick_mlp.jl")
 
 T = 5000
-wandb_run_id = "ehc3uf08" # "b1gr9brt" #"2d0iqqiz" #"7mzfglak"
+wandb_run_id = "b1gr9brt"#"2d0iqqiz" # "b1gr9brt" #"2d0iqqiz" #"7mzfglak"
 
 params, weights_file_name = load_from_wandb(wandb_run_id, r"step-.*", project="emiwar-team/Rodent-Joystick")
 actor_critic = BSON.load(weights_file_name)[:actor_critic] |> Flux.gpu
@@ -42,21 +42,25 @@ pretrained_network, step = load_actor_critic_from_wandb("j0zwbgns")
 
 physics_states = zeros(env.model.nq + env.model.nv + env.model.na,
                        T*params.physics.n_physics_steps)
-exploration = true
+exploration = false
 n_physics_steps = params.physics.n_physics_steps
-rot_speed = zeros(T)
+fspeed = zeros(T)
+tspeed = zeros(T)
 ProgressMeter.@showprogress for t=1:T
     env_state = state(env, params) |> ComponentTensor
     actor_output = actor(actor_critic, ComponentTensor(CUDA.cu(data(env_state)), index(env_state)), params)
     motor_command = exploration ? actor_output.action : actor_output.mu
     action = decoder_only(pretrained_network, env_state, motor_command, params)
+    env.last_torso_pos  = body_xpos(env,  "walker/torso")
+    env.last_torso_quat = body_xquat(env, "walker/torso")
     env.data.ctrl .= clamp.(action, -1.0, 1.0) |> Array
     for tt=1:n_physics_steps
         MuJoCo.step!(env.model, env.data)
         physics_states[:,(t-1) * n_physics_steps + tt] = MuJoCo.get_physics_state(env.model, env.data)
     end
     new_quat = body_xquat(env, "walker/torso")
-    rot_speed[t] = azimuth_between(last_quat, new_quat) * 100
+    fspeed[t] = forward_speed(env, params)
+    tspeed[t] = turning_speed(env, params)
     last_quat = new_quat
     env.lifetime += 1
     if status(env, params) != RUNNING
@@ -68,6 +72,9 @@ new_data = MuJoCo.init_data(env.model)
 MuJoCo.visualise!(env.model, new_data, trajectories = physics_states)
 
 import Plots
+Plots.plot(fspeed)
+Plots.plot(tspeed)
+
 begin
     Plots.plot(physics_states[1, :], label="Root x")
     Plots.plot!(physics_states[2, :], label="Root y")

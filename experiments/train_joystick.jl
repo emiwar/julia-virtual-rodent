@@ -4,7 +4,8 @@ params = (
         critic_size=[1024, 1024],
         sigma_min=5f-2,
         sigma_max=5f-1,#5f-1,
-        latent_action_scale=3f0
+        latent_dimension=60,
+        latent_action_scale=2f0
     ),
     physics = (
         n_physics_steps = 5,
@@ -20,7 +21,7 @@ params = (
         alive_bonus = 0.1,
         control_cost = 0.000,
         falloff = (
-            forward_speed = 1.0,
+            forward_speed = 0.2,
             turning_speed = 2.0,
         )
     ),
@@ -28,7 +29,7 @@ params = (
         loss_weight_actor = 1.0,
         loss_weight_critic = 0.5,
         loss_weight_entropy = -0.2,
-        n_miniepochs=2,
+        n_miniepochs=1,
         learning_rate=1e-4,
         gamma=0.95,
         lambda=0.95,
