@@ -23,7 +23,8 @@ params = (
         falloff = (
             forward_speed = 0.75,
             turning_speed = 2.0,
-        )
+        ),
+	forward_weight = 4.0
     ),
     training = (
         loss_weight_actor = 1.0,
