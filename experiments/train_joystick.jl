@@ -5,7 +5,7 @@ params = (
         sigma_min=2f-1,
         sigma_max=5f-1,#5f-1,x
         latent_dimension=60,
-        latent_action_scale=2f0
+        latent_action_scale=1f0
     ),
     physics = (
         n_physics_steps = 5,
@@ -21,10 +21,10 @@ params = (
         alive_bonus = 0.1,
         control_cost = 0.000,
         falloff = (
-            forward_speed = 0.75,
-            turning_speed = 2.0,
+            forward_speed = 0.5,
+            turning_speed = 0.5,
         ),
-	forward_weight = 4.0
+	    forward_weight = 4.0
     ),
     training = (
         loss_weight_actor = 1.0,
@@ -35,7 +35,7 @@ params = (
         gamma=0.95,
         lambda=0.95,
         clip_range=0.2,
-        checkpoint_interval=5000,
+        checkpoint_interval=2500,
     ),
     rollout = (
         n_envs=512,
