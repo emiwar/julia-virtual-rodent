@@ -8,15 +8,16 @@ function JoystickTrajectory()
     if rand() > 0.5
         add_static!(traj, rand(500:1000),  0.5 + rand()*0.5, 0.0)
     end
-    add_static!(traj, rand(20:100),   0.0, -5.0 + rand()*10.0)
-    add_static!(traj, rand(100:300), -0.2 + rand()*0.3, 0.0)
+    add_static!(traj, rand(20:100),   0.0, -2.0 + rand()*4.0)
+    add_static!(traj, rand(100:300), -0.2 + rand()*0.5, 0.0)
     add_static!(traj, rand(25:50),    0.3,  0.0)
-    add_static!(traj, rand(20:100),   0.0, -4.0 + rand()*8.0)
+    add_static!(traj, rand(20:100),   0.0, -2.0 + rand()*4.0)
     add_static!(traj, rand(100:200),  0.5,  0.0)
-    add_static!(traj, rand(100:200),  0.0,  0.0)
-    add_static!(traj, rand(100:400),  0.1 + rand()*0.4,  -3.0 + rand()*6.0)
+    add_static!(traj, rand(50:200),   0.0,  0.0)
+    add_static!(traj, rand(200:400),  0.2+rand(),  0.0)
+    add_static!(traj, rand(100:400),  0.1 + rand()*0.4,  -1.0 + rand()*2.0)
     add_static!(traj, rand(100:300),  -0.1 + rand()*0.6, 0.0)
-    add_static!(traj, rand(20:100),   0.0, -5.0 + rand()*10.0)
+    add_static!(traj, rand(20:100),   0.0, -2.0 + rand()*4.0)
     return traj
 end
 

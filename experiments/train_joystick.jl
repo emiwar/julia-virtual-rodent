@@ -3,13 +3,13 @@ params = (
         actor_size=[1024],
         critic_size=[1024, 1024],
         sigma_min=2f-1,
-        sigma_max=5f-1,#5f-1,x
+        sigma_max=1f0,#5f-1,x
         latent_dimension=60,
-        latent_action_scale=1f0
+        latent_action_scale=4f0
     ),
     physics = (
         n_physics_steps = 5,
-        min_torso_z = 0.035,
+        min_torso_z = 0.04,
         spawn_z_offset = 0.01,
         torque_control = true,
         body_scale = 1.0,
@@ -21,21 +21,21 @@ params = (
         alive_bonus = 0.1,
         control_cost = 0.000,
         falloff = (
-            forward_speed = 0.5,
-            turning_speed = 0.5,
+            forward_speed = 0.35,
+            turning_speed = 2.0,
         ),
 	    forward_weight = 4.0
     ),
     training = (
         loss_weight_actor = 1.0,
         loss_weight_critic = 0.5,
-        loss_weight_entropy = -0.2,
+        loss_weight_entropy = -0.01,
         n_miniepochs=1,
         learning_rate=1e-4,
         gamma=0.95,
         lambda=0.95,
         clip_range=0.2,
-        checkpoint_interval=2500,
+        checkpoint_interval=1000,
     ),
     rollout = (
         n_envs=512,

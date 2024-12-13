@@ -118,6 +118,8 @@ function info(env::RodentJoystickEnv, params)
         actuator_force_sum_sqr = norm(env.data.actuator_force)^2,
         forward_speed = forward_speed(env, params),
         turning_speed = turning_speed(env, params),
+        forward_error = target_forward_speed(env, params) - forward_speed(env, params),
+        turning_error = target_turning_speed(env, params) - turning_reward(env, params),
         forward_reward = forward_reward(env, params),
         turning_reward = turning_reward(env, params)
     )
