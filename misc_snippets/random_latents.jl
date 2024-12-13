@@ -6,13 +6,14 @@ import CUDA
 import MuJoCo
 import ProgressMeter
 include("../src/utils/component_tensor.jl")
+include("../src/environments/imitation_trajectory.jl")
 include("../src/environments/rodent_imitation_env.jl")
-include("../src/algorithms/ppo_networks.jl")
+include("../src/networks/variational_enc_dec.jl")
 include("../src/utils/wandb_logger.jl")
 include("../src/utils/load_dm_control_model.jl")
 
-T = 1000
-wandb_run_id = "6q2a2pxw" #"7mzfglak"
+T = 2000
+wandb_run_id = "j0zwbgns" #"7mzfglak"
 
 params, weights_file_name = load_from_wandb(wandb_run_id, r"step-.*")
 actor_critic = BSON.load(weights_file_name)[:actor_critic] |> Flux.gpu
@@ -20,7 +21,7 @@ actor_critic = BSON.load(weights_file_name)[:actor_critic] |> Flux.gpu
 MuJoCo.init_visualiser()
 
 env = RodentImitationEnv(params)
-reset!(env, params; next_clip=449)
+reset!(env, params)#; next_clip=449)
 model = env.model
 physics_states = zeros(model.nq + model.nv + model.na,
                        T*params.physics.n_physics_steps)

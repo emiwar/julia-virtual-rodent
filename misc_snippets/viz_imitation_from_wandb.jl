@@ -1,27 +1,47 @@
-import Wandb
-import Flux
-import PythonCall
 import BSON
 import CUDA
+import Dates
+import Statistics
+import HDF5
+import LinearAlgebra: norm, dot
 import MuJoCo
-import ProgressMeter
-include("../src/utils/component_tensor.jl")
-include("../src/environments/rodent_imitation_env.jl")
-include("../src/algorithms/ppo_networks.jl")
-include("../src/utils/wandb_logger.jl")
-include("../src/utils/load_dm_control_model.jl")
+import PythonCall
+import Wandb
+using Flux
+using ProgressMeter
+using StaticArrays
 
-T = 2500
+include("../src/utils/profiler.jl")
+include("../src/utils/load_dm_control_model.jl")
+include("../src/utils/mujoco_quat.jl")
+include("../src/utils/component_tensor.jl")
+include("../src/utils/wandb_logger.jl")
+include("../src/environments/mujoco_env.jl")
+include("../src/environments/imitation_trajectory.jl")
+include("../src/environments/rodent_imitation_env.jl")
+include("../src/collectors/batch_stepper.jl")
+include("../src/collectors/mpi_stepper.jl")
+include("../src/collectors/cuda_collector.jl")
+include("../src/algorithms/ppo_loss.jl")
+include("../src/networks/variational_enc_dec.jl")
+
+T = 5000
 wandb_run_id = "j0zwbgns" #"7mzfglak"
 
 params, weights_file_name = load_from_wandb(wandb_run_id, r"step-.*")
+ActorCritic = VariationalEncDec
 actor_critic = BSON.load(weights_file_name)[:actor_critic] |> Flux.gpu
 
 MuJoCo.init_visualiser()
 
-env = RodentImitationEnv(params)#, target_data="reference_data/2020_12_22_1_precomputed.h5")
-reset!(env, params, 1, 25000)
+env = RodentImitationEnv(params, target_data="reference_data/2020_12_22_1_precomputed.h5")
+clip_labels = HDF5.h5open("src/environments/assets/diego_curated_snippets.h5", "r") do fid
+    [HDF5.attrs(fid["clip_$(i-1)"])["action"] for i=1:size(env.target)[3]]
+end
 
+clips = findall(l->l=="FaceGroom", clip_labels)
+
+reset!(env, params, 1, 25000)#rand(clips), 1)#, 1, 25000)
 dubbleModel = dm_control_model_with_ghost(torque_actuators = params.physics.torque_control,
                                           foot_mods = params.physics.foot_mods,
                                           scale = params.physics.body_scale)
@@ -48,7 +68,7 @@ ProgressMeter.@showprogress for t=1:T
     end
     if status(env, params) != RUNNING
         println("Resetting at age $(env.lifetime), frame $(env.target_frame), animation step $(t*n_physics_steps)")
-        reset!(env, params)#, 1, env.target_frame)
+        reset!(env, params, 1, env.target_frame)#rand(clips), 1)
     end
 end
 
