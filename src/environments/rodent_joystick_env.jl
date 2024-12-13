@@ -66,11 +66,13 @@ function state(env::RodentJoystickEnv, params)
         ),
         command = (
             forward_speed = target_forward_speed(env, params),
-            turning_speed = target_turning_speed(env, params)
+            turning_speed = target_turning_speed(env, params),
+            head_height   = target_head_height(env, params)
         ),
         for_critic_only = (
             forward_speed = forward_speed(env, params),
-            turning_speed = turning_speed(env, params)
+            turning_speed = turning_speed(env, params),
+            head_height = head_height(env, params)
         )
     )
 end
@@ -78,23 +80,29 @@ end
 
 function forward_reward(env::RodentJoystickEnv, params)
     falloff = params.reward.falloff.forward_speed^2
-    reward = exp(-(forward_speed(env, params) - target_forward_speed(env, params))^2/falloff)
-    #speed  = forward_speed(env, params)
-    #target = params.reward.target.forward_speed
-    #1 - (speed - target)^2/target^2
-    return reward
+    target = target_forward_speed(env, params)
+    reward = exp(-(forward_speed(env, params) - target)^2/falloff)
+    weight = (0.5 + 2*abs(target))
+    return weight * reward
 end
 function turning_reward(env::RodentJoystickEnv, params)
     falloff = params.reward.falloff.turning_speed^2
     reward = exp(-(turning_speed(env, params) - target_turning_speed(env, params))^2/falloff)
-    #target = params.reward.target.turning_speed
-    return reward #1 - (speed - target)^2
+    return reward
+end
+function head_reward(env::RodentJoystickEnv, params)
+    falloff = params.reward.falloff.head_height^2
+    reward = exp(-(head_height(env, params) - target_head_height(env, params))^2/falloff)
+    return reward
 end
 
 function reward(env::RodentJoystickEnv, params)
-    total_reward  = params.reward.forward_weight * forward_reward(env, params) + turning_reward(env, params)
+    total_reward  = forward_reward(env, params)
+    total_reward += turning_reward(env, params)
+    total_reward += head_reward(env, params)
     ctrl_reward   = -params.reward.control_cost * norm(env.data.ctrl)^2
-    total_reward += ctrl_reward + params.reward.alive_bonus
+    total_reward += ctrl_reward 
+    total_reward += params.reward.alive_bonus
     total_reward #return clamp(total_reward, params.min_reward, Inf)
 end
 
@@ -118,10 +126,13 @@ function info(env::RodentJoystickEnv, params)
         actuator_force_sum_sqr = norm(env.data.actuator_force)^2,
         forward_speed = forward_speed(env, params),
         turning_speed = turning_speed(env, params),
+        head_height = head_height(env, params),
         forward_error = target_forward_speed(env, params) - forward_speed(env, params),
         turning_error = target_turning_speed(env, params) - turning_reward(env, params),
+        head_height_error = target_head_height(env, params) - head_height(env, params),
         forward_reward = forward_reward(env, params),
-        turning_reward = turning_reward(env, params)
+        turning_reward = turning_reward(env, params),
+        head_reward = head_reward(env, params)
     )
 end
 
@@ -165,8 +176,11 @@ function turning_speed(env::RodentJoystickEnv, params)
     return az_diff / timestep
 end
 
+head_height(env::RodentJoystickEnv, params) = subtree_com(env, "walker/skull")[3]
+
 target_forward_speed(env::RodentJoystickEnv, params) = env.commands.forward[env.lifetime+1]
 target_turning_speed(env::RodentJoystickEnv, params) = env.commands.turning[env.lifetime+1]
+target_head_height(env::RodentJoystickEnv, params) = env.commands.head[env.lifetime+1]
 
 function Base.show(io::IO, env::RodentJoystickEnv)
     compact = get(io, :compact, false)

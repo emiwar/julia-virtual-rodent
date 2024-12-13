@@ -1,6 +1,6 @@
 params = (
     network = (
-        actor_size=[1024],
+        actor_size=[1024, 1024],
         critic_size=[1024, 1024],
         sigma_min=4f-1,
         sigma_max=6f-1,#5f-1,x
@@ -21,10 +21,11 @@ params = (
         alive_bonus = 0.1,
         control_cost = 0.000,
         falloff = (
-            forward_speed = 0.3,
-            turning_speed = 1.5,
+            forward_speed = 0.2,
+            turning_speed = 0.4,
+            head_height = 0.04,
         ),
-	    forward_weight = 4.0
+	    forward_weight = "auto"
     ),
     training = (
         loss_weight_actor = 1.0,
