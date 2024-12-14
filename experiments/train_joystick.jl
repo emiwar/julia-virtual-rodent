@@ -1,9 +1,9 @@
 params = (
     network = (
-        actor_size=[1024, 1024],
+        actor_size=[1024],
         critic_size=[1024, 1024],
-        sigma_min=4f-1,
-        sigma_max=6f-1,#5f-1,x
+        sigma_min=5f-1,
+        sigma_max=1f0,#5f-1,x
         latent_dimension=60,
         latent_action_scale=1f0
     ),
@@ -28,8 +28,8 @@ params = (
 	    forward_weight = "auto"
     ),
     training = (
-        loss_weight_actor = 0.2,
-        loss_weight_critic = 1.0,
+        loss_weight_actor = 1.0,
+        loss_weight_critic = 0.5,
         loss_weight_entropy = -0.01,
         n_miniepochs=1,
         learning_rate=1e-4,

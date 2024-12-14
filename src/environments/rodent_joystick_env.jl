@@ -83,7 +83,7 @@ function forward_reward(env::RodentJoystickEnv, params)
     falloff = params.reward.falloff.forward_speed^2
     target = target_forward_speed(env, params)
     reward = exp(-(forward_speed(env, params) - target)^2/falloff)
-    weight = (0.5 + 2*abs(target))
+    weight = (1.0 + 4*abs(target))
     return weight * reward
 end
 function turning_reward(env::RodentJoystickEnv, params)
