@@ -6,6 +6,7 @@ mutable struct RodentJoystickEnv <: MuJoCoEnv# <: RodentFollowEnv
     last_torso_pos::SVector{3, Float64}
     last_torso_quat::SVector{4, Float64}
     lifetime::Int64
+    trajTime::Int64
     cumulative_reward::Float64
     sensorranges::Dict{String, UnitRange{Int64}}
 end
@@ -26,7 +27,7 @@ function RodentJoystickEnv(params)
                                                              "sole_L", "sole_R", "torso"])
     env = RodentJoystickEnv(model, data, JoystickTrajectory(),
                             SVector(0.0, 0.0, 0.0), SVector(1.0, 0.0, 0.0, 0.0),
-                            0, 0.0, sensorranges)
+                            0, 1, 0.0, sensorranges)
     reset!(env, params)
     return env
 end
@@ -35,7 +36,7 @@ function clone(env::RodentJoystickEnv, params)
     new_env = RodentJoystickEnv(
         env.model, MuJoCo.init_data(env.model), JoystickTrajectory(),
         env.last_torso_pos, env.last_torso_quat,
-        0, 0.0, env.sensorranges
+        0, 1, 0.0, env.sensorranges
     )
     reset!(new_env, params)
     return new_env
@@ -109,7 +110,7 @@ end
 function status(env::RodentJoystickEnv, params)
     if torso_z(env) < params.physics.min_torso_z 
         return TERMINATED
-    elseif env.lifetime > length(env.commands.forward)-2
+    elseif env.trajTime > length(env.commands.forward)-2
         return TRUNCATED
     else
         return RUNNING
@@ -122,6 +123,7 @@ function info(env::RodentJoystickEnv, params)
         torso_y=torso_y(env),
         torso_z=torso_z(env),
         lifetime=float(env.lifetime),
+        trajTime=float(env.trajTime),
         cumulative_reward = env.cumulative_reward,
         actuator_force_sum_sqr = norm(env.data.actuator_force)^2,
         forward_speed = forward_speed(env, params),
@@ -144,13 +146,15 @@ function act!(env::RodentJoystickEnv, action, params)
     for _=1:params.physics.n_physics_steps
         MuJoCo.step!(env.model, env.data)
     end
-    env.lifetime += 1
     env.cumulative_reward += reward(env, params)
+    env.lifetime += 1
+    env.trajTime += 1
 end
 
 function reset!(env::RodentJoystickEnv, params)
     env.lifetime = 0
     env.cumulative_reward = 0.0
+    env.trajTime = rand(1:(length(env.commands.forward)-20))
     MuJoCo.reset!(env.model, env.data)
     MuJoCo.forward!(env.model, env.data)
     env.last_torso_pos  = body_xpos(env,  "walker/torso")
@@ -178,9 +182,9 @@ end
 
 head_height(env::RodentJoystickEnv, params) = subtree_com(env, "walker/skull")[3]
 
-target_forward_speed(env::RodentJoystickEnv, params) = env.commands.forward[env.lifetime+1]
-target_turning_speed(env::RodentJoystickEnv, params) = env.commands.turning[env.lifetime+1]
-target_head_height(env::RodentJoystickEnv, params) = env.commands.head[env.lifetime+1]
+target_forward_speed(env::RodentJoystickEnv, params) = env.commands.forward[env.trajTime]
+target_turning_speed(env::RodentJoystickEnv, params) = env.commands.turning[env.trajTime]
+target_head_height(env::RodentJoystickEnv, params) = env.commands.head[env.trajTime]
 
 function Base.show(io::IO, env::RodentJoystickEnv)
     compact = get(io, :compact, false)

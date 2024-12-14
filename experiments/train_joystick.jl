@@ -21,15 +21,15 @@ params = (
         alive_bonus = 0.1,
         control_cost = 0.000,
         falloff = (
-            forward_speed = 0.2,
+            forward_speed = 0.4,
             turning_speed = 0.4,
             head_height = 0.04,
         ),
 	    forward_weight = "auto"
     ),
     training = (
-        loss_weight_actor = 1.0,
-        loss_weight_critic = 0.5,
+        loss_weight_actor = 0.2,
+        loss_weight_critic = 1.0,
         loss_weight_entropy = -0.01,
         n_miniepochs=1,
         learning_rate=1e-4,
