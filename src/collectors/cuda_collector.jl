@@ -11,12 +11,13 @@ end
 function CuCollector(template_env, template_actor, n_envs, steps_per_batch)
     template_state  = state(template_env, params) |> ComponentTensor
     template_info   = info(template_env, params) |> ComponentTensor
-    template_actor_output = actor(template_actor, template_state, params) |> ComponentTensor
+    template_status = fill(RUNNING, 1)
+    template_actor_output = actor(template_actor, template_state, template_status, params) |> ComponentTensor
 
     #Big GPU arrays/BatchComponentTensor for storing the entire batch
     states = BatchComponentTensor(template_state, n_envs, steps_per_batch+1; array_fcn=CUDA.zeros)
     rewards = CUDA.zeros(n_envs, steps_per_batch)
-    status = CUDA.zeros(UInt8, n_envs, steps_per_batch)
+    status = CUDA.zeros(UInt8, n_envs, steps_per_batch+1)
     actor_outputs =  BatchComponentTensor(template_actor_output, n_envs, steps_per_batch; array_fcn=CUDA.zeros)
 
     #...except infos, which never have to be moved to the GPU
@@ -31,9 +32,10 @@ function collect_batch!(actor::Function, collector::Collector, stepper,
     lap(lapTimer, :first_state)
     prepareEpoch!(stepper, params)
     collector.states[:, :, 1] = stepper.states
+    collector.status[:, 1] = stepper.status
     for t=1:steps_per_batch
         lap(lapTimer, :rollout_actor)
-        collector.actor_outputs[:, :, t] = actor((@view collector.states[:, :, t]), params)
+        collector.actor_outputs[:, :, t] = actor((@view collector.states[:, :, t]), (@view collector.status[:, t]), params)
         actions = action_preprocess((@view collector.actor_outputs[:action, :, t]),
                                     (@view collector.states[:, :, t]), params)
         lap(lapTimer, :rollout_action_to_cpu)
@@ -42,7 +44,7 @@ function collect_batch!(actor::Function, collector::Collector, stepper,
         collector.states[:, :, t+1] = stepper.states
         collector.infos[:, :, t] = stepper.infos
         collector.rewards[:, t] = stepper.rewards
-        collector.status[:, t] = stepper.status
+        collector.status[:, t+1] = stepper.status
     end
 end
 

@@ -1,3 +1,4 @@
+import MPI
 import BSON
 import CUDA
 import Dates
