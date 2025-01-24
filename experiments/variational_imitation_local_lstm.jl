@@ -73,13 +73,18 @@ config = params_to_dict(params)
 #                        name = run_name,
 #                        config = config)
 mkdir("runs/checkpoints/$(run_name)")
-#@showprogress for epoch = 1:params.rollout.n_epochs
+@showprogress for epoch = 1:params.rollout.n_epochs
     lapTimer = LapTimer()
+
     network_state_at_epoch_start = checkpoint_state(networks_gpu)
     collect_batch!(collector, stepper, params, lapTimer) do state, status, params
-        actor(networks_gpu, state, status, params)
+        actor(networks_gpu, state, status .== RUNNING, params)
     end
     network_state_at_epoch_end = checkpoint_state(networks_gpu)
+    restore_state!(networks_gpu, network_state_at_epoch_start)
+    actor(networks_gpu, collector.states, collector.status .== RUNNING, params)
+    checkpoint_state(networks_gpu) == network_state_at_epoch_end
+    
     before_miniepoch = ()->restore_state!(networks_gpu, network_state_at_epoch_start)
     ppo_log = ppo_update!(collector, networks_gpu, opt_state, params, lapTimer; before_miniepoch)
     if params.training.n_miniepochs == 1
@@ -101,3 +106,25 @@ mkdir("runs/checkpoints/$(run_name)")
 end
 Wandb.close(lg);
 
+
+
+non_final_states = view(collector.states, :, :, 1:n_steps_per_batch)
+actions_ = collector.actor_outputs.action |> array
+latent_eps = collector.actor_outputs.latent_eps |> array
+inv_reset_mask = view(collector.status .== RUNNING, :, 1:n_steps_per_batch)
+
+A = checkpoint_state(networks_gpu)
+actor(networks_gpu, non_final_states, inv_reset_mask, params, actions_, latent_eps)
+B = checkpoint_state(networks_gpu)
+
+restore_state!(networks_gpu, A)
+actor(networks_gpu, non_final_states, inv_reset_mask, params, actions_, latent_eps)
+C = checkpoint_state(networks_gpu)
+@assert B == C
+
+restore_state!(networks_gpu, A)
+for t=1:n_steps_per_batch
+    actor(networks_gpu, (@view collector.states[:, :, t]), (@view collector.status[:, t]), params, actions_[:, :, t], latent_eps[:, :, t])
+end
+D = checkpoint_state(networks_gpu)
+@assert B == D
