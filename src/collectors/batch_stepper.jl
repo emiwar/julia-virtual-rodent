@@ -37,6 +37,7 @@ function prepareEpoch!(batchStepper::BatchStepper, params)
             reset!(batchStepper.environments[i], params)
         end
         batchStepper.states[:, i] = state(batchStepper.environments[i], params)
+        batchStepper.status[i] = status(batchStepper.environments[i], params)
     end
 end
 
