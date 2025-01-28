@@ -26,7 +26,7 @@ include("../collectors/cuda_collector.jl")
 
 exploration = false
 wandb_run_id = ARGS[1] #"mm0dnyq4"
-output_filename = "/n/holylabs/LABS/olveczky_lab/Lab/virtual_rodent/julia_rollout/$wandb_run_id/eval_on_train_data.h5"
+output_filename = "/n/holylabs/LABS/olveczky_lab/Lab/virtual_rodent/julia_rollout/eval_on_training_data/$wandb_run_id.h5"
 
 params, weights_file_name = load_from_wandb(wandb_run_id, r"step-.*")
 VariationalEncDec = EncDec
@@ -65,6 +65,7 @@ function rec(fcn, pre, ct)
     end
 end
 
+mkpath(dirname(output_filename))
 HDF5.h5open(output_filename, "w") do fid
     write_to_fid(k, v::ComponentTensor) = (fid[k] = permutedims(array(v) |> Array, (2,3,1)))
     write_to_fid(k, v::AbstractArray{T, 3}) where T = (fid[k] = permutedims(v |> Array, (2,3,1)))

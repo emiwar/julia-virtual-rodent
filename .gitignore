@@ -30,3 +30,7 @@ runs/
 rendered_rollouts/
 artifacts/
 .env/
+
+# Emacs backup files
+*~
+\#*\#
