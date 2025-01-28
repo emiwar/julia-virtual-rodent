@@ -92,4 +92,50 @@ function decoder_only(actor_critic::EncDec, state, latent, params; action_noise=
     end
 end
 
+function actor_logged(actor_critic::EncDec, state, params, action=nothing)
+    activation_log = Dict{Symbol, AbstractArray}()
+    #Annoying work-around to avoid auto-diff errors
+    imitation_target = Flux.ignore(()->state.imitation_target |> array |> copy)
+    proprioception = Flux.ignore(()->state.proprioception |> array |> copy)
+    batch_dims = ntuple(_->:, ndims(proprioception)-1)
+
+    #Encoder
+    latent_dimension = params.network.latent_dimension
+    x = imitation_target
+    for (i, layer) in enumerate(actor_critic.encoder.layers)
+        x = layer(x)
+        activation_log[Symbol("encoder_$i")] = x
+    end
+    encoder_output = x
+    latent = @view encoder_output[1:latent_dimension, batch_dims...]
+    activation_log[:latent] = latent
+
+    #Decoder
+    decoder_input = cat(latent, proprioception; dims=1)
+    x = decoder_input
+    for (i, layer) in enumerate(actor_critic.decoder.layers)
+        x = layer(x)
+        activation_log[Symbol("decoder_$i")] = x
+    end
+    decoder_output = x
+
+    #Draw action with mean and sigma, and compute action likelihood
+    action_size = size(decoder_output, 1) ÷ 2
+    mu = @view decoder_output[1:action_size, batch_dims...]
+    unscaled_sigma = @view decoder_output[action_size+1:end, batch_dims...]
+    sigma_min = params.network.sigma_min
+    sigma_max = params.network.sigma_max
+    sigma = sigma_min .+ 0.5f0.*(sigma_max .- sigma_min).*(1 .+ unscaled_sigma)
+    if isnothing(action)
+        xsi = randn_like(mu)
+        action = mu .+ sigma .* xsi
+    end
+    loglikelihood = -0.5f0 .* sum(((action .- mu) ./ sigma).^2; dims=1) .- sum(log.(sigma); dims=1)
+
+    activation_log[:mu] = mu
+    activation_log[:unscaled_sigma] = unscaled_sigma
+    activation_log[:sigma] = sigma
+
+    (;action, mu, sigma, loglikelihood, latent, pairs(activation_log)...)
+end
 #action_size(actor_critic::ActorCritic) = size(actor_critic.actor[end].weight, 1) ÷ 2

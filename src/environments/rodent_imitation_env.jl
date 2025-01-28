@@ -28,7 +28,7 @@ function RodentImitationEnv(params; target_data="src/environments/assets/diego_c
                                                              "gyro", "palm_L", "palm_R",
                                                              "sole_L", "sole_R", "torso"])
     env = RodentImitationEnv{params.imitation.horizon, typeof(target)}(model, data, target, 0, 1, 0, 0.0, sensorranges)
-    reset!(env, params)
+    reset!(env, params, rand(1:(size(env.target)[3])), 1)
     return env
 end
 
@@ -37,7 +37,7 @@ function clone(env::RodentImitationEnv{ImLen}, params) where ImLen
         env.model,
         MuJoCo.init_data(env.model),
         env.target,
-        0,1,0,0.0,env.sensorranges
+        1,1,0,0.0,env.sensorranges
     )
     reset!(new_env, params)
     return new_env
@@ -151,7 +151,11 @@ function reset!(env::RodentFollowEnv, params, next_clip, next_frame)
 end
 
 function reset!(env::RodentFollowEnv, params)
-    reset!(env, params, rand(1:(size(env.target)[3])), 1)
+    if params.imitation.restart_on_reset
+        reset!(env, params, rand(1:(size(env.target)[3])), 1)
+    else
+        reset!(env, params, env.target_clip, env.target_frame)
+    end
 end
 
 #Utils

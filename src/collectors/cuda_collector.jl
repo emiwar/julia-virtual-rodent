@@ -8,12 +8,13 @@ struct CuCollector{S, I, A} <: Collector
     actor_outputs::A
 end
 
-function CuCollector(template_env, template_actor, n_envs, steps_per_batch)
+function CuCollector(template_env, template_actor, n_envs, steps_per_batch; actor_fcn=actor)
     template_state  = state(template_env, params) |> ComponentTensor
     template_info   = info(template_env, params) |> ComponentTensor
-    template_status = fill(RUNNING, 1)
-    template_actor_output = actor(template_actor, template_state, template_status, params) |> ComponentTensor
-
+    template_actor_output = actor_fcn(template_actor, template_state, params) |> ComponentTensor
+    #template_status = fill(RUNNING, 1)
+    #template_actor_output = actor_fcn(template_actor, template_state, template_status, params) |> ComponentTensor
+    
     #Big GPU arrays/BatchComponentTensor for storing the entire batch
     states = BatchComponentTensor(template_state, n_envs, steps_per_batch+1; array_fcn=CUDA.zeros)
     rewards = CUDA.zeros(n_envs, steps_per_batch)
@@ -35,7 +36,8 @@ function collect_batch!(actor::Function, collector::Collector, stepper,
     collector.status[:, 1] = stepper.status
     for t=1:steps_per_batch
         lap(lapTimer, :rollout_actor)
-        collector.actor_outputs[:, :, t] = actor((@view collector.states[:, :, t]), (@view collector.status[:, t]), params)
+        #collector.actor_outputs[:, :, t] = actor((@view collector.states[:, :, t]), (@view collector.status[:, t]), params)
+        collector.actor_outputs[:, :, t] = actor((@view collector.states[:, :, t]), params)
         actions = action_preprocess((@view collector.actor_outputs[:action, :, t]),
                                     (@view collector.states[:, :, t]), params)
         lap(lapTimer, :rollout_action_to_cpu)
