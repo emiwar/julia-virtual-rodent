@@ -52,9 +52,10 @@ function ppo_update!(batch, actor_critic, opt_state, params, lapTimer::LapTimer;
         gradients = Flux.gradient(actor_critic) do actor_critic
             #Actor loss
             if has_latent_layer(actor_critic)
-                actor_output = actor(actor_critic, non_final_states, inv_reset_mask, params, actions, latent_eps)
+                actor_output = actor(actor_critic, non_final_states, params, actions, latent_eps)
             else
-                actor_output = actor(actor_critic, non_final_states, inv_reset_mask, params, actions)#, latent_eps)
+                #actor_output = actor(actor_critic, non_final_states, inv_reset_mask, params, actions)#, latent_eps)
+                actor_output = actor(actor_critic, non_final_states, params, actions)
             end
             likelihood_ratios = view(exp.(actor_output.loglikelihood .- batch_loglikelihoods), 1, :, :)
             grad_cand1 = likelihood_ratios .* advantages
