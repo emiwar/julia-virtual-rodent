@@ -66,7 +66,11 @@ function compute_batch_stats(collector::Collector)
     merge!(logdict, quantile_dict("actor/action_ctrl_sum_squared", sum(view(collector.actor_outputs, :action, :, :).^2; dims=1)))
     if :latent in keys(collector.actor_outputs)
         merge!(logdict, quantile_dict("actor/latent", view(collector.actor_outputs, :latent, :, :)))
+    end
+    if :latent_mu in keys(collector.actor_outputs)
         merge!(logdict, quantile_dict("actor/latent_mu", view(collector.actor_outputs, :latent_mu, :, :)))
+    end
+    if :latent_logsigma in keys(collector.actor_outputs)
         merge!(logdict, quantile_dict("actor/latent_logsigma", view(collector.actor_outputs, :latent_logsigma, :, :)))
     end
     merge!(logdict, quantile_dict("rollout_batch/rewards", collector.rewards))
