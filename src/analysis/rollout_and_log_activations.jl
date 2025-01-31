@@ -19,21 +19,34 @@ include("../utils/wandb_logger.jl")
 include("../environments/mujoco_env.jl")
 include("../environments/imitation_trajectory.jl")
 include("../environments/rodent_imitation_env.jl")
-include("../networks/enc_dec.jl")
+#include("../networks/enc_dec.jl")
+include("../networks/variational_enc_dec.jl")
 include("../collectors/batch_stepper.jl")
 include("../collectors/mpi_stepper.jl")
 include("../collectors/cuda_collector.jl")
 
 exploration = false
 wandb_run_id = ARGS[1] #"mm0dnyq4"
-output_filename = "/n/holylabs/LABS/olveczky_lab/Lab/virtual_rodent/julia_rollout/eval_on_training_data/$wandb_run_id.h5"
-
+base_path = "/n/holylabs/LABS/olveczky_lab/Lab/virtual_rodent/julia_rollout/"
 params, weights_file_name = load_from_wandb(wandb_run_id, r"step-.*")
-VariationalEncDec = EncDec
+
+if length(ARGS) >= 2
+    animal_session = ARGS[2]
+    input_filename  = "$base_path/$animal_session/precomputed_inputs.h5"
+    output_filename = "$base_path/$animal_session/$wandb_run_id.h5"
+    template_env = RodentImitationEnv(params, target_data=input_filename)
+    training_data = false
+else
+    output_filename = "$base_path/eval_on_training_data/$wandb_run_id.h5"
+    template_env = RodentImitationEnv(params)
+    training_data = true
+end
+
+#VariationalEncDec = EncDec
+ActorCritic = VariationalEncDec
 networks = BSON.load(weights_file_name)[:actor_critic]
 networks_gpu = networks |> Flux.gpu
 
-template_env = RodentImitationEnv(params)
 _, clip_steps, n_clips = size(template_env.target)
 env_steps = 2*(clip_steps - params.imitation.horizon)
 params = merge(params, (;
@@ -83,5 +96,7 @@ HDF5.h5open(output_filename, "w") do fid
     write_to_fid("activations/latent_layer", collector.actor_outputs.latent)
     write_to_fid("activations/output/mean", collector.actor_outputs.mu)
     write_to_fid("activations/output/std", collector.actor_outputs.sigma)
-    fid["clip_labels"] = clip_labels
+    if training_data
+       fid["clip_labels"] = clip_labels
+    end
 end
