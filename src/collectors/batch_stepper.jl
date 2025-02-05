@@ -33,11 +33,13 @@ end
 
 function prepareEpoch!(batchStepper::BatchStepper, params)
     @Threads.threads for i=1:n_envs(batchStepper)
+        env = batchStepper.environments[i]
         if params.rollout.reset_on_epoch_start
-            reset!(batchStepper.environments[i], params)
+            reset!(env, params)
         end
-        batchStepper.states[:, i] = state(batchStepper.environments[i], params)
-        batchStepper.status[i] = status(batchStepper.environments[i], params)
+        batchStepper.states[:, i] = state(env, params)
+        batchStepper.status[i] = status(env, params)
+        batchStepper.infos[:, i] = info(env, params)
     end
 end
 
@@ -47,9 +49,9 @@ function step!(batchStepper::BatchStepper, params, lapTimer=nothing, auto_reset=
         action = view(batchStepper.actions, :, i)
         act!(env, action, params)
         batchStepper.states[:, i] = state(env, params)
-        batchStepper.rewards[i]  = reward(env, params)
-        batchStepper.status[i]   = status(env, params)
-        batchStepper.infos[:, i] = info(env, params)
+        batchStepper.rewards[i]   = reward(env, params)
+        batchStepper.status[i]    = status(env, params)
+        batchStepper.infos[:, i]  = info(env, params)
         if auto_reset && batchStepper.status[i] != RUNNING
             reset!(env, params)
         end

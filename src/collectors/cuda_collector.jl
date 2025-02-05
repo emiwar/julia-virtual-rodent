@@ -22,7 +22,7 @@ function CuCollector(template_env, template_actor, n_envs, steps_per_batch; acto
     actor_outputs =  BatchComponentTensor(template_actor_output, n_envs, steps_per_batch; array_fcn=CUDA.zeros)
 
     #...except infos, which never have to be moved to the GPU
-    infos = BatchComponentTensor(template_info, n_envs, steps_per_batch; array_fcn=zeros)
+    infos = BatchComponentTensor(template_info, n_envs, steps_per_batch+1; array_fcn=zeros)
     
     CuCollector(states, rewards, status, infos, actor_outputs)
 end
@@ -34,6 +34,7 @@ function collect_batch!(actor::Function, collector::Collector, stepper,
     prepareEpoch!(stepper, params)
     collector.states[:, :, 1] = stepper.states
     collector.status[:, 1] = stepper.status
+    collector.infos[:, :, 1] = stepper.infos
     for t=1:steps_per_batch
         lap(lapTimer, :rollout_actor)
         #collector.actor_outputs[:, :, t] = actor((@view collector.states[:, :, t]), (@view collector.status[:, t]), params)
@@ -44,7 +45,7 @@ function collect_batch!(actor::Function, collector::Collector, stepper,
         copyto!(stepper.actions, actions)
         step!(stepper, params, lapTimer)
         collector.states[:, :, t+1] = stepper.states
-        collector.infos[:, :, t] = stepper.infos
+        collector.infos[:, :, t+1] = stepper.infos
         collector.rewards[:, t] = stepper.rewards
         collector.status[:, t+1] = stepper.status
     end

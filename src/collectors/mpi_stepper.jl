@@ -59,6 +59,7 @@ function prepareEpoch!(mpiStepper::MpiStepper, params)
     prepareEpoch!(localStepper, params)
     MPI.Gather!(raw_states(localStepper), raw_states(mpiStepper), MPI.COMM_WORLD)
     MPI.Gather!(status(localStepper),  status(mpiStepper), MPI.COMM_WORLD)
+    MPI.Gather!(raw_infos(localStepper),  raw_infos(mpiStepper), MPI.COMM_WORLD)
 end
 
 function step!(mpiStepper::MpiStepper, params, lapTimer)
