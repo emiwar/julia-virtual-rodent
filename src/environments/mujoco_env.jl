@@ -25,7 +25,7 @@ function prepare_sensorranges(model, sensors)
     for sensor in sensors
         sensor_id = MuJoCo.mj_name2id(model, MuJoCo.mjOBJ_SENSOR, sensor)
         if sensor_id == -1
-            error("Cannot find sensor '$sensor_name'")
+            error("Cannot find sensor '$sensor'")
         end
         ind = model.sensor_adr[sensor_id+1]
         len = model.sensor_dim[sensor_id+1]
