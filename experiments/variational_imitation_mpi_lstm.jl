@@ -97,7 +97,7 @@ if MPI.Comm_rank(MPI.COMM_WORLD) == 0
         lap(lapTimer, :checkpointing)
         if epoch % params.training.checkpoint_interval == 0
             checkpoint_fn = "runs/checkpoints/$(run_name)/step-$(epoch).bson"
-            BSON.bson(checkpoint_fn; actor_critic=Flux.cpu(actor_critic))
+            BSON.bson(checkpoint_fn; actor_critic=Flux.cpu(networks_gpu))
             lg.wrun.log_model(checkpoint_fn, "checkpoint-step-$(epoch).bson")
         end
         lap(lapTimer, :logging_submitting)
