@@ -71,6 +71,10 @@ function actor(actor_critic::VariationalEncDec, state, params, action=nothing, l
     (;action, mu, sigma, loglikelihood, latent, latent_mu, latent_logsigma, latent_eps)
 end
 
+function actor(actor_critic::VariationalEncDec, state, inv_reset_mask, params, action=nothing, latent_eps=nothing)
+    actor(actor_critic, state, params, action, latent_eps)
+end
+
 function critic(actor_critic::VariationalEncDec, state, params)
     input = data(state)
     return view(actor_critic.critic(input), 1, :, :) ./ (1.0-params.training.gamma)

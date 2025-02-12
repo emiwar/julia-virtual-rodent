@@ -50,7 +50,7 @@ params = (
     rollout = (
         n_envs=512,
         n_steps_per_epoch=16,
-        n_epochs=100,
+        n_epochs=256,
         reset_on_epoch_start=false,
     )
 )
@@ -65,7 +65,7 @@ collector = CuCollector(template_env, networks,
                         params.rollout.n_steps_per_epoch)
 networks_gpu = networks |> Flux.gpu
 opt_state = Flux.setup(Flux.Adam(params.training.learning_rate), networks_gpu)
-run_name = "CollectorRefactor-$(Dates.now())" #ImitationWithAppendages
+run_name = "SpeedCheckLocal-$(Dates.now())" #ImitationWithAppendages
 config = params_to_dict(params)
 
 lg = Wandb.WandbLogger(project = "Rodent-Imitation",

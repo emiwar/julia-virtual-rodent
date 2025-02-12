@@ -68,11 +68,11 @@ function actor(actor_critic::VariationalEncDecLSTM, state, inv_reset_mask, param
     sigma_min = params.network.sigma_min
     sigma_max = params.network.sigma_max
     sigma = sigma_min .+ 0.5f0.*(sigma_max .- sigma_min).*(1 .+ unscaled_sigma)
-    if isnothing(actions)
+    if isnothing(action)
         xsi = randn_like(mu)
         action = mu .+ sigma .* xsi
     end
-    loglikelihood = -0.5f0 .* sum(((actions .- mu) ./ sigma).^2; dims=1) .- sum(log.(sigma); dims=1)
+    loglikelihood = -0.5f0 .* sum(((action .- mu) ./ sigma).^2; dims=1) .- sum(log.(sigma); dims=1)
     (;action, mu, sigma, loglikelihood, latent, latent_mu, latent_logsigma, latent_eps)
 end
 
@@ -104,3 +104,16 @@ function decoder_only(actor_critic::VariationalEncDecLSTM, state, latent, params
 end
 
 #action_size(actor_critic::ActorCritic) = size(actor_critic.actor[end].weight, 1) ÷ 2
+
+function Base.isapprox(a::Vector{Tuple{T, T}}, b::Vector{Tuple{T, T}}) where {T}
+    if length(a) != length(b) 
+        return false
+    end
+    for (a_, b_) in zip(a, b)
+        if !(a_[1] ≈ b_[1] && a_[2] ≈ b_[2])
+            return false
+        end
+    end
+    return true
+end
+

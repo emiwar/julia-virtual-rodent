@@ -32,7 +32,8 @@ params = (
     ),
     imitation = (
         horizon = 5,
-        max_target_distance = 1e-1
+        max_target_distance = 1e-1,
+        restart_on_reset = true
     ),
     training = (
         loss_weight_actor = 1.0,
@@ -69,9 +70,9 @@ opt_state = Flux.setup(Flux.Adam(params.training.learning_rate), networks_gpu)
 run_name = "TryLSTM-$(Dates.now())" #ImitationWithAppendages
 config = params_to_dict(params)
 
-#lg = Wandb.WandbLogger(project = "Rodent-Imitation",
-#                        name = run_name,
-#                        config = config)
+lg = Wandb.WandbLogger(project = "Rodent-Imitation",
+                       name = run_name,
+                       config = config)
 mkdir("runs/checkpoints/$(run_name)")
 @showprogress for epoch = 1:params.rollout.n_epochs
     lapTimer = LapTimer()
@@ -81,14 +82,19 @@ mkdir("runs/checkpoints/$(run_name)")
         actor(networks_gpu, state, status .== RUNNING, params)
     end
     network_state_at_epoch_end = checkpoint_state(networks_gpu)
-    restore_state!(networks_gpu, network_state_at_epoch_start)
-    actor(networks_gpu, collector.states, collector.status .== RUNNING, params)
-    checkpoint_state(networks_gpu) == network_state_at_epoch_end
+    #restore_state!(networks_gpu, network_state_at_epoch_start)
+    #actor(networks_gpu, 
+    #      (@view collector.states[:, :, 1:16]), 
+    #      (@view collector.status[:, 1:16]) .== RUNNING, params,
+    #      collector.actor_outputs.action |> array,
+    #      collector.actor_outputs.latent_eps |> array)
+    #checkpoint_state(networks_gpu) ≈ network_state_at_epoch_end
+    #findmax(abs.(checkpoint_state(networks_gpu)[1][1] .- network_state_at_epoch_end[1][1]))
     
     before_miniepoch = ()->restore_state!(networks_gpu, network_state_at_epoch_start)
     ppo_log = ppo_update!(collector, networks_gpu, opt_state, params, lapTimer; before_miniepoch)
     if params.training.n_miniepochs == 1
-        @assert checkpoint_state(networks_gpu) == network_state_at_epoch_end
+        @assert checkpoint_state(networks_gpu) ≈ network_state_at_epoch_end
     end
     lap(lapTimer, :logging_batch_stats)
     logdict = compute_batch_stats(collector)
@@ -107,7 +113,7 @@ end
 Wandb.close(lg);
 
 
-
+n_steps_per_batch = params.rollout.n_steps_per_epoch
 non_final_states = view(collector.states, :, :, 1:n_steps_per_batch)
 actions_ = collector.actor_outputs.action |> array
 latent_eps = collector.actor_outputs.latent_eps |> array

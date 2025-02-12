@@ -66,6 +66,10 @@ function actor(actor_critic::EncDec, state, params, action=nothing)
     (;action, mu, sigma, loglikelihood, latent)
 end
 
+function actor(actor_critic::EncDec, state, inv_reset_mask, params, action=nothing)
+    actor(actor_critic, state, params, action)
+end
+
 function critic(actor_critic::EncDec, state, params)
     input = data(state)
     return view(actor_critic.critic(input), 1, :, :) ./ (1.0-params.training.gamma)
