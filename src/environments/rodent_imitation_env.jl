@@ -119,6 +119,7 @@ function info(env::RodentFollowEnv, params)
         appendages_reward = appendages_reward(env, params),
         alt_joint_reward = alt_joint_reward(env, params),
         alt_joint_vel_reward = alt_joint_vel_reward(env, params),
+        full_qpos = view(env.data.qpos, :),
         com_target_info(env, params)...
     )
 end

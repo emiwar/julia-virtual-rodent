@@ -19,8 +19,6 @@ include("../utils/wandb_logger.jl")
 include("../environments/mujoco_env.jl")
 include("../environments/imitation_trajectory.jl")
 include("../environments/rodent_imitation_env.jl")
-#include("../networks/enc_dec.jl")
-include("../networks/variational_enc_dec.jl")
 include("../collectors/batch_stepper.jl")
 include("../collectors/mpi_stepper.jl")
 include("../collectors/cuda_collector.jl")
@@ -42,8 +40,13 @@ else
     training_data = true
 end
 
-#VariationalEncDec = EncDec
-ActorCritic = VariationalEncDec
+if wandb_run_id == "mm0dnyq4" #Old naming conventions
+    include("../networks/enc_dec.jl")
+    VariationalEncDec = EncDec
+else
+    include("../networks/variational_enc_dec.jl")
+    ActorCritic = VariationalEncDec
+end
 networks = BSON.load(weights_file_name)[:actor_critic]
 networks_gpu = networks |> Flux.gpu
 
