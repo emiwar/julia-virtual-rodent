@@ -15,7 +15,9 @@ params = (
         body_scale = 1.0,
         timestep = 0.002,
         foot_mods = true,
-        hip_mods = false
+        hip_mods = false,
+	solver_iterations = 8,
+        solver_ls_iterations = 8
     ),
     reward = (
         alive_bonus = 0.1,
@@ -56,6 +58,7 @@ params = (
 )
 
 include("../src/default_imports_mpi.jl")
+include("../src/environments/rodent_imitation_env_track_mjx_model.jl")
 MPI.Init(threadlevel=:funneled)
 template_env = RodentImitationEnv(params)
 stepper = MpiStepper(template_env, params.rollout.n_envs)
@@ -67,7 +70,7 @@ if MPI.Comm_rank(MPI.COMM_WORLD) == 0
                             params.rollout.n_steps_per_epoch)
     networks_gpu = networks |> Flux.gpu
     opt_state = Flux.setup(Flux.Adam(params.training.learning_rate), networks_gpu)
-    run_name = "CollectorRefactor-$(Dates.now())" #ImitationWithAppendages
+    run_name = "TestTrackMjxModel-$(Dates.now())" #ImitationWithAppendages
     config = params_to_dict(params)
     
     lg = Wandb.WandbLogger(project = "Rodent-Imitation",

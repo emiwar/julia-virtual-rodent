@@ -32,7 +32,8 @@ params = (
     ),
     imitation = (
         horizon = 5,
-        max_target_distance = 1e-1
+        max_target_distance = 1e-1,
+	restart_on_reset = true
     ),
     training = (
         loss_weight_actor = 1.0,

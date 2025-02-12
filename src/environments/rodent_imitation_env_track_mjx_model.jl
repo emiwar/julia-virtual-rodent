@@ -13,7 +13,7 @@ mutable struct RodentImitationEnv{ImLen, ImTarget} <: RodentFollowEnv
 end
 
 function RodentImitationEnv(params; target_data="src/environments/assets/diego_curated_snippets.h5")
-    model = MuJoCo.load_model("src/environments/assets/rodent_track_mjx_version.xml")
+    model = MuJoCo.load_model("/n/holylabs/LABS/olveczky_lab/Users/ewarnberg/julia-virtual-rodent/src/environments/assets/rodent_track_mjx_version.xml")
     model.opt.iterations = params.physics.solver_iterations
     model.opt.ls_iterations = params.physics.solver_ls_iterations
     data = MuJoCo.init_data(model)
