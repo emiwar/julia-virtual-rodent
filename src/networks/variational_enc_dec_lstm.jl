@@ -54,12 +54,7 @@ function actor(actor_critic::VariationalEncDecLSTM, state, inv_reset_mask, param
     latent = latent_mu .+ exp.(latent_logsigma) .* latent_eps
 
     decoder_input = cat(latent, proprioception; dims=1)
-    decoder_output = cat(map(axes(decoder_input, 3)) do t #This should work also for ndims=2
-        for layer in actor_critic.decoder
-            layer.state = map(s->s .* view(inv_reset_mask, :, t)', layer.state)
-        end
-        actor_critic.decoder(view(decoder_input, :, :, t))
-    end...; dims=3)
+    decoder_output = decoder(actor_critic, decoder_input, inv_reset_mask)
 
     #Draw action with mean and sigma, and compute action likelihood
     action_size = size(decoder_output, 1) ÷ 2
@@ -74,6 +69,32 @@ function actor(actor_critic::VariationalEncDecLSTM, state, inv_reset_mask, param
     end
     loglikelihood = -0.5f0 .* sum(((action .- mu) ./ sigma).^2; dims=1) .- sum(log.(sigma); dims=1)
     (;action, mu, sigma, loglikelihood, latent, latent_mu, latent_logsigma, latent_eps)
+end
+
+#1 env 1 step
+function decoder(actor_critic::VariationalEncDecLSTM, decoder_input::AbstractVector, inv_reset_mask::Number)
+    for layer in actor_critic.decoder
+        layer.state = map(s->s .* inv_reset_mask, layer.state)
+    end
+    actor_critic.decoder(decoder_input)
+end
+
+#N envs 1 step
+function decoder(actor_critic::VariationalEncDecLSTM, decoder_input::AbstractMatrix, inv_reset_mask::AbstractVector)
+    for layer in actor_critic.decoder
+        layer.state = map(s->s .* inv_reset_mask, layer.state)
+    end
+    actor_critic.decoder(decoder_input)
+end
+
+#N envs T steps
+function decoder(actor_critic::VariationalEncDecLSTM, decoder_input::AbstractArray{T, 3}, inv_reset_mask::AbstractMatrix) where T
+    cat(map(axes(decoder_input, 3)) do t #This should work also for ndims=2
+        for layer in actor_critic.decoder
+            layer.state = map(s->s .* view(inv_reset_mask, :, t)', layer.state)
+        end
+        actor_critic.decoder(view(decoder_input, :, :, t))
+    end...; dims=3)
 end
 
 function critic(actor_critic::VariationalEncDecLSTM, state, params)
