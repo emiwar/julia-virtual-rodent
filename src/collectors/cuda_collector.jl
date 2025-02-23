@@ -27,8 +27,7 @@ function CuCollector(template_env, template_actor, n_envs, steps_per_batch; acto
     CuCollector(states, rewards, status, infos, actor_outputs)
 end
 
-function collect_batch!(actor::Function, collector::Collector, stepper,
-                        params, lapTimer; action_preprocess::Function=(a,s,p)->a)
+function collect_batch!(collector::Collector, stepper, params, lapTimer)
     steps_per_batch = params.rollout.n_steps_per_epoch
     lap(lapTimer, :first_state)
     prepareEpoch!(stepper, params)
@@ -37,10 +36,21 @@ function collect_batch!(actor::Function, collector::Collector, stepper,
     collector.infos[:, :, 1] = stepper.infos
     for t=1:steps_per_batch
         lap(lapTimer, :rollout_actor)
-        collector.actor_outputs[:, :, t] = actor((@view collector.states[:, :, t]), (@view collector.status[:, t]), params)
-        #collector.actor_outputs[:, :, t] = actor((@view collector.states[:, :, t]), params)
-        actions = action_preprocess((@view collector.actor_outputs[:action, :, t]),
-                                    (@view collector.states[:, :, t]), params)
+
+        #Some networks are stateful and need to be reset when the environment is reset.
+        reset_mask = (@view collector.status[:, t:t]) .!= RUNNING
+        #Run the actor on the GPU
+        collector.actor_outputs[:, :, t] = actor((@view collector.states[:, :, t:t]), reset_mask, params)
+        
+        #Some environments (like the joystick) need to do some calculations on the
+        #GPU (running a pretrained decoder) before the actions are moved to the CPU.
+        #This is a workaround for that.
+        lap(lapTimer, :preprocess_actions)
+        actions = preprocess_actions(env_type(stepper),
+                                     (@view collector.actor_outputs[:action, :, t:t]),
+                                     (@view collector.states[:, :, t:t]), params)
+
+        #Move the actions to the CPU and run the stepper (multithreaded or MPI)
         lap(lapTimer, :rollout_action_to_cpu)
         copyto!(stepper.actions, actions)
         step!(stepper, params, lapTimer)

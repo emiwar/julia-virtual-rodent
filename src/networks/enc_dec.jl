@@ -1,10 +1,11 @@
-struct EncDec{E,D,C}
+abstract type AbstractEncDec end
+
+struct EncDec{E <: Chain, D <: Chain, C <: Chain, A <: ActionSampler} <: AbstractEncDec
     encoder::E
     decoder::D
+    action_sampler::A
     critic::C
 end
-
-Flux.@layer EncDec
 
 function EncDec(template_env::MuJoCoEnv, params::NamedTuple)
     template_state = ComponentTensor(state(template_env, params))
@@ -14,132 +15,67 @@ function EncDec(template_env::MuJoCoEnv, params::NamedTuple)
     encoder_input_size = length(template_state.imitation_target)
     decoder_input_size = length(template_state.proprioception) + params.network.latent_dimension
 
-    encoder_size = params.network.encoder_size
-    encoder = Chain(Dense(encoder_input_size => encoder_size[1], tanh),
-                    (Dense(a => b, tanh) for (a, b) in zip(encoder_size[1:end-1], encoder_size[2:end]))...,
-                    Dense(encoder_size[end] => params.network.latent_dimension, tanh, init=zeros32))
-    decoder_size = params.network.decoder_size
-    decoder = Chain(Dense(decoder_input_size => decoder_size[1], tanh),
-                    (Dense(a => b, tanh) for (a, b) in zip(decoder_size[1:end-1], decoder_size[2:end]))...,
-                    Dense(decoder_size[end] => 2*action_size, tanh, init=zeros32))
-    critic_size = params.network.critic_size
-    critic  = Chain(Dense(full_state_size => critic_size[1], tanh),
-                    (Dense(a => b, tanh) for (a, b) in zip(critic_size[1:end-1], critic_size[2:end]))...,
-                    Dense(critic_size[end] => 1, init=zeros32))
+    encoder_sizes = [encoder_input_size; params.network.encoder_size]
+    if params.networks.bottleneck == :variational
+        bottleneck = VariationalBottleneck(encoder_sizes[end] => params.network.latent_dimension)
+    elseif params.networks.bottleneck == :deterministic
+        bottleneck = Dense(encoder_sizes[end] => params.network.latent_dimension, tanh, init=zeros32)
+    end
 
-    return EncDec(encoder, decoder, critic)
+    encoder = Chain(create_layers(Dense, "encoder", encoder_sizes, tanh)...; bottleneck)
+    
+    decoder_sizes = [decoder_input_size; params.network.decoder_size]
+
+    if params.networks.decoder_type == :MLP
+        decoder = Chain(create_layers(Dense, "decoder", decoder_sizes, tanh)...,
+                        Dense(decoder_sizes[end] => 2*action_size, tanh, init=zeros32))
+    elseif params.networks.decoder_type == :LSTM
+        #Q: Should the final layer actually be a Dense layer?
+        decoder = Chain(create_layers(LSTM, "decoder", decoder_sizes, tanh)...,
+                        LSTM(decoder_sizes[end] => 2*action_size, tanh, init=zeros32))
+    end
+    action_sampler = GaussianActionSampler(;sigma_min=params.network.sigma_min,
+                                            sigma_max=params.network.sigma_max)
+
+    critic_sizes = [full_state_size; params.network.critic_size]
+    critic  = Chain(create_layers(Dense, "critic", critic_sizes, tanh)...,
+                    Dense(critic_sizes[end] => 1, init=zeros32),
+                    V(critic_ouput) = critic_output ./ eltype(critic_output)(1.0-params.training.gamma))
+                    
+    return EncDec(encoder, decoder, critic, action_sampler)
 end
 
-has_latent_layer(::EncDec) = false
-
-
-randn_like(arr::AbstractArray) = randn(size(arr)...)
-randn_like(arr::CUDA.AnyCuArray) = CUDA.randn(size(arr)...)
-
-function actor(actor_critic::EncDec, state, params, action=nothing)
+function actor(actor_critic::AbstractEncDec, state, reset_mask, action=nothing)
     #Annoying work-around to avoid auto-diff errors
     imitation_target = Flux.ignore(()->state.imitation_target |> array |> copy)
     proprioception = Flux.ignore(()->state.proprioception |> array |> copy)
-    batch_dims = ntuple(_->:, ndims(proprioception)-1)
 
     #Encoder
-    latent_dimension = params.network.latent_dimension
-    encoder_output = actor_critic.encoder(imitation_target)
-    latent = @view encoder_output[1:latent_dimension, batch_dims...]
+    latent = rollout(actor_critic.encoder, imitation_target, reset_mask)
 
     #Decoder
     decoder_input = cat(latent, proprioception; dims=1)
-    decoder_output = actor_critic.decoder(decoder_input)
+    decoder_output = rollout(actor_critic.decoder, decoder_input, reset_mask)
 
-    #Draw action with mean and sigma, and compute action likelihood
-    action_size = size(decoder_output, 1) ÷ 2
-    mu = @view decoder_output[1:action_size, batch_dims...]
-    unscaled_sigma = @view decoder_output[action_size+1:end, batch_dims...]
-    sigma_min = params.network.sigma_min
-    sigma_max = params.network.sigma_max
-    sigma = sigma_min .+ 0.5f0.*(sigma_max .- sigma_min).*(1 .+ unscaled_sigma)
-    if isnothing(action)
-        xsi = randn_like(mu)
-        action = mu .+ sigma .* xsi
-    end
-    loglikelihood = -0.5f0 .* sum(((action .- mu) ./ sigma).^2; dims=1) .- sum(log.(sigma); dims=1)
-    (;action, mu, sigma, loglikelihood, latent)
+    total_regularization_loss = regularization_loss(actor_critic.encoder) + regularization_loss(actor_critic.decoder)
+
+    action_and_loglikelihood = actor_critic.action_sampler(decoder_output, action)
+
+    return (;action_and_loglikelihood..., total_regularization_loss)
 end
 
-function actor(actor_critic::EncDec, state, inv_reset_mask, params, action=nothing)
-    actor(actor_critic, state, params, action)
-end
-
-function critic(actor_critic::EncDec, state, params)
+function critic(actor_critic::AbstractEncDec, state)
     input = data(state)
-    return view(actor_critic.critic(input), 1, :, :) ./ (1.0-params.training.gamma)
+    return view(actor_critic.critic(input), 1, :, :)
 end
 
-function decoder_only(actor_critic::EncDec, state, latent, params; action_noise=false)
-    proprioception = Flux.ignore(()->state.proprioception |> array |> copy)
-    batch_dims = ntuple(_->:, ndims(proprioception)-1)
-    decoder_input = cat(latent, proprioception; dims=1)
-    decoder_output = actor_critic.decoder(decoder_input)
-
-    #Draw action with mean and sigma, and compute action likelihood
-    action_size = size(decoder_output, 1) ÷ 2
-    mu = @view decoder_output[1:action_size, batch_dims...]
-    if action_noise
-        unscaled_sigma = @view decoder_output[action_size+1:end, batch_dims...]
-        sigma_min = params.network.sigma_min
-        sigma_max = params.network.sigma_max
-        sigma = sigma_min .+ 0.5f0.*(sigma_max .- sigma_min).*(1 .+ unscaled_sigma)
-        xsi = randn_like(mu)
-        return mu .+ sigma .* xsi
-    else
-        return mu
-    end
+function checkpoint_latent_state(actor_critic::AbstractEncDec)
+    #TODO: what if the critic is stateful? Should account for that in PPO loss.
+    return (;encoder = checkpoint_latent_state(actor_critic.encoder),
+             decoder = checkpoint_latent_state(actor_critic.decoder))
 end
 
-function actor_logged(actor_critic::EncDec, state, params, action=nothing)
-    activation_log = Dict{Symbol, AbstractArray}()
-    #Annoying work-around to avoid auto-diff errors
-    imitation_target = Flux.ignore(()->state.imitation_target |> array |> copy)
-    proprioception = Flux.ignore(()->state.proprioception |> array |> copy)
-    batch_dims = ntuple(_->:, ndims(proprioception)-1)
-
-    #Encoder
-    latent_dimension = params.network.latent_dimension
-    x = imitation_target
-    for (i, layer) in enumerate(actor_critic.encoder.layers)
-        x = layer(x)
-        activation_log[Symbol("encoder_$i")] = x
-    end
-    encoder_output = x
-    latent = @view encoder_output[1:latent_dimension, batch_dims...]
-    activation_log[:latent] = latent
-
-    #Decoder
-    decoder_input = cat(latent, proprioception; dims=1)
-    x = decoder_input
-    for (i, layer) in enumerate(actor_critic.decoder.layers)
-        x = layer(x)
-        activation_log[Symbol("decoder_$i")] = x
-    end
-    decoder_output = x
-
-    #Draw action with mean and sigma, and compute action likelihood
-    action_size = size(decoder_output, 1) ÷ 2
-    mu = @view decoder_output[1:action_size, batch_dims...]
-    unscaled_sigma = @view decoder_output[action_size+1:end, batch_dims...]
-    sigma_min = params.network.sigma_min
-    sigma_max = params.network.sigma_max
-    sigma = sigma_min .+ 0.5f0.*(sigma_max .- sigma_min).*(1 .+ unscaled_sigma)
-    if isnothing(action)
-        xsi = randn_like(mu)
-        action = mu .+ sigma .* xsi
-    end
-    loglikelihood = -0.5f0 .* sum(((action .- mu) ./ sigma).^2; dims=1) .- sum(log.(sigma); dims=1)
-
-    activation_log[:mu] = mu
-    activation_log[:unscaled_sigma] = unscaled_sigma
-    activation_log[:sigma] = sigma
-
-    (;action, mu, sigma, loglikelihood, latent, pairs(activation_log)...)
+function restore_latent_state!(actor_critic::AbstractEncDec, latent_state)
+    restore_latent_state!(actor_critic.encoder, latent_state.encoder)
+    restore_latent_state!(actor_critic.decoder, latent_state.decoder)
 end
-#action_size(actor_critic::ActorCritic) = size(actor_critic.actor[end].weight, 1) ÷ 2
