@@ -158,6 +158,10 @@ function reset!(env::RodentFollowEnv, params)
     end
 end
 
+function preprocess_actions(::Type{EnvType}, actions, state , params) where EnvType <: RodentFollowEnv
+    return actions
+end
+
 #Utils
 torso_x(env::RodentFollowEnv) = subtree_com(env, "walker/torso")[1]
 torso_y(env::RodentFollowEnv) = subtree_com(env, "walker/torso")[2]

@@ -1,10 +1,3 @@
-abstract type ActionSampler end
-
-struct GaussianActionSampler{D <: Flux.Dense} <: ActionSampler
-    sigma_offset::Float32
-    sigma_scale::Float32
-end
-
 """
     GaussianActionSampler(; sigma_min=0.0f0, sigma_max=1.0f0)
     Create a Gaussian action sampler with the given minimum and maximum standard deviation.
@@ -27,7 +20,7 @@ function GaussianActionSampler(; sigma_min=0.0f0, sigma_max=1.0f0)
             action = mu .+ sigma .* xsi
         end
         loglikelihood = -0.5f0 .* sum(((action .- mu) ./ sigma).^2; dims=1) .- sum(log.(sigma); dims=1)
-        entropy_loss = 0.5sum(log.((2π*exp(1)).*(sigma.^2))) / length(sigma)
+        entropy_loss = 0.5sum(log.((2π*exp(1)).*(sigma.^2)); dims=1) / size(sigma, 1)
         return (;action, mu, sigma, loglikelihood, entropy_loss)
     end
 end

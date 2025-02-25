@@ -1,3 +1,71 @@
+function ppo(template_env, params; networks=EncDec(template_env, params), use_mpi::Bool=false)
+    if use_mpi
+        MPI.Init(threadlevel=:funneled)
+        stepper = MpiStepper(template_env, params.rollout.n_envs)
+        #If we are using MPI, we only want the main process (rank==0) to do the
+        #training and logging. The other processes will just collect data.
+        if MPI.Comm_rank(MPI.COMM_WORLD) > 0
+            for epoch = 1:params.rollout.n_epochs
+                collect_batch!(stepper, params, LapTimer())
+            end
+            return #Quit after collecting data
+        end
+    else
+        stepper = BatchStepper(template_env, params.rollout.n_envs)
+    end
+    collector = CuCollector(template_env, networks,
+                            params.rollout.n_envs,
+                            params.rollout.n_steps_per_epoch)
+    networks_gpu = networks |> Flux.gpu
+    opt_state = Flux.setup(Flux.Adam(params.training.learning_rate), networks_gpu)
+    config = params_to_dict(params)
+    lg = Wandb.WandbLogger(project = params.wandb.project,
+                           name = params.wandb.run_name,
+                           config = config)
+    mkdir("runs/checkpoints/$(params.wandb.run_name)")
+
+    #Main training loop
+    @showprogress for epoch = 1:params.rollout.n_epochs
+        lapTimer = LapTimer()
+        
+        #Checkpoint the latent state of the networks before starting a batch of rollouts
+        network_state_at_epoch_start = checkpoint_latent_state(networks_gpu)
+
+        #Collect a batch of rollout data
+        collect_batch!(collector, networks_gpu, stepper, params, lapTimer)
+
+        #Checkpoint the latent state of the networks after collecting a batch of rollouts
+        #This is just for sanity checking that collector rollouts and gradients rollouts
+        #leave the networks in the same latent state.
+        network_state_at_epoch_end = checkpoint_latent_state(networks_gpu)
+
+        #Apply the gradient updates
+        ppo_log = ppo_update!(collector, networks_gpu, network_state_at_epoch_start,
+                              network_state_at_epoch_end, opt_state, params, lapTimer)
+
+        #Compute batch statistics for logging
+        lap(lapTimer, :logging_batch_stats)
+        logdict = compute_batch_stats(collector)
+        merge!(logdict, ppo_log)
+        logdict["total_steps"] = epoch * params.rollout.n_envs * params.rollout.n_steps_per_epoch
+        lap(lapTimer, :checkpointing)
+
+        #Checkpoint the network weights every `checkpoint_interval` epochs
+        if epoch % params.training.checkpoint_interval == 0
+            checkpoint_fn = "runs/checkpoints/$(params.wandb.run_name)/step-$(epoch).bson"
+            BSON.bson(checkpoint_fn; actor_critic=Flux.cpu(networks_gpu))
+            lg.wrun.log_model(checkpoint_fn, "checkpoint-step-$(epoch).bson")
+        end
+
+        #Submit batch stats to WandB
+        lap(lapTimer, :logging_submitting)
+        merge!(logdict, to_stringdict(lapTimer))
+        Wandb.log(lg, logdict)
+    end
+    return networks
+    Wandb.close(lg);
+end
+
 function compute_advantages(rewards, values, statuses, gamma, lambda)
     advantages = zero(rewards)
     n_envs, n_steps_per_batch = size(advantages)
@@ -48,7 +116,7 @@ function ppo_update!(batch, actor_critic, actor_critic_start_state, actor_critic
         restore_latent_state!(actor_critic, actor_critic_start_state)
         lap(lapTimer, :ppo_gradients)
         gradients = Flux.gradient(actor_critic) do actor_critic
-            actor_output = actor(actor_critic, non_final_states, reset_mask; actions)
+            actor_output = actor(actor_critic, non_final_states, reset_mask, actions)
             likelihood_ratios = view(exp.(actor_output.loglikelihood .- batch_loglikelihoods), 1, :, :)
             grad_cand1 = likelihood_ratios .* advantages
             clamped_ratios = clamp.(likelihood_ratios, 1.0f0 - clip_range, 1.0f0 + clip_range)
@@ -60,13 +128,12 @@ function ppo_update!(batch, actor_critic, actor_critic_start_state, actor_critic
             critic_loss = sum((target_values .- new_values).^2) / length(non_final_statevalues)
 
             #Entropy loss
-            entropy_loss = actor_output.entropy_loss
-            regularization_loss = actor_output.regularization_loss
+            entropy_loss = sum(actor_output.entropy_loss) / length(actor_output.entropy_loss)
 
             total_loss = params.training.loss_weight_actor * actor_loss + 
                          params.training.loss_weight_critic * critic_loss +
                          params.training.loss_weight_entropy * entropy_loss +
-                         regularization_loss
+                         regularization_loss(actor_critic)
          
             Flux.ignore() do
                 lap(lapTimer, :logging_ppo_stats)
@@ -74,7 +141,7 @@ function ppo_update!(batch, actor_critic, actor_critic_start_state, actor_critic
                 logdict["losses/critic_loss"]  = critic_loss
                 logdict["losses/actor_loss"]   = actor_loss
                 logdict["losses/entropy_loss"] = entropy_loss
-                logdict["losses/regularization_loss"]  = regularization_loss
+                logdict["losses/regularization_loss"]  = regularization_loss(actor_critic)
                 merge!(logdict, quantile_dict("critic/predicted_values", new_values))
                 merge!(logdict, quantile_dict("critic/target_values", target_values))
                 merge!(logdict, quantile_dict("critic/advantages", advantages))
@@ -82,11 +149,13 @@ function ppo_update!(batch, actor_critic, actor_critic_start_state, actor_critic
             end
             return total_loss
         end
+
         #Sanity check: after the first miniepoch, the actor_critic should be the same as
-        #after the rollout. But this is not true after subsequent miniepochs, because the
-        #weights are no longer the same.
+        #after the rollout. Note however that this is not true after subsequent miniepochs,
+        #because the weights are no longer the same.
         @assert j>1 || checkpoint_latent_state(actor_critic) ≈ actor_critic_stop_state
 
+        #Update the actor_critic weights using the gradients
         Flux.update!(opt_state, actor_critic, gradients[1])
     end
     return logdict

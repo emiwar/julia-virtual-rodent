@@ -1,4 +1,8 @@
-import MPI
+if haskey(ENV, "OMPI_COMM_WORLD_RANK") || haskey(ENV, "PMI_RANK") || haskey(ENV, "MPIRUN_RANK")
+    import MPI
+else
+    @info "Not using MPI; just local multithreading"
+end
 import BSON
 import CUDA
 import Dates
@@ -8,6 +12,7 @@ import LinearAlgebra: norm
 import MuJoCo
 import PythonCall
 import Wandb
+import Random
 using Flux
 using ProgressMeter
 using StaticArrays
@@ -23,7 +28,8 @@ include("environments/rodent_imitation_env.jl")
 include("collectors/batch_stepper.jl")
 include("collectors/mpi_stepper.jl")
 include("collectors/cuda_collector.jl")
-
-include("algorithms/ppo_loss.jl")
-include("networks/variational_enc_dec.jl")
-
+include("algorithms/ppo.jl")
+include("networks/utils.jl")
+include("networks/variational_bottleneck.jl")
+include("networks/action_samplers.jl")
+include("networks/enc_dec.jl")

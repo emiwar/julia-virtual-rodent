@@ -34,8 +34,7 @@ end
 
 has_latent_layer(::VariationalEncDecLSTM) = true
 
-randn_like(arr::AbstractArray) = randn(size(arr)...)
-randn_like(arr::CUDA.AnyCuArray) = CUDA.randn(size(arr)...)
+
 
 function actor(actor_critic::VariationalEncDecLSTM, state, inv_reset_mask, params, action=nothing, latent_eps=nothing)
     #Annoying work-around to avoid auto-diff errors
@@ -126,15 +125,5 @@ end
 
 #action_size(actor_critic::ActorCritic) = size(actor_critic.actor[end].weight, 1) ÷ 2
 
-function Base.isapprox(a::Vector{Tuple{T, T}}, b::Vector{Tuple{T, T}}) where {T}
-    if length(a) != length(b) 
-        return false
-    end
-    for (a_, b_) in zip(a, b)
-        if !(a_[1] ≈ b_[1] && a_[2] ≈ b_[2])
-            return false
-        end
-    end
-    return true
-end
+
 

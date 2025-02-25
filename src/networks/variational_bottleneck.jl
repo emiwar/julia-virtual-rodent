@@ -1,43 +1,50 @@
-mutable struct VariationalBottleneck{D<:Flux.Dense, A<:AbstractArray}
+mutable struct VariationalBottleneck{D<:Flux.Dense}
     linear_layer::D
-    mu::A
-    logsigma::A
+    seed::UInt64
+    cumul_kl::Float32
     sigma_scale::Float32
     kl_weight::Float32
-    seed::UInt64
-end
-
-function VariationalBottleneck(layer_size::Pair, kl_weight; sigma_scale=3.0f0, seed=rand(UInt64), init=zeros32)
-    input_size, output_size = layer_size
-    linear_layer = Dense(input_size => 2*output_size, tanh, init=init)
-    mu = zeros(Float32, output_size, 0, 0)
-    logsigma = zeros(Float32, output_size, 0, 0)
-    return VariationalBottleneck(linear_layer, mu, logsigma, sigma_scale, kl_weight, seed)
 end
 
 Flux.@layer VariationalBottleneck
+Flux.trainable(a::VariationalBottleneck) = (;linear_layer=a.linear_layer)
+
+function VariationalBottleneck(layer_size::Pair, kl_weight; sigma_scale=3.0f0,
+                               seed::UInt64=rand(UInt64), init=zeros32)
+    input_size, output_size = layer_size
+    linear_layer = Dense(input_size => 2*output_size, tanh, init=init)
+    return VariationalBottleneck(linear_layer, seed, 0.0f0, Float32(sigma_scale), Float32(kl_weight))
+end
 
 function (layer::VariationalBottleneck)(input)
     linear_output = layer.linear_layer(input)
-    layer.mu, unscaled_logsigma = split_halfway(linear_output; dim=1)
-    layer.logsigma = layer.sigma_scale * unscaled_logsigma
+    mu, unscaled_logsigma = split_halfway(linear_output; dim=1)
+    logsigma = layer.sigma_scale * unscaled_logsigma
     xsi = Flux.ignore() do
         layer.seed = (1664525 * layer.seed + 1013904223) % typeof(layer.seed)
         if mu isa CUDA.AnyCuArray
             CUDA.seed!(layer.seed)
-            return CUDA.randn(eltype(layer.mu), size(layer.mu)...)
+            return CUDA.randn(size(mu)...)
         else
             Random.seed!(layer.seed)
-            return randn(eltype(layer.mu), size(layer.mu)...)
+            return randn(eltype(mu), size(mu)...)
         end
     end
-    latent = layer.mu .+ exp.(layer.logsigma) .* xsi
+    latent = mu .+ exp.(logsigma) .* xsi
+    #TODO: check that this works with autodiff correctly
+    layer.cumul_kl += 0.5f0 * sum(-2 .* logsigma .- 1 .+ exp.(2 .* logsigma) .+ mu.^2) / length(mu)
     return latent
 end
 
-checkpoint_latent_state(layer::VariationalBottleneck) = (; seed = layer.seed)
-
 function regularization_loss(layer::VariationalBottleneck)
-    kl_div = 0.5*sum( -2 .* layer.logsigma .- 1 .+ exp.(2 .* layer.logsigma) .+ layer.mu.^2) / length(layer.mu)
-    return layer.kl_weight * kl_div
+    return layer.kl_weight * layer.cumul_kl
+end
+
+checkpoint_latent_state(layer::VariationalBottleneck) = (; seed = layer.seed)
+function restore_latent_state!(layer::VariationalBottleneck, latent_state::NamedTuple{(:seed,), Tuple{UInt64}})
+    layer.seed = latent_state.seed
+    #Resetting cumul_kl here is very hacky but should work since restore_latent_state!
+    #is called before each miniepoch. This function should maybe be renamed `prepare_epoch!`
+    #or something?
+    layer.cumul_kl = 0.0f0
 end
