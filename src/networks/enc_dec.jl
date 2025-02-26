@@ -72,7 +72,7 @@ function critic(actor_critic::AbstractEncDec, state)
 end
 
 function checkpoint_latent_state(actor_critic::AbstractEncDec)
-    #TODO: what if the critic is stateful? Should account for that in PPO loss.
+    #TODO: what if the critic is stateful? Should account for that in the PPO algo.
     return (;encoder = checkpoint_latent_state(actor_critic.encoder),
              decoder = checkpoint_latent_state(actor_critic.decoder))
 end
@@ -80,4 +80,10 @@ end
 function restore_latent_state!(actor_critic::AbstractEncDec, latent_state::NamedTuple)
     restore_latent_state!(actor_critic.encoder, latent_state.encoder)
     restore_latent_state!(actor_critic.decoder, latent_state.decoder)
+end
+
+function regularization_loss(actor_critic::AbstractEncDec)
+    return regularization_loss(actor_critic.encoder) +
+           regularization_loss(actor_critic.decoder) +
+           regularization_loss(actor_critic.critic)
 end
