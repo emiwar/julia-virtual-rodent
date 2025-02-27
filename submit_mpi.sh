@@ -8,6 +8,7 @@ module add openmpi
 export UCX_WARN_UNUSED_ENV_VARS=n
 export UCX_ERROR_SIGNALS="SIGILL,SIGBUS,SIGFPE"
 export JULIA_CPU_TARGET="sapphirerapids;skylake-avx512;cascadelake;icelake-server"
-#unset LD_LIBRARY_PATH
-srun --mpi=pmix -n 1 : -n 15 julia --threads=32 --project=. experiments/bottlenecked_imitation_mpi_16.jl #--het-group=0,1
 
+srun --mpi=pmix -n 1 : -n 15\
+julia --threads=32 --project=. src/main.jl\
+configs/imitation_sota.toml -wandb.run_name "Imitation-{NOW}"
