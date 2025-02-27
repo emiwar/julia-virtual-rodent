@@ -1,11 +1,16 @@
 #!/bin/bash
-#SBATCG -J rodentImitation
-#SBATCH -c 24                # Number of cores (-c)
-#SBATCH -t 0-48:00          # Runtime in D-HH:MM, minimum of 5 minutes
-#SBATCH -p olveczkygpu     # Partition to submit to
-#SBATCH --mem=20000           # Memory pool for all cores (see also --mem-per-cpu)
-#SBATCH -o slurm_logs/%j.out  # File to which STDOUT will be written, %j inserts jobid
-#SBATCH -e slurm_logs/%j.err  # File to which STDERR will be written, %j inserts jobid
-#SBATCH --gres=gpu
+#SBATCH -J LSTMRodentImitation --ntasks=1 --cpus-per-task 28 --mem-per-cpu 1000 -p olveczkygpu -t 2-00:00 -o %j_gpu.out -e %j_gpu.err --gres=gpu
 
-julia --threads 24 --project=. src/run_ppo.jl
+module add intel
+module add openmpi
+export UCX_WARN_UNUSED_ENV_VARS=n
+export UCX_ERROR_SIGNALS="SIGILL,SIGBUS,SIGFPE"
+export JULIA_CPU_TARGET="sapphirerapids;skylake-avx512;cascadelake;icelake-server"
+
+srun --mpi=pmix -n 1 : -n 15\
+     julia --threads=32 --project=. src/main.jl\
+     configs/imitation_sota.toml\
+     -wandb.run_name "Basic-MLP-again-{NOW}"\
+     -network.decoder_type "MLP"
+
+
