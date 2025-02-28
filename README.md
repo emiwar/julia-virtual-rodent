@@ -14,18 +14,11 @@ julia
 To log the progress of training, the code uses [Weights and Biases](https://wandb.ai/) which requires registering an account.
 
 ## Getting started
-The project has a tentative config system using TOML files. Call `src/main.jl` with an appropriate config file.
+The project has a tentative config system using TOML files. Call `src/main.jl` with an appropriate config file as the first argument. Params in the config can be overriden from the command line.
 ```
 $: julia --project=. --threads=16 src/main.jl configs/imitation_sota.toml\
 -rollout.n_envs 512 -rollout.n_epochs 20000 -rollout.use_mpi false
 ```
-
-### Old launch system (OBSOLETE)
-The files in the `experiments` folder are meant to be entry points for different training scenarios. For example,
-```
-julia --project=. --threads=16 experiments/variational_imitation_local.jl
-```
-will start training an imitation network with a variational (stochastic) bottleneck, using only local multithreading (no MPI) with 16 threads.
 
 ## Dependencies
 The biomechanical model is implemented in the physics engine [MuJoCo](https://mujoco.org), the neural networks in [Flux.jl](https://fluxml.ai/), and multi-machine training using [MPI.jl](https://juliaparallel.org/MPI.jl).
