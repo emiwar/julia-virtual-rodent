@@ -29,6 +29,7 @@ include("collectors/cuda_collector.jl")
 include("algorithms/ppo.jl")
 include("networks/utils.jl")
 include("networks/variational_bottleneck.jl")
+include("networks/info_bottleneck.jl")
 include("networks/action_samplers.jl")
 include("networks/enc_dec.jl")
 

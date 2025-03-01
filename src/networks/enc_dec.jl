@@ -22,6 +22,8 @@ function EncDec(template_env::MuJoCoEnv, params::NamedTuple)
         bottleneck = VariationalBottleneck(encoder_sizes[end] => params.network.latent_dimension, params.training.loss_weight_kl)
     elseif params.network.bottleneck == :deterministic
         bottleneck = Dense(encoder_sizes[end] => params.network.latent_dimension, tanh, init=zeros32)
+    elseif params.network.bottleneck == :informational
+        bottleneck = InfoBottleneck(encoder_sizes[end] => params.network.latent_dimension, noise_scale=params.network.noise_scale, init=zeros32)
     else
         error("Unknown bottleneck type: $(params.network.bottleneck)")
     end
