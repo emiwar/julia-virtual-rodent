@@ -32,6 +32,11 @@ function reset_layer!(layer::Flux.Recur, #Stateful layers
         ifelse.(reset_mask', s0, s)
     end
 end
+function reset_layer!(chain::Flux.Chain, reset_mask)
+    for layer in chain
+        reset_layer!(layer, reset_mask)
+    end
+end
 
 "Apply `chain` to `input`, but optionally first resetting the stateful layers for the
 instances indicated by `reset_mask` (typically due to the correpsonding environments 
