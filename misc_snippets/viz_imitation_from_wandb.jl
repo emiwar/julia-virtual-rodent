@@ -22,11 +22,14 @@ include("../src/environments/rodent_imitation_env.jl")
 include("../src/collectors/batch_stepper.jl")
 include("../src/collectors/mpi_stepper.jl")
 include("../src/collectors/cuda_collector.jl")
-include("../src/algorithms/ppo_loss.jl")
-include("../src/networks/variational_enc_dec_lstm.jl")
+include("../src/algorithms/ppo.jl")
+include("../src/networks/utils.jl")
+include("../src/networks/variational_bottleneck.jl")
+include("../src/networks/action_samplers.jl")
+include("../src/networks/enc_dec.jl")
 
 T = 5000
-wandb_run_id = "pp0g98c6" #"7mzfglak"
+wandb_run_id = "ij47almv" #"7mzfglak"
 
 params, weights_file_name = load_from_wandb(wandb_run_id, r"step-.*")
 #ActorCritic = VariationalEncDec
@@ -39,7 +42,7 @@ clip_labels = HDF5.h5open("src/environments/assets/diego_curated_snippets.h5", "
     [HDF5.attrs(fid["clip_$(i-1)"])["action"] for i=1:size(env.target)[3]]
 end
 
-clips = 1:842#findall(l->l=="FastWalk", clip_labels) #FaceGroom
+clips = findall(l->l=="FastWalk", clip_labels) #FaceGroom #1:842
 
 reset!(env, params, rand(clips), 1) #1, 25000)
 Flux.reset!(actor_critic)
@@ -53,8 +56,7 @@ exploration = false
 n_physics_steps = params.physics.n_physics_steps
 ProgressMeter.@showprogress for t=1:T
     env_state = state(env, params) |> ComponentTensor
-    actor_output = actor(actor_critic, ComponentTensor(CUDA.cu(data(env_state)), index(env_state)), true, params,
-                         nothing, CUDA.zeros(params.network.latent_dimension)) # nothing)
+    actor_output = actor(actor_critic, ComponentTensor(CUDA.cu(data(env_state)), index(env_state)), false)
     env.data.ctrl .= clamp.(exploration ? actor_output.action : actor_output.mu, -1.0, 1.0) |> Array
     for tt=1:n_physics_steps
         dubbleData.qpos[1:(env.model.nq)] .= env.data.qpos

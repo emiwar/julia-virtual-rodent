@@ -6,10 +6,13 @@ end
 
 Flux.trainable(rl::RecordableLayer) = Flux.trainable(rl.layer)
 
-recordable(rec, layer::Union{Flux.Dense, Flux.Recur}, key::Tuple) = RecordableLayer(rec, layer, key)
+recordable(rec, layer, key::Tuple) = RecordableLayer(rec, layer, key)
 
 function recordable(rec, chain::Flux.Chain, key::Tuple)
     Flux.Chain(NamedTuple(map(pairs(chain)) do (name, layer)
+        if name isa Integer
+            name = Symbol("layer_$name")
+        end
         name => recordable(rec, layer, (key..., name))
     end)...)
 end
@@ -40,7 +43,7 @@ end
 
 function (rl::RecordableLayer{F, VB})(x) where {F <: Function, VB <: VariationalBottleneck}
     #A bit clumsy to compute mu and sigma twice, but should be fine
-    linear_output = rl.layer.linear_layer(input)
+    linear_output = rl.layer.linear_layer(x)
     mu, unscaled_logsigma = split_halfway(linear_output; dim=1)
     sigma = exp.(rl.layer.sigma_scale .* unscaled_logsigma)
     rl.rec((rl.key..., :mu), mu)
@@ -52,8 +55,8 @@ function (rl::RecordableLayer{F, VB})(x) where {F <: Function, VB <: Variational
 end
 
 function (rl::RecordableLayer{F, L})(x) where {F <: Function, L}
-    @error "RecordableLayer has only been implemented for Dense, LSTM and
-            VariationalBottleneck layers. Please implement for layer type $L."
+    @error "RecordableLayer has only been implemented for Dense, LSTM and " *
+           "VariationalBottleneck layers. Please implement for layer type $L."
 end
 
 function recordable(rec, actor_critic::AbstractEncDec)
