@@ -37,6 +37,7 @@ include("../networks/network_recorder.jl")
 
 exploration = false
 wandb_run_id = ARGS[1]
+#base_path = "/home/emil/Development/activation-analysis/local_rollouts"
 base_path = "/n/holylabs/LABS/olveczky_lab/Lab/virtual_rodent/julia_rollout/"
 params, weights_file_name = load_from_wandb(wandb_run_id, r"step-.*")
 
@@ -94,9 +95,9 @@ end
 
 mkpath(dirname(output_filename))
 HDF5.h5open(output_filename, "w") do fid
-    write_to_fid(k, v::ComponentTensor) = (fid[k] = Flux.cpu(array(v)))
-    write_to_fid(k, v::AbstractArray{T, 3}) where T = (fid[k] = Flux.cpu(v))
-    write_to_fid(k, v::AbstractMatrix) = (fid[k] = Flux.cpu(v))
+    write_to_fid(k, v::ComponentTensor) = (fid[k] = Flux.cpu(array(v)) |> Array)
+    write_to_fid(k, v::AbstractArray{T, 3}) where T = (fid[k] = Flux.cpu(v) |> Array) 
+    write_to_fid(k, v::AbstractMatrix) = (fid[k] = Flux.cpu(v) |> Array)
     rec(write_to_fid, "states", collector.states)
     rec(write_to_fid, "infos", collector.infos)
     write_to_fid("status", collector.status)

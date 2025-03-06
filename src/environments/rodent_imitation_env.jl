@@ -107,6 +107,7 @@ end
 
 function info(env::RodentFollowEnv, params)
     (
+        qpos_root=(@view env.data.qpos[1:7]),
         torso_x=torso_x(env),
         torso_y=torso_y(env),
         torso_z=torso_z(env),
@@ -280,7 +281,7 @@ function com_target_info(env::RodentFollowEnv, params)
     dist = norm(target_vec)
     app_error = appendages_error(env)
     spawn_point = target_com(env, 1)
-    (target_frame=target_frame(env),
+    (target_frame=float(target_frame(env)),
      target_vec_x=target_vec[1],
      target_vec_y=target_vec[2],
      target_vec_z=target_vec[3],
