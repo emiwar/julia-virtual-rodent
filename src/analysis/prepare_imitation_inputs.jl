@@ -1,6 +1,7 @@
 import HDF5
 import MuJoCo
 import StaticArrays: SVector
+import PythonCall
 using ProgressMeter
 
 include("../environments/imitation_trajectory.jl")
@@ -74,8 +75,8 @@ if length(ARGS) < 1
     exit(1)
 end
 
-tracking_base_folder = "/n/holylabs/LABS/olveczky_lab/Lab/virtual_rodent/data"
-output_base_folder = "/n/holylabs/LABS/olveczky_lab/Lab/virtual_rodent/julia_rollout"
+tracking_base_folder = "/home/emil/Development/example-dannce-videos" #"/n/holylabs/LABS/olveczky_lab/Lab/virtual_rodent/data"
+output_base_folder = "/home/emil/Development/activation-analysis/local_rollouts"#"/n/holylabs/LABS/olveczky_lab/Lab/virtual_rodent/julia_rollout"
 animal_session = ARGS[1]
 
 tracking_file = "$tracking_base_folder/$animal_session.h5"

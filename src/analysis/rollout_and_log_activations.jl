@@ -37,8 +37,8 @@ include("../networks/network_recorder.jl")
 
 exploration = false
 wandb_run_id = ARGS[1]
-#base_path = "/home/emil/Development/activation-analysis/local_rollouts"
-base_path = "/n/holylabs/LABS/olveczky_lab/Lab/virtual_rodent/julia_rollout/"
+base_path = "/home/emil/Development/activation-analysis/local_rollouts"
+#base_path = "/n/holylabs/LABS/olveczky_lab/Lab/virtual_rodent/julia_rollout/"
 params, weights_file_name = load_from_wandb(wandb_run_id, r"step-.*")
 
 if length(ARGS) >= 2
@@ -70,6 +70,11 @@ params = merge(params, (;
     network   = merge(params.network,   (;bottleneck = Symbol(params.network.bottleneck),
                                           decoder_type = Symbol(params.network.decoder_type))),
 ))
+if !exploration
+    params = merge(params, (;
+        network   = merge(params.network,(;sigma_min = eps(Float32), sigma_max = eps(Float32))),
+    ))
+end
 
 stepper = BatchStepper(template_env, n_clips)
 for (i, env) in enumerate(stepper.environments)
