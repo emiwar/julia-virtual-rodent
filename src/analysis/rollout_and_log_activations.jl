@@ -70,6 +70,9 @@ params = merge(params, (;
     network   = merge(params.network,   (;bottleneck = Symbol(params.network.bottleneck),
                                           decoder_type = Symbol(params.network.decoder_type))),
 ))
+if !haskey(params.reward, :energy_cost)
+    params = merge(params, (; reward=merge(params.reward, (;energy_cost=0.0))))
+end
 if !exploration
     params = merge(params, (;
         network   = merge(params.network,(;sigma_min = eps(Float32), sigma_max = eps(Float32))),

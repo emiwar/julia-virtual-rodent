@@ -89,6 +89,9 @@ function reward(env::RodentFollowEnv, params)
     ctrl_reward = -params.reward.control_cost * norm(env.data.ctrl)^2
     total_reward  = com_reward + angle_reward + joint_reward + joint_vel_reward + append_reward
     total_reward += ctrl_reward + params.reward.alive_bonus
+    if haskey(params.reward, :energy_cost)
+        total_reward -= params.reward.energy_cost * energy_cost(env)
+    end
     total_reward #return clamp(total_reward, params.min_reward, Inf)
 end
 
@@ -120,6 +123,8 @@ function info(env::RodentFollowEnv, params)
         appendages_reward = appendages_reward(env, params),
         alt_joint_reward = alt_joint_reward(env, params),
         alt_joint_vel_reward = alt_joint_vel_reward(env, params),
+        energy_use = energy_cost(env),
+        energy_cost = params.reward.energy_cost * energy_cost(env),
         com_target_info(env, params)...
     )
 end
@@ -167,6 +172,12 @@ end
 torso_x(env::RodentFollowEnv) = subtree_com(env, "walker/torso")[1]
 torso_y(env::RodentFollowEnv) = subtree_com(env, "walker/torso")[2]
 torso_z(env::RodentFollowEnv) = subtree_com(env, "walker/torso")[3]
+
+function energy_cost(env::RodentFollowEnv)
+    mapreduce((v,f) -> abs(v)*abs(f), +,
+              (@view env.data.qvel[7:end]),
+              (@view env.data.qfrc_actuator[7:end]))
+end
 
 #Targets
 target_frame(env::RodentImitationEnv) = env.target_frame

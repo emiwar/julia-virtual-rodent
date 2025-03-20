@@ -30,7 +30,8 @@ min_torso_z = 0.035
 foot_mods = true
 
 [reward]
-control_cost = 0.015
+control_cost = 0.005
+energy_cost = 0.001
 alive_bonus = 0.1
     [reward.falloff]
     per_joint = 0.2

@@ -54,6 +54,14 @@ function (rl::RecordableLayer{F, VB})(x) where {F <: Function, VB <: Variational
     return y
 end
 
+function (rl::RecordableLayer{F, IB})(x) where {F <: Function, IB <: InfoBottleneck}
+    linear_output = rl.layer.linear_layer(x)
+    rl.rec((rl.key..., :signal), linear_output)
+    y = rl.layer(x)
+    rl.rec((rl.key..., :corrupted_signal), y)
+    return y
+end
+
 function (rl::RecordableLayer{F, L})(x) where {F <: Function, L}
     @error "RecordableLayer has only been implemented for Dense, LSTM and " *
            "VariationalBottleneck layers. Please implement for layer type $L."
