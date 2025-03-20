@@ -33,19 +33,19 @@ reset_mask_gpu = reset_mask |> Flux.gpu
 function train!(networks, states, mu, reset_mask, opt_state)
     _, N_tot, T_tot = size(states)
     #local l2_loss
-    for i=1:32:(N_tot-32)
+    #for i=1:32:(N_tot-32)
         Flux.reset!(networks)
         for t=1:16:(T_tot-16)
-            S = view(states, :, i:(i+31), t:(t+15))
-            R = view(reset_mask, i:(i+31), t:(t+15))
-            y = view(mu, :, i:(i+31), t:(t+15))
+            S = view(states, :, :, t:(t+15)) #i:(i+31)
+            R = view(reset_mask, :, t:(t+15))
+            y = view(mu, :, :, t:(t+15))
             g = Flux.gradient(networks) do networks
                 l2_loss = Flux.Losses.mse(actor(networks, S, R).mu, y)
             end
             #println(l2_loss)
             Flux.Optimise.update!(opt_state, networks, g[1])
         end
-    end
+    #end
     Flux.reset!(networks)
     Flux.Losses.mse(actor(networks, states, reset_mask).mu, mu)
 end
@@ -61,7 +61,10 @@ networks = EncDec([size(states.imitation_target)[1], 1024, 1024],
 networks_gpu = networks |> Flux.gpu
 opt_state = Flux.setup(Flux.Adam(), networks_gpu)
 losses = Float32[]
-for epoch=1:500
+Flux.reset!(networks)
+start_loss = Flux.Losses.mse(actor(networks_gpu, states_gpu, reset_mask_gpu).mu, mu_gpu)
+println("[$(Dates.now())] Epoch 0: $start_loss")
+for epoch=1:5000
     loss = train!(networks_gpu, states_gpu, mu_gpu, reset_mask_gpu, opt_state)
     push!(losses, loss)
     println("[$(Dates.now())] Epoch $epoch: $loss")
