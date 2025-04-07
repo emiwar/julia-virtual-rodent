@@ -16,7 +16,7 @@ function GaussianActionSampler(; sigma_min=0.0f0, sigma_max=1.0f0)
         mu, unscaled_sigma = split_halfway(mu_and_sigma; dim=1)
         sigma = sigma_offset .+ sigma_scale .* unscaled_sigma
         if isnothing(action)
-            xsi = randn_like(mu)
+            xsi = Flux.ignore(()->randn_like(mu))
             action = mu .+ sigma .* xsi
         end
         loglikelihood = -0.5f0 .* sum(((action .- mu) ./ sigma).^2; dims=1) .- sum(log.(sigma); dims=1)

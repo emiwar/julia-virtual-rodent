@@ -9,7 +9,7 @@ end
 
 @Flux.layer EncDec
 
-function EncDec(template_env::MuJoCoEnv, params::NamedTuple)
+function EncDec(template_env, params::NamedTuple) #::MuJoCoEnv
     template_state = ComponentTensor(state(template_env, params))
     action_size = length(null_action(template_env, params))
 
@@ -17,36 +17,48 @@ function EncDec(template_env::MuJoCoEnv, params::NamedTuple)
     encoder_input_size = length(template_state.imitation_target)
     decoder_input_size = length(template_state.proprioception) + params.network.latent_dimension
 
-    encoder_sizes = [encoder_input_size; params.network.encoder_size]
-    if params.network.bottleneck == :variational
-        bottleneck = VariationalBottleneck(encoder_sizes[end] => params.network.latent_dimension, params.training.loss_weight_kl)
-    elseif params.network.bottleneck == :deterministic
-        bottleneck = Dense(encoder_sizes[end] => params.network.latent_dimension, tanh, init=zeros32)
-    elseif params.network.bottleneck == :informational
-        bottleneck = InfoBottleneck(encoder_sizes[end] => params.network.latent_dimension, noise_scale=params.network.noise_scale, init=zeros32)
+    encoder_sizes = [encoder_input_size; params.network.encoder_size]   
+    decoder_sizes = [decoder_input_size; params.network.decoder_size]
+
+    critic_sizes = [full_state_size; params.network.critic_size]
+                    
+    return EncDec(encoder_sizes, decoder_sizes, critic_sizes, action_size;
+                  bottleneck_type=params.network.bottleneck,
+                  decoder_type=params.network.decoder_type,
+                  sigma_min=params.network.sigma_min, sigma_max=params.network.sigma_max,
+                  latent_dimension=params.network.latent_dimension, gamma=params.training.gamma,
+                  loss_weight_kl=params.training.loss_weight_kl, noise_scale=params.network.noise_scale)
+end
+
+function EncDec(encoder_sizes::Vector{Int}, decoder_sizes::Vector{Int}, critic_sizes::Vector{Int}, action_size::Integer;
+                bottleneck_type=:variational, decoder_type=:MLP,
+                sigma_min=0.01, sigma_max=0.5, latent_dimension=60, gamma=nothing,
+                loss_weight_kl=nothing, noise_scale=nothing)
+    if bottleneck_type == :variational
+        bottleneck = VariationalBottleneck(encoder_sizes[end] => latent_dimension, loss_weight_kl)
+    elseif bottleneck_type == :deterministic
+        bottleneck = Dense(encoder_sizes[end] => latent_dimension, tanh, init=zeros32)
+    elseif bottleneck_type == :informational
+        bottleneck = InfoBottleneck(encoder_sizes[end] => latent_dimension, noise_scale=noise_scale, init=zeros32)
     else
-        error("Unknown bottleneck type: $(params.network.bottleneck)")
+        error("Unknown bottleneck type: $(bottleneck_type)")
     end
 
     encoder = Chain((create_layers(Dense, "encoder", encoder_sizes, tanh)..., bottleneck=bottleneck)...)
     
-    decoder_sizes = [decoder_input_size; params.network.decoder_size]
-
-    if params.network.decoder_type == :MLP
+    if decoder_type == :MLP
         decoder = Chain((create_layers(Dense, "decoder", decoder_sizes, tanh)...,
-                         mu_and_sigma=Dense(decoder_sizes[end] => 2*action_size, tanh, init=zeros32))...)
-    elseif params.network.decoder_type == :LSTM
+                            mu_and_sigma=Dense(decoder_sizes[end] => 2*action_size, tanh, init=zeros32))...)
+    elseif decoder_type == :LSTM
         #Q: Should the final layer actually be a Dense layer?
         decoder = Chain((create_layers(LSTM, "decoder", decoder_sizes)...,
-                         mu_and_sigma=LSTM(decoder_sizes[end] => 2*action_size))...)
+                            mu_and_sigma=LSTM(decoder_sizes[end] => 2*action_size))...)
     end
-    action_sampler = GaussianActionSampler(;sigma_min=params.network.sigma_min,
-                                            sigma_max=params.network.sigma_max)
+    action_sampler = GaussianActionSampler(;sigma_min=sigma_min, sigma_max=sigma_max)
 
-    critic_sizes = [full_state_size; params.network.critic_size]
     critic  = Chain((create_layers(Dense, "critic", critic_sizes, tanh)...,
                     V_unscaled = Dense(critic_sizes[end] => 1, init=zeros32),
-                    V_scaled = V_unscaled -> V_unscaled ./ eltype(V_unscaled)(1.0-params.training.gamma))...)
+                    V_scaled = V_unscaled -> V_unscaled ./ eltype(V_unscaled)(1.0-gamma))...)
                     
     return EncDec(encoder, decoder, critic, action_sampler)
 end
