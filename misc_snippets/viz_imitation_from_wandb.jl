@@ -30,7 +30,7 @@ include("../src/networks/action_samplers.jl")
 include("../src/networks/enc_dec.jl")
 
 T = 2000
-wandb_run_id = "ij47almv" #"7mzfglak"
+wandb_run_id = "3eciud0m" #"7mzfglak"
 
 params, weights_file_name = load_from_wandb(wandb_run_id, r"step-.*")
 #ActorCritic = VariationalEncDec
@@ -38,12 +38,13 @@ actor_critic = BSON.load(weights_file_name)[:actor_critic] |> Flux.gpu
 
 MuJoCo.init_visualiser()
 
-env = RodentImitationEnv(params)#, target_data="reference_data/2020_12_22_1_precomputed.h5")
+target_data = "/home/emil/Development/activation-analysis/local_rollouts/custom_eval1/precomputed_inputs.h5"
+env = RodentImitationEnv(params; target_data)#, target_data="reference_data/2020_12_22_1_precomputed.h5")
 clip_labels = HDF5.h5open("src/environments/assets/diego_curated_snippets.h5", "r") do fid
     [HDF5.attrs(fid["clip_$(i-1)"])["action"] for i=1:size(env.target)[3]]
 end
 
-clips = 1:842 #findall(l->l=="FastWalk", clip_labels) #FaceGroom #
+clips = 1:3#1:842 #findall(l->l=="FastWalk", clip_labels) #FaceGroom #
 
 reset!(env, params, rand(clips), 1) #1, 25000)
 Flux.reset!(actor_critic)
