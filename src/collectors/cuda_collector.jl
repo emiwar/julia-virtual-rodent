@@ -45,9 +45,9 @@ function collect_batch!(collector::Collector, networks, stepper, params, lapTime
         #GPU (running a pretrained decoder) before the actions are moved to the CPU.
         #This is a workaround for that.
         lap(lapTimer, :preprocess_actions)
-        actions = preprocess_actions(env_type(stepper),
+        actions = preprocess_actions(stepper.environments,
                                      (@view collector.actor_outputs[:action, :, t]),
-                                     (@view collector.states[:, :, t]), params)
+                                     (@view collector.states[:, :, t]), reset_mask, params)
 
         #Move the actions to the CPU and run the stepper (multithreaded or MPI)
         lap(lapTimer, :rollout_action_to_cpu)
