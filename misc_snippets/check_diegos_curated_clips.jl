@@ -24,5 +24,5 @@ model = MuJoCo.load_model(modelPath)
 d = MuJoCo.init_data(model)
 
 MuJoCo.init_visualiser()
-traj = extract_fullphysics(500)
+traj = extract_fullphysics(2)
 MuJoCo.visualise!(model, d, trajectories = traj)

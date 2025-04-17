@@ -19,14 +19,15 @@ include("../src/utils/wandb_logger.jl")
 include("../src/environments/mujoco_env.jl")
 include("../src/environments/imitation_trajectory.jl")
 include("../src/environments/rodent_imitation_env.jl")
-include("../src/networks/variational_enc_dec.jl")
+#include("../src/networks/variational_enc_dec.jl")
+include("../src/networks/enc_dec.jl")
 include("../src/collectors/batch_stepper.jl")
 
 exploration = false
-wandb_run_id = "j0zwbgns" #"7mzfglak"
+wandb_run_id = "38h4nifl" #"j0zwbgns" #"7mzfglak"
 
 params, weights_file_name = load_from_wandb(wandb_run_id, r"step-.*")
-ActorCritic = VariationalEncDec
+ActorCritic = EncDec#VariationalEncDec
 actor_critic = BSON.load(weights_file_name)[:actor_critic] |> Flux.gpu
 
 template_env = RodentImitationEnv(params)#, target_data="reference_data/2020_12_22_1_precomputed.h5")

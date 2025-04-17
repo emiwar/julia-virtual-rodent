@@ -28,7 +28,7 @@ include("../src/networks/state_invariant.jl")
 include("../src/networks/joystick_mlp.jl")
 
 T = 5000
-wandb_run_id = "xxcrza2h"
+wandb_run_id = "9nghk2ls"
 
 params, weights_file_name = load_from_wandb(wandb_run_id, r"step-.*", project="emiwar-team/Rodent-Joystick")
 actor_critic = BSON.load(weights_file_name)[:actor_critic] |> Flux.gpu

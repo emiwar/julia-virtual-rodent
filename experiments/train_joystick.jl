@@ -2,10 +2,10 @@ params = (
     network = (
         actor_size=[1024],
         critic_size=[1024, 1024],
-        sigma_min=5f-1,
+        sigma_min=2f-1,
         sigma_max=1f0,#5f-1,x
         latent_dimension=60,
-        latent_action_scale=1f0
+        latent_action_scale=2f0
     ),
     physics = (
         n_physics_steps = 5,
@@ -22,8 +22,8 @@ params = (
         control_cost = 0.000,
         falloff = (
             forward_speed = 0.4,
-            turning_speed = 0.4,
-            head_height = 0.04,
+            turning_speed = 1.0,
+            head_height = 0.025,
         ),
 	    forward_weight = "auto"
     ),

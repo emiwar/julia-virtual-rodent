@@ -76,7 +76,7 @@ for t = 1:batch_dims[1]-3
         future_xquat = torso_xquat[t+3][i]
         forward_speed_c = (current_xmat * (future_xpos - current_xpos))[1] / (3*timestep)
         turning_speed_c = azimuth_between(current_xquat, future_xquat) / (3*timestep)
-        head_height_c = head_heights[t+3][i] * 10.0
+        head_height_c = head_heights[t+1][i] * 10.0
         push!(commands, [forward_speed_c, turning_speed_c, head_height_c])
         push!(commands_latents, latents[:, t, i])
     end
@@ -133,13 +133,13 @@ losses = Float64[]
         Flux.train!(loss, model, [batch], opt_state)
     end
 end
-Plots.plot(losses)
+#Plots.plot(losses)
 
-ex_data = map(x->x>0.35 && x<0.45, forward_speeds[mask])
-trainoutputs[:, ex_data]
+#ex_data = map(x->x>0.35 && x<0.45, forward_speeds[mask])
+#trainoutputs[:, ex_data]
 
-trainoutputs[:, ex_data]' * model(CUDA.cu([0.0, 0.0, 0.06]))
+#trainoutputs[:, ex_data]' * model(CUDA.cu([0.0, 0.0, 0.06]))
 
-joystick_model = model
+joystick_model = model |> cpu
 
-BSON.bson("joystick_model2.bson"; joystick_model)
+BSON.bson("joystick_model3.bson"; joystick_model)

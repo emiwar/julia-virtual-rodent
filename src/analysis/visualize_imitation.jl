@@ -14,9 +14,9 @@ dubbleModelPath = "src/environments/assets/imitation_viz_scale080.xml"
 dubbleModel = MuJoCo.load_model(dubbleModelPath)
 dubbleData = MuJoCo.init_data(dubbleModel)
 
-runname = "RodentComAndDirImitation-2024-08-28T15:45:23.751"
+runname = "RodentComAndDirImitation-2024-08-28T23:05:23.639"
 params = HDF5.h5open(fid->NamedTuple(Symbol(k)=>v[] for (k,v) in pairs(fid["params"])), "runs/$runname.h5", "r")
-filename = "runs/checkpoints/$runname/step-8000.bson"
+filename = "runs/checkpoints/$runname/step-1000.bson"
 T = 10000
 
 actor_critic = BSON.load(filename)[:actor_critic] |> Flux.gpu
