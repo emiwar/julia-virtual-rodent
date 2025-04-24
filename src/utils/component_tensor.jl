@@ -1,3 +1,6 @@
+module ComponentTensors
+export ComponentTensor, BatchComponentTensor, data, index, array
+
 struct ComponentTensor{A <: AbstractArray, I <: NamedTuple}
     data::A
     index::I
@@ -131,4 +134,4 @@ function Base.view(ct::ComponentTensor, key::Symbol)
     getproperty(ct, key)
 end
 
-
+end

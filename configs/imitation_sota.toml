@@ -18,6 +18,7 @@ decoder_size = [1024, 1024]
 critic_size = [1024, 1024]
 sigma_min = 0.01
 sigma_max = 0.5
+noise_scale = 0.0
 
 [physics]
 spawn_z_offset = 0.01
@@ -34,11 +35,9 @@ control_cost = 0.005
 energy_cost = 0.001
 alive_bonus = 0.1
     [reward.falloff]
-    per_joint = 0.2
     com = 0.05
     rotation = 0.5
     joint = 2.0
-    per_joint_vel = 1.0
     joint_vel = 5.0
     appendages = 0.02
 

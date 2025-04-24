@@ -14,9 +14,9 @@ function read_sensor_value(walker::Walker, sensor_name::String)
     return read_sensor_value(walker, sensor_id)
 end
 
-null_action(walker::Walker, params) = zeros(walker.model.nu)
+null_action(walker::Walker) = zeros(walker.model.nu)
 
-function prepare_sensorranges(model::MoJoCo.Model, sensors)
+function prepare_sensorranges(model::MuJoCo.Model, sensors)
     sensorranges = Dict{String, UnitRange{Int64}}()
     for sensor in sensors
         sensor_id = MuJoCo.mj_name2id(model, MuJoCo.mjOBJ_SENSOR, sensor)
@@ -54,11 +54,43 @@ function sensor(walker::Walker, sensorname::String)
     return view(walker.data.sensordata, walker.sensorranges[sensorname])
 end
 
+function qpos_root(walker::Walker)
+    return @view walker.data.qpos[1:7]
+end
+
+function joint_indices(walker::Walker)
+    return 8:length(walker.data.qpos)
+end
+
+function joint_vel_indices(walker::Walker)
+    return 7:length(walker.data.qvel)
+end
+
 function step!(walker::Walker)
     MuJoCo.step!(walker.model, walker.data)
 end
 
 function reset!(walker::Walker)
-    MoJoCo.reset(walker.model, walker.data)
+    MuJoCo.reset!(walker.model, walker.data)
 end
 
+function set_ctrl!(walker::Walker, action)
+    walker.data.ctrl .= clamp.(action, -1.0, 1.0)
+end
+
+function info(walker::Walker)
+    (
+     qpos_root=qpos_root(walker),
+     torso_x=torso_x(walker),
+     torso_y=torso_y(walker),
+     torso_z=torso_z(walker),
+     actuator_force_sum_sqr = norm(walker.data.actuator_force)^2,
+     energy_use = energy_use(walker)
+    )
+end
+
+function energy_use(walker::Walker)
+    mapreduce((v,f) -> abs(v)*abs(f), +,
+              (@view walker.data.qvel[7:end]),
+              (@view walker.data.qfrc_actuator[7:end]))
+end

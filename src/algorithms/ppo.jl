@@ -1,19 +1,5 @@
-function ppo(template_env, params; networks=EncDec(template_env, params), use_mpi::Bool=false)
-    if use_mpi
-        MPI.Init(threadlevel=:funneled)
-        stepper = MpiStepper(template_env, params.rollout.n_envs)
-        #If we are using MPI, we only want the main process (rank==0) to do the
-        #training and logging. The other processes will just collect data.
-        if MPI.Comm_rank(MPI.COMM_WORLD) > 0
-            for epoch = 1:params.rollout.n_epochs
-                collect_batch!(stepper, params, LapTimer())
-            end
-            return #Quit after collecting data
-        end
-    else
-        stepper = BatchStepper(template_env, params.rollout.n_envs)
-    end
-    collector = CuCollector(template_env, networks,
+function ppo(env, params; networks=EncDec(template_env, params))
+    collector = CuCollector(env, networks,
                             params.rollout.n_envs,
                             params.rollout.n_steps_per_epoch)
     networks_gpu = networks |> Flux.gpu
@@ -26,7 +12,6 @@ function ppo(template_env, params; networks=EncDec(template_env, params), use_mp
 
     #Main training loop
     @showprogress for epoch = 1:params.rollout.n_epochs
-        lapTimer = LapTimer()
         
         #Checkpoint the latent state of the networks before starting a batch of rollouts
         network_state_at_epoch_start = checkpoint_latent_state(networks_gpu)
@@ -44,12 +29,11 @@ function ppo(template_env, params; networks=EncDec(template_env, params), use_mp
                               network_state_at_epoch_end, opt_state, params, lapTimer)
 
         #Compute batch statistics for logging
-        lap(lapTimer, :logging_batch_stats)
         logdict = compute_batch_stats(collector)
         merge!(logdict, ppo_log)
         logdict["total_steps"] = epoch * params.rollout.n_envs * params.rollout.n_steps_per_epoch
-        lap(lapTimer, :checkpointing)
-
+        
+        lap(:checkpointing)
         #Checkpoint the network weights every `checkpoint_interval` epochs
         if epoch % params.training.checkpoint_interval == 0
             checkpoint_fn = "runs/checkpoints/$(params.wandb.run_name)/step-$(epoch).bson"
@@ -58,11 +42,12 @@ function ppo(template_env, params; networks=EncDec(template_env, params), use_mp
         end
 
         #Submit batch stats to WandB
-        lap(lapTimer, :logging_submitting)
-        merge!(logdict, to_stringdict(lapTimer))
+        lap(:logging_submitting)
+        merge!(logdict, LapTimer.to_stringdict())
         Wandb.log(lg, logdict)
+        LapTimer.reset!()
     end
-    return networks
+
     Wandb.close(lg);
 end
 

@@ -11,7 +11,7 @@ end
 
 function EncDec(template_env, params::NamedTuple) #::MuJoCoEnv
     template_state = ComponentTensor(state(template_env, params))
-    action_size = length(null_action(template_env, params))
+    action_size = length(null_action(template_env.rodent, params))
 
     full_state_size = length(template_state)
     encoder_input_size = length(template_state.imitation_target)
