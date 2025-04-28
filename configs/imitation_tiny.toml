@@ -1,0 +1,59 @@
+[wandb]
+project = "Rodent-Imitation"
+run_name = "ImitationShortTest-{NOW}"
+
+[rollout]
+n_envs = 128
+reset_on_epoch_start = false
+n_epochs = 100
+n_steps_per_epoch = 16
+use_mpi = false
+
+[network]
+bottleneck = "variational"
+decoder_type = "LSTM"
+latent_dimension = 60
+encoder_size = [256, 256]
+decoder_size = [256, 256]
+critic_size = [1024, 1024]
+sigma_min = 0.01
+sigma_max = 0.5
+noise_scale = 0.0
+
+[physics]
+spawn_z_offset = 0.01
+n_physics_steps = 5
+timestep = 0.002
+torque_control = true
+hip_mods = false
+body_scale = 1.0
+min_torso_z = 0.035
+foot_mods = true
+
+[reward]
+control_cost = 0.005
+energy_cost = 0.001
+alive_bonus = 0.1
+    [reward.falloff]
+    com = 0.05
+    rotation = 0.5
+    joint = 2.0
+    joint_vel = 5.0
+    appendages = 0.02
+
+[imitation]
+max_target_distance = 0.1
+horizon = 5
+restart_on_reset = true
+
+[training]
+checkpoint_interval = 50
+loss_weight_critic = 0.5
+loss_weight_actor = 1.0
+loss_weight_entropy = -0.2
+learning_rate = 0.0001
+n_miniepochs = 1
+gamma = 0.95
+loss_weight_kl = 0.1
+lambda = 0.95
+clip_range = 0.2

@@ -1,40 +1,72 @@
-import MPI
-import BSON
-import CUDA
 import Dates
-import Statistics
-import HDF5
-import LinearAlgebra: norm
-import MuJoCo
-import PythonCall
-import Wandb
-import Random
 import TOML
-using Flux
-using ProgressMeter
-using StaticArrays
-
-include("utils/profiler.jl")
-include("utils/load_dm_control_model.jl")
-include("utils/mujoco_quat.jl")
-include("utils/component_tensor.jl")
-include("utils/wandb_logger.jl")
 include("utils/parse_config.jl")
-include("environments/mujoco_env.jl")
-include("environments/walker.jl")
-include("environments/rodent.jl")
-include("environments/imitation_trajectory.jl")
-include("environments/rodent_imitation_env.jl")
-include("collectors/batch_stepper.jl")
-include("collectors/mpi_stepper.jl")
-include("collectors/cuda_collector.jl")
-include("algorithms/ppo.jl")
-include("networks/utils.jl")
-include("networks/variational_bottleneck.jl")
-include("networks/info_bottleneck.jl")
-include("networks/action_samplers.jl")
-include("networks/enc_dec.jl")
+include("utils/component_tensor.jl")
+include("utils/profiler.jl")
+include("environments/environments.jl")
+include("networks/networks.jl")
+include("algorithms/algorithms.jl")
 
 params = parse_config(ARGS)
-env = RodentImitationEnv(params) #There is just one supported env
-ppo(env, params; use_mpi=params.rollout.use_mpi)
+
+#Setup the environment
+walker = Environments.Rodent(;params.physics...)
+reward_spec = Environments.EqualRewardWeights(;params.reward...)
+target = Environments.load_imitation_target(walker)
+template_env = Environments.ImitationEnv(walker, reward_spec, target; params.imitation...)
+
+#MPI or local multithreading of environment
+if params.rollout.use_mpi
+    import MPI
+    MPI.Init(threadlevel=:funneled)
+    #This call is blocking on non-root processes
+    env = Environments.MpiEnv(template_env, params.rollout.n_envs;
+                              block_workers = true,
+                              n_steps_per_epoch=params.rollout.n_steps_per_epoch)
+else
+    env = Environments.MultithreadEnv(template_env, params.rollout.n_envs)
+end
+
+#These imports are only called on the root process if MPI is used
+import Wandb
+import Flux
+import BSON
+
+#Setup the networks (encoder, decoder, critic)
+networks = Networks.EncDec(template_env, params)
+collector = Algorithms.CuCollector(env, networks, params.rollout.n_steps_per_epoch)
+networks_gpu = networks |> Flux.gpu
+
+#Setup wandb logging and checkpointing
+include("utils/wandb_logger.jl")
+const lg = Wandb.WandbLogger(project = params.wandb.project,
+                             name = params.wandb.run_name,
+                             config = params_to_dict(params))
+mkdir("runs/checkpoints/$(params.wandb.run_name)")
+
+#Callback called after each epoch
+function logger(epoch, dict_to_log)
+    Timers.lap(:checkpointing)
+    #Checkpoint the network weights every `checkpoint_interval` epochs
+    if epoch % params.training.checkpoint_interval == 0
+        checkpoint_fn = "runs/checkpoints/$(params.wandb.run_name)/step-$(epoch).bson"
+        BSON.bson(checkpoint_fn; actor_critic=Flux.cpu(networks_gpu))
+        lg.wrun.log_model(checkpoint_fn, "checkpoint-step-$(epoch).bson")
+    end
+
+    #Submit batch stats to WandB
+    Timers.lap(:logging_submitting)
+    merge!(dict_to_log, Timers.to_stringdict(Timers.default_timer))
+    Wandb.log(lg, dict_to_log)
+    Timers.reset!(Timers.default_timer)
+end
+
+#Run the training loop
+Algorithms.ppo(collector, networks_gpu, params; logger=logger)
+
+#Cleanup
+Wandb.close(lg)
+if params.rollout.use_mpi
+    MPI.Abort(MPI.COMM_WORLD, 0)
+    MPI.Finalize()
+end

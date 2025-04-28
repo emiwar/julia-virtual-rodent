@@ -23,9 +23,9 @@ function MpiEnv(template_env, n_envs; block_workers::Bool, n_steps_per_epoch::In
     n_local_envs = n_envs ÷ mpi_size
     base_env = MultithreadEnv(template_env, n_local_envs)
     if mpi_rank == 0
-        template_state  = state(template_env, params) |> ComponentTensor
-        template_info   = info(template_env, params) |> ComponentTensor
-        template_action = null_action(template_env.rodent, params)
+        template_state  = state(template_env) |> ComponentTensor
+        template_info   = info(template_env) |> ComponentTensor
+        template_action = null_action(template_env)
     
         zeros32(inds...) = zeros(Float32, inds...)
         states  = BatchComponentTensor(template_state, n_envs, array_fcn=zeros32)
@@ -54,11 +54,15 @@ function MpiEnv(template_env, n_envs; block_workers::Bool, n_steps_per_epoch::In
     end
 end
 
+#Env interface
+state(mc::MpiEnvRoot)  = mc.states
+info(mc::MpiEnvRoot)  = mc.infos
+reward(mc::MpiEnv) = mc.rewards
+status(mc::MpiEnv) = mc.status
+actions(mc::MpiEnv) = mc.actions
+
 raw_states(mc::MpiEnvRoot)  = data(mc.states)
 raw_infos(mc::MpiEnvRoot)   = data(mc.infos)
-status(mc::MpiEnvRoot)  = mc.status
-reward(mc::MpiEnvRoot) = mc.rewards
-actions(mc::MpiEnvRoot) = mc.actions
 
 raw_states(::MpiEnvWorker)  = nothing
 raw_infos(::MpiEnvWorker)   = nothing
@@ -70,7 +74,7 @@ n_envs(mpiEnv::MpiEnv) = MPI.Comm_size(MPI.COMM_WORLD) * n_envs(mpiEnv.base_env)
 env_type(mpiEnv::MpiEnv) = env_type(mpiEnv.localEnv)
 
 function prepare_epoch!(mpiEnv::MpiEnv)
-    base_env = mpiStepper.base_env
+    base_env = mpiEnv.base_env
     prepare_epoch!(base_env)
     MPI.Gather!(raw_states(base_env), raw_states(mpiEnv), MPI.COMM_WORLD)
     MPI.Gather!(status(base_env),  status(mpiEnv), MPI.COMM_WORLD)
@@ -88,13 +92,13 @@ function step!(mpiEnv::MpiEnv)
     lap(:mpi_scatter_actions)
     MPI.Scatter!(actions(mpiEnv), actions(base_env), MPI.COMM_WORLD)
     lap(:rollout_envs)
-    act!(base_env, actions(base_env))
+    act!(base_env)
     lap(:mpi_wait_for_workers)
     MPI.Barrier(MPI.COMM_WORLD)
     lap(:mpi_gather_state)
     MPI.Gather!(raw_states(base_env),  raw_states(mpiEnv), MPI.COMM_WORLD)
     MPI.Gather!(raw_infos(base_env),  raw_infos(mpiEnv), MPI.COMM_WORLD)
-    MPI.Gather!(rewards(base_env),  rewards(mpiEnv), MPI.COMM_WORLD)
+    MPI.Gather!(reward(base_env),  reward(mpiEnv), MPI.COMM_WORLD)
     MPI.Gather!(status(base_env),  status(mpiEnv), MPI.COMM_WORLD)
 end
 

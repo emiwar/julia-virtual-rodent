@@ -46,10 +46,10 @@ function prepare_epoch!(multithreadEnv::MultithreadEnv)
     end
 end
 
-function act!(multithreadEnv::MultithreadEnv, actions, auto_reset=true)
+function act!(multithreadEnv::MultithreadEnv, auto_reset::Bool=true)
     @Threads.threads for i=1:n_envs(multithreadEnv)
         env = multithreadEnv.environments[i]
-        action = @view actions[:, i]
+        action = @view multithreadEnv.actions[:, i]
         act!(env, action)
         multithreadEnv.states[:, i] = state(env)
         multithreadEnv.rewards[i]   = reward(env)
@@ -61,3 +61,7 @@ function act!(multithreadEnv::MultithreadEnv, actions, auto_reset=true)
     end
 end
 
+function act!(multithreadEnv::MultithreadEnv, actions::AbstractArray, auto_reset::Bool=true)
+    copyto!(multithreadEnv.actions, actions)
+    act!(multithreadEnv, auto_reset)
+end

@@ -1,6 +1,8 @@
 module ComponentTensors
 export ComponentTensor, BatchComponentTensor, data, index, array
 
+import CUDA
+
 struct ComponentTensor{A <: AbstractArray, I <: NamedTuple}
     data::A
     index::I
@@ -20,7 +22,7 @@ function ComponentTensor(nt::NamedTuple)
     firstArray(a::Number) = nothing
     batch_size = isnothing(firstArray(nt)) ? () : size(firstArray(nt))[2:end]
     batch_dims = ntuple(_->:, length(batch_size))
-    if isdefined(Main, :CUDA) && firstArray(nt) isa CUDA.AnyCuArray
+    if firstArray(nt) isa CUDA.AnyCuArray
         data = CUDA.zeros(counter[]-1, batch_size...)
     else
         data = zeros(counter[]-1, batch_size...)
@@ -57,6 +59,14 @@ end
 Base.length(ct::ComponentTensor) = prod(size(ct))
 Base.eltype(ct::ComponentTensor) = eltype(data(ct))
 Base.ndims(ct::ComponentTensor) = ndims(data(ct))
+
+function to_cpu(ct::ComponentTensor)
+    if data(ct) isa CUDA.AnyCuArray
+        return ComponentTensor(Array(data(ct)), index(ct))
+    else
+        return ct
+    end
+end
 
 function Base.getindex(ct::ComponentTensor, key::Symbol, inds...)
     data(ct)[range(ct, key), inds...]

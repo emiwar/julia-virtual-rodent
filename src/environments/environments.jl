@@ -3,22 +3,24 @@ import MuJoCo
 import PythonCall
 import HDF5
 import LinearAlgebra: norm
+import MPI
 using StaticArrays
 using ..ComponentTensors
+using ..Timers: lap
 
-include("AbstractEnv.jl")
+include("abstract_env.jl")
 
 include("../utils/mujoco_quat.jl")
 
 #Imitation
-include("Walker.jl")
-include("Rodent.jl")
-include("imitation_utils.jl")
-include("imitation_env.jl")
-include("imitation_reward_spec.jl")
+include("imitation/walker.jl")
+include("imitation/rodent.jl")
+include("imitation/imitation_utils.jl")
+include("imitation/imitation_env.jl")
+include("imitation/imitation_reward_spec.jl")
 
 #Parallellism
-include("parallellism/MultithreadEnv.jl")
-include("parallellism/MpiEnv.jl")
+include("parallellism/multithread_env.jl")
+include("parallellism/mpi_env.jl")
 
 end

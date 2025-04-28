@@ -9,9 +9,10 @@ end
 
 @Flux.layer EncDec
 
-function EncDec(template_env, params::NamedTuple) #::MuJoCoEnv
-    template_state = ComponentTensor(state(template_env, params))
-    action_size = length(null_action(template_env.rodent, params))
+function EncDec(template_env::Environments.AbstractEnv, params::NamedTuple)
+    #TODO: This shouldn't be a constructor but a factory util somewhere
+    template_state = ComponentTensor(Environments.state(template_env))
+    action_size = length(Environments.null_action(template_env))
 
     full_state_size = length(template_state)
     encoder_input_size = length(template_state.imitation_target)
@@ -30,7 +31,8 @@ function EncDec(template_env, params::NamedTuple) #::MuJoCoEnv
                   loss_weight_kl=params.training.loss_weight_kl, noise_scale=params.network.noise_scale)
 end
 
-function EncDec(encoder_sizes::Vector{Int}, decoder_sizes::Vector{Int}, critic_sizes::Vector{Int}, action_size::Integer;
+function EncDec(encoder_sizes::Vector{Int}, decoder_sizes::Vector{Int},
+                critic_sizes::Vector{Int}, action_size::Integer;
                 bottleneck_type=:variational, decoder_type=:MLP,
                 sigma_min=0.01, sigma_max=0.5, latent_dimension=60, gamma=nothing,
                 loss_weight_kl=nothing, noise_scale=nothing)

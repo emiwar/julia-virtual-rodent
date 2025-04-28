@@ -1,3 +1,7 @@
+module Timers
+
+export LapTimer, lap, to_stringdict
+
 mutable struct LapTimer
     lapStart::Float64
     lapLabel::Symbol
@@ -19,4 +23,18 @@ function lap(lt::LapTimer, label::Symbol)
     return nothing
 end
 
+function reset!(lt::LapTimer)
+    for k in keys(lt.cumulTimes)
+        lt.cumulTimes[k] = 0.0
+    end
+    lt.lapStart = NaN
+    lt.lapLabel = :start
+end
+
 to_stringdict(lt::LapTimer) = Dict("timings/$k"=>v for (k,v) in pairs(lt.cumulTimes))
+
+const default_timer = LapTimer()
+lap(label::Symbol) = lap(default_timer, label)
+reset!() = reset!(default_timer)
+
+end
