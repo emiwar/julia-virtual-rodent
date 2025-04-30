@@ -1,5 +1,5 @@
 module ComponentTensors
-export ComponentTensor, BatchComponentTensor, data, index, array
+export ComponentTensor, BatchComponentTensor, data, index, array, to_cpu, to_gpu
 
 import CUDA
 
@@ -63,6 +63,14 @@ Base.ndims(ct::ComponentTensor) = ndims(data(ct))
 function to_cpu(ct::ComponentTensor)
     if data(ct) isa CUDA.AnyCuArray
         return ComponentTensor(Array(data(ct)), index(ct))
+    else
+        return ct
+    end
+end
+
+function to_gpu(ct::ComponentTensor)
+    if !(data(ct) isa CUDA.AnyCuArray)
+        return ComponentTensor(CUDA.cu(data(ct)), index(ct))
     else
         return ct
     end

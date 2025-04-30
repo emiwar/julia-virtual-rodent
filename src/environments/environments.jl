@@ -2,7 +2,7 @@ module Environments
 import MuJoCo
 import PythonCall
 import HDF5
-import LinearAlgebra: norm
+import LinearAlgebra: norm, dot
 import MPI
 using StaticArrays
 using ..ComponentTensors

@@ -1,71 +1,82 @@
-import BSON
-import CUDA
-import Dates
-import Statistics
-import HDF5
-import LinearAlgebra: norm, dot
-import MuJoCo
-import PythonCall
 import Wandb
-using Flux
+import BSON
+import Dates
+import TOML
+import PythonCall
+import CUDA
+using StaticArrays: SVector, SMatrix
 using ProgressMeter
-using StaticArrays
-
-include("../src/utils/profiler.jl")
-include("../src/utils/load_dm_control_model.jl")
-include("../src/utils/mujoco_quat.jl")
+include("../src/utils/parse_config.jl")
 include("../src/utils/component_tensor.jl")
+include("../src/utils/profiler.jl")
 include("../src/utils/wandb_logger.jl")
-include("../src/environments/mujoco_env.jl")
-include("../src/environments/imitation_trajectory.jl")
-include("../src/environments/rodent_imitation_env.jl")
-include("../src/networks/variational_enc_dec.jl")
-include("../src/collectors/batch_stepper.jl")
+include("../src/environments/environments.jl")
+include("../src/networks/networks.jl")
+include("../src/networks/utils.jl")
+include("../src/algorithms/algorithms.jl")
 
-exploration = false
-wandb_run_id = "j0zwbgns" #"7mzfglak"
+using .Networks: EncDec, VariationalBottleneck, GaussianActionSampler#, split_halfway
+using .ComponentTensors: array
+
+using Flux: Chain, gpu, Dense, Adam
+
+wandb_run_id = "zf8zs3kq" #"7mzfglak"
 
 params, weights_file_name = load_from_wandb(wandb_run_id, r"step-.*")
-ActorCritic = VariationalEncDec
+falloffs = params.reward.falloff
+falloffs = (;com=falloffs.com, rotation=falloffs.rotation, joint=falloffs.joint, joint_vel=falloffs.joint_vel, appendages=falloffs.appendages)
+reward_params = merge(params.reward, (;falloff=falloffs))
+
 actor_critic = BSON.load(weights_file_name)[:actor_critic] |> Flux.gpu
 
-template_env = RodentImitationEnv(params)#, target_data="reference_data/2020_12_22_1_precomputed.h5")
-stepper = BatchStepper(template_env, size(template_env.target)[3])
-for (i, env) in enumerate(stepper.environments)
-    reset!(env, params, i, 1)
-end
-batch_dims = (500, size(template_env.target)[3])
+#Setup the environment
+walker = Environments.Rodent(;merge(params.physics, (;body_scale=1.0))...)
+reward_spec = Environments.EqualRewardWeights(;reward_params...)
+target = Environments.load_imitation_target(walker)
+template_env = Environments.ImitationEnv(walker, reward_spec, target; params.imitation...)
+n_envs = size(target)[3]
+env = Environments.MultithreadEnv(template_env, n_envs)
+batch_dims = (500, n_envs)
+
 statuses = fill(-1, batch_dims)
-latents = fill(-1.0, (params.network.latent_dimension, 500, size(template_env.target)[3]))
+latents = fill(-1.0, (params.network.latent_dimension, 500, n_envs))
 
 head_heights = fill(NaN, batch_dims)
-timestep::Float64 = template_env.model.opt.timestep * params.physics.n_physics_steps
-cu(ct::ComponentTensor) = ComponentTensor(CUDA.cu(data(ct)), index(ct))
+timestep::Float64 = template_env.walker.model.opt.timestep * params.physics.n_physics_steps
 
 torso_xpos = Vector{SVector{3, Float64}}[]
 torso_xquat = Vector{SVector{4, Float64}}[]
 torso_xmat = Vector{SMatrix{3, 3, Float64}}[]
 head_heights = Vector{Float64}[]
-for (i, env) in enumerate(stepper.environments)
-    reset!(env, params, i, 1)
+
+for (i, env) in enumerate(env.environments)
+    Environments.reset!(env, i, 1)
 end
-prepareEpoch!(stepper, params)
+Flux.reset!(actor_critic)
+Environments.prepare_epoch!(env)
 ProgressMeter.@showprogress for t=1:batch_dims[1]
-    actor_output = actor(actor_critic, cu(stepper.states), params)
-    copyto!(stepper.actions, exploration ? actor_output.action : actor_output.mu)
-    step!(stepper, params)
-    push!(torso_xpos, body_xpos.(stepper.environments, "walker/torso"))
-    push!(torso_xquat, body_xquat.(stepper.environments, "walker/torso"))
-    push!(torso_xmat, body_xmat.(stepper.environments, "walker/torso"))
-    push!(head_heights, getindex.(subtree_com.(stepper.environments, "walker/skull"), 3))
-    statuses[t, :] = stepper.status
-    latents[:, t, :] = Array(actor_output.latent_mu)
+    reset_mask = Environments.status(env) .!= Environments.RUNNING
+    #
+    imitation_target = Environments.state(env).imitation_target |> array
+    proprioception = Environments.state(env).proprioception |> array
+    latent = rollout!(actor_critic.encoder, imitation_target, reset_mask)
+    decoder_input = cat(latent, proprioception; dims=1)
+    decoder_output = rollout!(actor_critic.decoder, decoder_input, reset_mask)
+    mu, unscaled_sigma = split_halfway(decoder_output; dim=1)
+    Environments.act!(env, mu)
+    all_walkers = map(e->e.walker, env.environments)
+    push!(torso_xpos,   Environments.body_xpos.(all_walkers, "walker/torso"))
+    push!(torso_xquat, Environments.body_xquat.(all_walkers, "walker/torso"))
+    push!(torso_xmat,   Environments.body_xmat.(all_walkers, "walker/torso"))
+    push!(head_heights, getindex.(Environments.subtree_com.(all_walkers, "walker/skull"), 3))
+    statuses[t, :] = Environments.status(env)
+    latents[:, t, :] = latent
 end
 
 commands = Vector{Float64}[]
 commands_latents = Vector{Float64}[]
 for t = 1:batch_dims[1]-3
-    for i = 1:length(stepper.environments)
+    for i = 1:n_envs
         if any(statuses[t:t+3, i] .!= 0)
             continue
         end
@@ -75,7 +86,7 @@ for t = 1:batch_dims[1]-3
         future_xpos = torso_xpos[t+3][i]
         future_xquat = torso_xquat[t+3][i]
         forward_speed_c = (current_xmat * (future_xpos - current_xpos))[1] / (3*timestep)
-        turning_speed_c = azimuth_between(current_xquat, future_xquat) / (3*timestep)
+        turning_speed_c = Environments.azimuth_between(current_xquat, future_xquat) / (3*timestep)
         head_height_c = head_heights[t+3][i] * 10.0
         push!(commands, [forward_speed_c, turning_speed_c, head_height_c])
         push!(commands_latents, latents[:, t, i])
@@ -83,36 +94,11 @@ for t = 1:batch_dims[1]-3
 end
 traininputs = fill(NaN, (3, length(commands)))
 trainoutputs = fill(NaN, (60, length(commands)))
-for t=1:length(commands)
+for t=eachindex(commands)
     traininputs[:, t] = commands[t]
     trainoutputs[:, t] = commands_latents[t]
 end
 
-#=
-ProgressMeter.@showprogress for t=1:batch_dims[1]-3
-    actor_output = actor(actor_critic, cu(stepper.states), params)
-    copyto!(stepper.actions, exploration ? actor_output.action : actor_output.mu)
-    
-    xmat = body_xmat.(stepper.environments, "walker/torso")
-    last_torso_pos = body_xpos.(stepper.environments, "walker/torso")
-    last_torso_quat = body_xquat.(stepper.environments, "walker/torso")
-    step!(stepper, params)
-    new_torso_pos = body_xpos.(stepper.environments, "walker/torso")
-    new_torso_quat = body_xquat.(stepper.environments, "walker/torso")
-    forward_speeds[t, :] = getindex.(xmat .* (new_torso_pos .- last_torso_pos), 1) ./ timestep
-    turning_speeds[t, :] = azimuth_between.(last_torso_quat, new_torso_quat) ./ timestep
-    head_heights[t, :] = getindex.(subtree_com.(stepper.environments, "walker/skull"), 3) .* 10.0
-    #infos[:, t, :] = stepper.infos
-    statuses[t, :] = stepper.status
-    latents[:, t, :] = Array(actor_output.latent_mu)
-end
-=#
-#forward_speeds = fill(NaN, batch_dims)
-#turning_speeds = fill(NaN, batch_dims)
-
-#mask = statuses[:] .== 0
-#traininputs = hcat(forward_speeds[mask], turning_speeds[mask], head_heights[mask])' |> collect
-#trainoutputs = reshape(latents, Val(2))[:, mask]
 model = Chain(Dense(3 => 1024, tanh), Dense(1024=>1024, tanh), Dense(1024=>60))
 
 traininputs = gpu(traininputs)
@@ -125,7 +111,7 @@ loss(model, x, y) = sum((model(x) .- y).^2)
 #opt = Adam()
 opt_state = Flux.setup(Adam(), model)
 
-dataloader = Flux.Data.DataLoader((traininputs, trainoutputs); batchsize=1024, shuffle=true)
+dataloader = Flux.DataLoader((traininputs, trainoutputs); batchsize=1024, shuffle=true)
 losses = Float64[]
 @showprogress for t=1:25
     push!(losses, loss(model, traininputs, trainoutputs))
@@ -133,13 +119,12 @@ losses = Float64[]
         Flux.train!(loss, model, [batch], opt_state)
     end
 end
-Plots.plot(losses)
 
-ex_data = map(x->x>0.35 && x<0.45, forward_speeds[mask])
-trainoutputs[:, ex_data]
-
-trainoutputs[:, ex_data]' * model(CUDA.cu([0.0, 0.0, 0.06]))
+#Plots.plot(losses)
+#ex_data = map(x->x>0.35 && x<0.45, forward_speeds[mask])
+#trainoutputs[:, ex_data]
+#trainoutputs[:, ex_data]' * model(CUDA.cu([0.0, 0.0, 0.06]))
 
 joystick_model = model
 
-BSON.bson("joystick_model2.bson"; joystick_model)
+BSON.bson("joystick_model3.bson"; joystick_model)

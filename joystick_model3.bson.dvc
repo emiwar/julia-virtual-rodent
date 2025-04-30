@@ -1,0 +1,5 @@
+outs:
+- md5: 883bc3eefaa234d763b681bd16b61259
+  size: 4465448
+  hash: md5
+  path: joystick_model3.bson
