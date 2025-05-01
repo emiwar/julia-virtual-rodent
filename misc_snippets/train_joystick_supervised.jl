@@ -59,18 +59,18 @@ ProgressMeter.@showprogress for t=1:batch_dims[1]
     #
     imitation_target = Environments.state(env).imitation_target |> array
     proprioception = Environments.state(env).proprioception |> array
-    latent = rollout!(actor_critic.encoder, imitation_target, reset_mask)
-    decoder_input = cat(latent, proprioception; dims=1)
-    decoder_output = rollout!(actor_critic.decoder, decoder_input, reset_mask)
+    latent = rollout!(actor_critic.encoder, imitation_target |> gpu, reset_mask |> gpu)
+    decoder_input = cat(latent, proprioception |> gpu; dims=1)
+    decoder_output = rollout!(actor_critic.decoder, decoder_input, reset_mask |> gpu)
     mu, unscaled_sigma = split_halfway(decoder_output; dim=1)
     Environments.act!(env, mu)
     all_walkers = map(e->e.walker, env.environments)
-    push!(torso_xpos,   Environments.body_xpos.(all_walkers, "walker/torso"))
+    push!(torso_xpos,  Environments.body_xpos.(all_walkers, "walker/torso"))
     push!(torso_xquat, Environments.body_xquat.(all_walkers, "walker/torso"))
-    push!(torso_xmat,   Environments.body_xmat.(all_walkers, "walker/torso"))
+    push!(torso_xmat,  Environments.body_xmat.(all_walkers, "walker/torso"))
     push!(head_heights, getindex.(Environments.subtree_com.(all_walkers, "walker/skull"), 3))
     statuses[t, :] = Environments.status(env)
-    latents[:, t, :] = latent
+    latents[:, t, :] = latent |> Flux.cpu
 end
 
 commands = Vector{Float64}[]
@@ -99,7 +99,7 @@ for t=eachindex(commands)
     trainoutputs[:, t] = commands_latents[t]
 end
 
-model = Chain(Dense(3 => 1024, tanh), Dense(1024=>1024, tanh), Dense(1024=>60))
+model = Chain(Dense(3 => 1024, tanh), Dense(1024 => 1024, tanh), Dense(1024=>60)) #Dense(1024=>1024, tanh),
 
 traininputs = gpu(traininputs)
 trainoutputs = gpu(trainoutputs)
@@ -120,11 +120,19 @@ losses = Float64[]
     end
 end
 
-#Plots.plot(losses)
-#ex_data = map(x->x>0.35 && x<0.45, forward_speeds[mask])
-#trainoutputs[:, ex_data]
-#trainoutputs[:, ex_data]' * model(CUDA.cu([0.0, 0.0, 0.06]))
 
-joystick_model = model
 
-BSON.bson("joystick_model3.bson"; joystick_model)
+joystick_model = Flux.cpu(model)
+
+BSON.bson("joystick_model5.bson"; joystick_model)
+
+import Plots
+Plots.plot(losses)
+forward_speeds = traininputs[1, :]
+ex_data = map(x->x>0.35 && x<0.45, forward_speeds)
+trainoutputs[:, ex_data]
+trainoutputs[:, ex_data]' * model(CUDA.cu([0.0, 0.0, 0.06]))
+
+mean_output = Statistics.mean(trainoutputs[:, ex_data], dims=2)[:, 1]
+output_of_mean = model(gpu([0.5, 0.0, 0.0]))
+Statistics.cor(mean_output |> Flux.cpu, output_of_mean |> Flux.cpu)
