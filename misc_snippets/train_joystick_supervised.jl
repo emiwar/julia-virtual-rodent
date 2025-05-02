@@ -4,6 +4,7 @@ import Dates
 import TOML
 import PythonCall
 import CUDA
+import Flux; using Flux: Chain, gpu, Dense, Adam
 using StaticArrays: SVector, SMatrix
 using ProgressMeter
 include("../src/utils/parse_config.jl")
@@ -17,8 +18,6 @@ include("../src/algorithms/algorithms.jl")
 
 using .Networks: EncDec, VariationalBottleneck, GaussianActionSampler#, split_halfway
 using .ComponentTensors: array
-
-using Flux: Chain, gpu, Dense, Adam
 
 wandb_run_id = "zf8zs3kq" #"7mzfglak"
 
@@ -119,8 +118,6 @@ losses = Float64[]
         Flux.train!(loss, model, [batch], opt_state)
     end
 end
-
-
 
 joystick_model = Flux.cpu(model)
 
