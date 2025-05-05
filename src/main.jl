@@ -14,8 +14,13 @@ walker = Environments.Rodent(;params.physics...)
 reward_spec = Environments.EqualRewardWeights(;params.reward...)
 target = Environments.load_imitation_target(walker)
 template_env = Environments.ImitationEnv(walker, reward_spec, target; params.imitation...)
-if haskey(params, :mod) && haskey(params.mod, :imitation_speedup_range)
-    template_env = Environments.FPSMod(template_env, params.mod.imitation_speedup_range)
+if haskey(params, :mod)
+    if haskey(params.mod, :imitation_speedup_range)
+        template_env = Environments.FPSMod(template_env, params.mod.imitation_speedup_range)
+    end
+    if haskey(params.mod, :simplified_target) && params.mod.simplified_target
+        template_env = Environments.SimplifiedTarget(template_env)
+    end
 end
 
 #MPI or local multithreading of environment
