@@ -94,3 +94,5 @@ function energy_use(walker::Walker)
               (@view walker.data.qvel[7:end]),
               (@view walker.data.qfrc_actuator[7:end]))
 end
+
+dt(walker::Walker) = walker.model.opt.timestep

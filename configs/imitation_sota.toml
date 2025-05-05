@@ -45,6 +45,7 @@ alive_bonus = 0.1
 max_target_distance = 0.1
 horizon = 5
 restart_on_reset = true
+target_fps = 50.0
 
 [training]
 checkpoint_interval = 10000

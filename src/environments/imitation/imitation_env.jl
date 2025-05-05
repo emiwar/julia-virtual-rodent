@@ -4,21 +4,23 @@ struct ImitationEnv{W, IRS, ImLen, ImTarget} <: AbstractEnv
     target::ImTarget
     max_target_distance::Float64
     restart_on_reset::Bool
-    target_frame::Ref{Int64}
+    target_fps::Float64
+    target_timepoint::Ref{Float64}
     target_clip::Ref{Int64}
     lifetime::Ref{Int64}
     cumulative_reward::Ref{Float64}
 end
 
 function ImitationEnv(walker, reward_spec, target; horizon::Int64,
-                      max_target_distance::Float64, restart_on_reset::Bool=true)
-    target_frame = Ref(0)
+                      max_target_distance::Float64, restart_on_reset::Bool=true,
+                      target_fps::Float64=50.0)
+    target_timepoint = Ref(0.0)
     target_clip = Ref(0)
     lifetime = Ref(0)
     cumulative_reward = Ref(0.0)
     env = ImitationEnv{typeof(walker), typeof(reward_spec), horizon, typeof(target)}(
             walker, reward_spec, target, max_target_distance, restart_on_reset,
-            target_frame, target_clip, lifetime, cumulative_reward)
+            target_fps, target_timepoint, target_clip, lifetime, cumulative_reward)
     reset!(env)
     return env
 end
@@ -75,13 +77,8 @@ function act!(env::ImitationEnv, action)
     for _=1:env.walker.n_physics_steps
         step!(env.walker)
     end
+    env.target_timepoint[] += dt(env.walker) * env.walker.n_physics_steps
     env.lifetime[] += 1
-
-    #TODO: Make this more correct and elegant
-    if env.lifetime[] % 2 == 0 #Hack since target update each 20ms but simulation each 10ms (but this depends on params so shouldn't be hard-coded here)
-        env.target_frame[] += 1
-    end
-
     env.cumulative_reward[] += reward(env)
 end
 
@@ -89,7 +86,7 @@ function reset!(env::ImitationEnv, next_clip, next_frame)
     env.lifetime[] = 0
     env.cumulative_reward[] = 0.0
     env.target_clip[] = next_clip
-    env.target_frame[] = next_frame
+    env.target_timepoint[] = next_frame / env.target_fps
 
     start_qpos = view(env.target, :qpos, target_frame(env), target_clip(env))
     start_qvel = view(env.target, :qvel, target_frame(env), target_clip(env))
@@ -108,8 +105,8 @@ end
 function duplicate(env::ImitationEnv{W, IRS, ImLen, ImTarget}) where {W, IRS, ImLen, ImTarget}
     new_env = ImitationEnv{W, IRS, ImLen, ImTarget}(
         clone(env.walker), env.reward_spec, env.target,
-        env.max_target_distance, env.restart_on_reset,
-        Ref(0), Ref(0), Ref(0), Ref(0.0)
+        env.max_target_distance, env.restart_on_reset, env.target_fps,
+        Ref(0.0), Ref(0), Ref(0), Ref(0.0)
     )
     reset!(new_env)
     return new_env
@@ -120,7 +117,7 @@ null_action(env::ImitationEnv) = null_action(env.walker)
 #Targets
 clip_length(env::ImitationEnv) = size(env.target)[2]
 n_clips(env::ImitationEnv) = size(env.target)[3]
-target_frame(env::ImitationEnv) = env.target_frame[]
+target_frame(env::ImitationEnv) = round(Int64, env.target_timepoint[] * env.target_fps)
 target_clip(env::ImitationEnv) = env.target_clip[]
 im_len(env::ImitationEnv{W, IRS, ImLen, ImTarget}) where {W, IRS, ImLen, ImTarget} = ImLen
 
@@ -241,7 +238,7 @@ function Base.show(io::IO, env::ImitationEnv)
         show(indented_io, env.walker)
         show(indented_io, env.reward_spec)
         println(io, "$(indent)  target_clip: $(env.target_clip[])")
-        println(io, "$(indent)  target_frame: $(env.target_frame[])")
+        println(io, "$(indent)  target_frame: $(target_frame(env))")
         println(io, "$(indent)  lifetime: $(env.lifetime[])")
         println(io, "$(indent)  cumulative_reward: $(env.cumulative_reward[])")
     end
