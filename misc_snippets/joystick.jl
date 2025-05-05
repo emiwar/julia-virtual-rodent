@@ -45,12 +45,9 @@ const joystick_state = JoystickState(zeros(Float64, 6), zeros(UInt8, 15), Reentr
 read_axes(js::JoystickState, ind) = @lock js.lock js.axes[ind]
 read_buttons(js::JoystickState, ind) = @lock js.lock js.buttons[ind]
 function update!(js::JoystickState)
-    lock(js.lock)
-    try
+    lock(js.lock) do
         js.axes .= GLFW.GetJoystickAxes(GLFW.JOYSTICK_1)
         js.buttons .= GLFW.GetJoystickButtons(GLFW.JOYSTICK_1)
-    finally
-        unlock(js.lock)
     end
 end
 @async begin

@@ -27,7 +27,7 @@ else
     env = Environments.MultithreadEnv(template_env, params.rollout.n_envs)
 end
 
-#These imports are only called on the root process if MPI is used
+#If MPI is used, these imports are only called on the root process  
 import Wandb
 import Flux
 import BSON
