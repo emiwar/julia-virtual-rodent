@@ -1,11 +1,11 @@
 [wandb]
 project = "Rodent-Imitation"
-run_name = "SimplifiedImitationTiny-{NOW}"
+run_name = "SimplifiedImitation-{NOW}"
 
 [rollout]
-n_envs = 512
+n_envs = 4096
 reset_on_epoch_start = false
-n_epochs = 100
+n_epochs = 500000
 n_steps_per_epoch = 16
 use_mpi = false
 
