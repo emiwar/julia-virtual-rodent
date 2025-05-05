@@ -47,7 +47,7 @@ horizon = 5
 restart_on_reset = true
 
 [training]
-checkpoint_interval = 5000
+checkpoint_interval = 10000
 loss_weight_critic = 0.5
 loss_weight_actor = 1.0
 loss_weight_entropy = -0.2
