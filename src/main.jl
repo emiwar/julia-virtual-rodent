@@ -7,13 +7,16 @@ include("environments/environments.jl")
 include("networks/networks.jl")
 include("algorithms/algorithms.jl")
 
-params = parse_config(ARGS)
+params = parse_config(ARGS)#["configs/imitation_tiny.toml"]
 
 #Setup the environment
 walker = Environments.Rodent(;params.physics...)
 reward_spec = Environments.EqualRewardWeights(;params.reward...)
 target = Environments.load_imitation_target(walker)
 template_env = Environments.ImitationEnv(walker, reward_spec, target; params.imitation...)
+if haskey(params, :mod) && haskey(params.mod, :imitation_speedup_range)
+    template_env = Environments.FPSMod(template_env, params.mod.imitation_speedup_range)
+end
 
 #MPI or local multithreading of environment
 if params.rollout.use_mpi

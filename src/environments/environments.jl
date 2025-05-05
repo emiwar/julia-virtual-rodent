@@ -18,6 +18,7 @@ include("imitation/rodent.jl")
 include("imitation/imitation_utils.jl")
 include("imitation/imitation_env.jl")
 include("imitation/imitation_reward_spec.jl")
+include("imitation/fps_mod.jl")
 
 #Parallellism
 include("parallellism/multithread_env.jl")
