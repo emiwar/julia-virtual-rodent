@@ -5,10 +5,10 @@ struct ImitationEnv{W, IRS, ImLen, ImTarget} <: AbstractEnv
     max_target_distance::Float64
     restart_on_reset::Bool
     target_fps::Float64
-    target_timepoint::Ref{Float64}
-    target_clip::Ref{Int64}
-    lifetime::Ref{Int64}
-    cumulative_reward::Ref{Float64}
+    target_timepoint::RefValue{Float64}
+    target_clip::RefValue{Int64}
+    lifetime::RefValue{Int64}
+    cumulative_reward::RefValue{Float64}
 end
 
 function ImitationEnv(walker, reward_spec, target; horizon::Int64,
