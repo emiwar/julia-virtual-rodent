@@ -8,16 +8,18 @@ struct MultithreadEnv{S, I, E} <: AbstractEnv
 end
 
 function MultithreadEnv(template_env, n_envs)
-    template_state  = state(template_env) |> ComponentTensor
-    template_info   = info(template_env) |> ComponentTensor
+    template_state  = state(template_env) |> ComponentArray
+    template_info   = info(template_env) |> ComponentArray
     template_action = null_action(template_env)
+    state_size, = size(template_state)
+    info_size, = size(template_info)
+    action_size, = size(template_action)
 
-    zeros32(inds...) = zeros(Float32, inds...)
-    states  = BatchComponentTensor(template_state, n_envs, array_fcn=zeros32)
+    states  = ComponentTensor(zeros(Float32, state_size, n_envs), (getaxes(template_state)[1], FlatAxis()))
     rewards = zeros(Float32, n_envs)
     status  = zeros(UInt8, n_envs)
-    infos   = BatchComponentTensor(template_info, n_envs, array_fcn=zeros32)
-    actions = zeros(Float32, length(template_action), n_envs)
+    infos   = ComponentTensor(zeros(Float32, info_size, n_envs), (getaxes(template_info)[1], FlatAxis()))
+    actions = zeros(Float32, action_size, n_envs)
 
     environments = [duplicate(template_env) for _=1:n_envs]
     MultithreadEnv(states, rewards, status, infos, actions, environments)
@@ -30,8 +32,8 @@ status(mc::MultithreadEnv) = mc.status
 info(mc::MultithreadEnv)  = mc.infos
 
 #Utils
-raw_states(mc::MultithreadEnv)  = data(mc.states)
-raw_infos(mc::MultithreadEnv)   = data(mc.infos)
+raw_states(mc::MultithreadEnv)  = ComponentArrays.getdata(mc.states)
+raw_infos(mc::MultithreadEnv)   = ComponentArrays.getdata(mc.infos)
 actions(mc::MultithreadEnv) = mc.actions
 n_envs(multithreadEnv::MultithreadEnv) = length(multithreadEnv.environments)
 env_type(multithreadEnv::MultithreadEnv) = eltype(multithreadEnv.environments)

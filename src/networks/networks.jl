@@ -2,10 +2,11 @@ module Networks
 import Random
 
 import CUDA
+using ComponentArrays: ComponentArray
 using Flux
 
 import ..Environments
-using ..ComponentTensors
+#using ..ComponentTensors
 
 include("enc_dec.jl")
 include("info_bottleneck.jl")

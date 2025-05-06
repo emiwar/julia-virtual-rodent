@@ -5,10 +5,10 @@ struct ImitationEnv{W, IRS, ImLen, ImTarget} <: AbstractEnv
     max_target_distance::Float64
     restart_on_reset::Bool
     target_fps::Float64
-    target_timepoint::Ref{Float64}
-    target_clip::Ref{Int64}
-    lifetime::Ref{Int64}
-    cumulative_reward::Ref{Float64}
+    target_timepoint::Base.RefValue{Float64}
+    target_clip::Base.RefValue{Int64}
+    lifetime::Base.RefValue{Int64}
+    cumulative_reward::Base.RefValue{Float64}
 end
 
 function ImitationEnv(walker, reward_spec, target; horizon::Int64,
@@ -127,7 +127,7 @@ end
 
 #Center-of-mass target
 target_com(env::ImitationEnv) = target_com(env, target_frame(env))
-target_com(env::ImitationEnv, t) = SVector{3}(view(env.target, :com, t, target_clip(env)))
+target_com(env::ImitationEnv, t) = SVector{3}(view(env.target, :com, 1, 1))#(view(env.target, :, t, target_clip(env)).com)
 function relative_com(env::ImitationEnv, t::Int64)
     body_xmat(env.walker, "walker/torso") * (target_com(env, t) - subtree_com(env.walker, "walker/torso"))
 end
@@ -138,7 +138,7 @@ com_error(env::ImitationEnv) = target_com(env) - subtree_com(env.walker, "walker
 
 #Root quaternion target
 target_root_quat(env::ImitationEnv) = target_root_quat(env, target_frame(env))
-target_root_quat(env::ImitationEnv, t) = SVector{4}(view(env.target.qpos, :root_quat, t, target_clip(env)))
+target_root_quat(env::ImitationEnv, t) = SVector{4}(view(env.target, :qpos, t, target_clip(env)).root_quat)
 function relative_root_quat(env::ImitationEnv, t::Int64)::SVector{3, Float64}
     subQuat(target_root_quat(env, t), body_xquat(env.walker, "walker/torso"))
 end
@@ -152,10 +152,10 @@ end
 
 #Joints
 function target_joints(env::ImitationEnv, t)
-    @view env.target.qpos[:joints, t, target_clip(env)]
+    (@view env.target[:qpos, t, target_clip(env)]).joints
 end
 function joints_horizon(env::ImitationEnv)
-    @view env.target.qpos[:joints, imitation_horizon(env), target_clip(env)]
+    @view env.target[:qpos, imitation_horizon(env), target_clip(env)][:joints, :]
 end
 function joint_error(env::ImitationEnv)
     target_joint = view(env.target, :qpos, target_frame(env), target_clip(env))
@@ -168,10 +168,10 @@ end
 
 #Joint vel
 function target_joint_vels(env::ImitationEnv, t)
-    @view env.target.qvel[:joints, t, env.target_clip]
+    @view env.target[:qvel, t, env.target_clip][:joints_vel]
 end
 function joint_vels_horizon(env::ImitationEnv)
-    @view env.target.qvel[:joints_vel, imitation_horizon(env), target_clip(env)]
+    @view env.target[:qvel, imitation_horizon(env), target_clip(env)][:joints_vel, :]
 end
 function joint_vel_error(env::ImitationEnv)
     target_joint_vel = view(env.target, :qvel, target_frame(env), target_clip(env))
@@ -216,8 +216,8 @@ end
 
 function all_bodies_error(env::ImitationEnv)
     map(bodies_order(env.walker)) do body_name
-        target_pos = SVector{3}(view(env.target.body_positions, Symbol(body_name),
-                                     target_frame(env), target_clip(env)))
+        target_pos = SVector{3}(view(env.target, :body_positions,
+                                     target_frame(env), target_clip(env))[Symbol(body_name)])
         current_pos = body_xpos(env.walker, "walker/"*body_name)
         error = norm(current_pos - target_pos)
         Symbol("global_error_" * body_name) => error

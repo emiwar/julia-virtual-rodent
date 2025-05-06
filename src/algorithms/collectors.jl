@@ -12,19 +12,21 @@ end
 function CuCollector(env, template_actor, steps_per_batch)
     template_state  = Environments.state(env)
     template_info   = Environments.info(env)
+    state_size, n_envs = size(template_state)
+    info_size, n_envs = size(template_info)
 
-    n_envs = size(template_state)[2]
-    template_reset_mask = fill(false, n_envs)
-    template_actor_output = Networks.actor(template_actor, template_state, template_reset_mask) |> ComponentTensor
-
-    #Big GPU arrays/BatchComponentTensor for storing the entire batch
-    states = BatchComponentTensor(template_state, steps_per_batch+1; array_fcn=CUDA.zeros)
+    template_actor_output = Networks.actor(template_actor, (@view template_state[:, 1]),
+                                           false) |> ComponentArray
+    actor_output_size, = size(template_actor_output)
+    
+    #Big GPU ComponentArrays for storing the entire batch
+    states = ComponentArray(CUDA.zeros(state_size, n_envs, steps_per_batch), (getaxes(template_state)[1], FlatAxis(), FlatAxis()))
     rewards = CUDA.zeros(n_envs, steps_per_batch)
     status = CUDA.zeros(UInt8, n_envs, steps_per_batch+1)
-    actor_outputs =  BatchComponentTensor(template_actor_output, steps_per_batch; array_fcn=CUDA.zeros)
+    actor_outputs = ComponentArray(CUDA.zeros(actor_output_size, n_envs, steps_per_batch), (getaxes(template_actor_output)[1], FlatAxis(), FlatAxis()))
 
     #...except infos, which never have to be moved to the GPU
-    infos = BatchComponentTensor(template_info, steps_per_batch+1; array_fcn=zeros)
+    infos = ComponentArray(zeros(state_size, n_envs, steps_per_batch), (getaxes(template_info)[1], FlatAxis(), FlatAxis()))
     
     CuCollector(env, states, rewards, status, infos, actor_outputs)
 end
