@@ -88,8 +88,8 @@ function reset!(env::ImitationEnv, next_clip, next_frame)
     env.target_clip[] = next_clip
     env.target_timepoint[] = next_frame / env.target_fps
 
-    start_qpos = view(env.target, :qpos, target_frame(env), target_clip(env))
-    start_qvel = view(env.target, :qvel, target_frame(env), target_clip(env))
+    start_qpos = view(env.target.qpos, :, target_frame(env), target_clip(env))
+    start_qvel = view(env.target.qvel, :, target_frame(env), target_clip(env))
     reset!(env.walker, start_qpos, start_qvel)
 end
 
@@ -127,7 +127,7 @@ end
 
 #Center-of-mass target
 target_com(env::ImitationEnv) = target_com(env, target_frame(env))
-target_com(env::ImitationEnv, t) = SVector{3}(view(env.target, :com, 1, 1))#(view(env.target, :, t, target_clip(env)).com)
+target_com(env::ImitationEnv, t) = SVector{3}(@view env.target.com[:, t, target_clip(env)])
 function relative_com(env::ImitationEnv, t::Int64)
     body_xmat(env.walker, "walker/torso") * (target_com(env, t) - subtree_com(env.walker, "walker/torso"))
 end
@@ -138,7 +138,7 @@ com_error(env::ImitationEnv) = target_com(env) - subtree_com(env.walker, "walker
 
 #Root quaternion target
 target_root_quat(env::ImitationEnv) = target_root_quat(env, target_frame(env))
-target_root_quat(env::ImitationEnv, t) = SVector{4}(view(env.target, :qpos, t, target_clip(env)).root_quat)
+target_root_quat(env::ImitationEnv, t) = SVector{4}(view(env.target.qpos.root_quat, :, t, target_clip(env)))
 function relative_root_quat(env::ImitationEnv, t::Int64)::SVector{3, Float64}
     subQuat(target_root_quat(env, t), body_xquat(env.walker, "walker/torso"))
 end
@@ -152,13 +152,13 @@ end
 
 #Joints
 function target_joints(env::ImitationEnv, t)
-    (@view env.target[:qpos, t, target_clip(env)]).joints
+    @view env.target.qpos.joints[:, t, target_clip(env)]
 end
 function joints_horizon(env::ImitationEnv)
-    @view env.target[:qpos, imitation_horizon(env), target_clip(env)][:joints, :]
+    @view env.target.qpos.joints[:, imitation_horizon(env), target_clip(env)]
 end
 function joint_error(env::ImitationEnv)
-    target_joint = view(env.target, :qpos, target_frame(env), target_clip(env))
+    target_joint = @view getdata(env.target.qpos)[:, target_frame(env), target_clip(env)]
     err = 0.0
     for ji in joint_indices(env.walker)
         err += (target_joint[ji] - env.walker.data.qpos[ji])^2
@@ -168,13 +168,13 @@ end
 
 #Joint vel
 function target_joint_vels(env::ImitationEnv, t)
-    @view env.target[:qvel, t, env.target_clip][:joints_vel]
+    @view env.target.qvel.joints_vel[:, t, env.target_clip]
 end
 function joint_vels_horizon(env::ImitationEnv)
-    @view env.target[:qvel, imitation_horizon(env), target_clip(env)][:joints_vel, :]
+    @view env.target.qvel.joints_vel[:, imitation_horizon(env), target_clip(env)]
 end
 function joint_vel_error(env::ImitationEnv)
-    target_joint_vel = view(env.target, :qvel, target_frame(env), target_clip(env))
+    target_joint_vel = @view getdata(env.target.qvel)[:, target_frame(env), target_clip(env)]
     err = 0.0
     for ji in joint_vel_indices(env.walker)
         err += (target_joint_vel[ji] - env.walker.data.qvel[ji])^2
@@ -185,7 +185,7 @@ end
 appendages_pos_horizon(env::ImitationEnv) = appendages_pos_horizon(env, target_frame(env))
 function appendages_pos_horizon(env::ImitationEnv, t)
     n_appendages = length(appendages_order(env.walker))
-    SMatrix{3, n_appendages}(view(env.target, :appendages, t, target_clip(env)))
+    SMatrix{3, n_appendages}(view(getdata(env.target.appendages), :, t, target_clip(env)))
 end
 function appendages_error(env::ImitationEnv)
     appendages_pos_horizon(env) - appendages_pos(env.walker)
@@ -210,14 +210,14 @@ function target_info(env::ImitationEnv)
      foot_R_error=norm(view(app_error, :, 3)),
      foot_L_error=norm(view(app_error, :, 4)),
      jaw_error=norm(view(app_error, :, 5)),
-     all_bodies_error(env)...
+     #all_bodies_error(env)...
      )
 end
 
 function all_bodies_error(env::ImitationEnv)
     map(bodies_order(env.walker)) do body_name
-        target_pos = SVector{3}(view(env.target, :body_positions,
-                                     target_frame(env), target_clip(env))[Symbol(body_name)])
+        body_subarray = getproperty(env.target.body_positions, Symbol(body_name)) |> getdata
+        target_pos = SVector{3, Float64}(view(body_subarray, :, target_frame(env), target_clip(env)))
         current_pos = body_xpos(env.walker, "walker/"*body_name)
         error = norm(current_pos - target_pos)
         Symbol("global_error_" * body_name) => error
