@@ -11,7 +11,7 @@ end
 
 function EncDec(template_env::Environments.AbstractEnv, params::NamedTuple)
     #TODO: This shouldn't be a constructor but a factory util somewhere
-    template_state = ComponentTensor(Environments.state(template_env))
+    template_state = ComponentArray(Environments.state(template_env))
     action_size = length(Environments.null_action(template_env))
 
     full_state_size = length(template_state)
@@ -67,8 +67,8 @@ end
 
 function actor(actor_critic::AbstractEncDec, state, reset_mask, action=nothing)
     #Annoying work-around to avoid auto-diff errors
-    imitation_target = Flux.ignore(()->state.imitation_target |> array |> copy)
-    proprioception = Flux.ignore(()->state.proprioception |> array |> copy)
+    imitation_target = Flux.ignore(()->state.imitation_target |> getdata)
+    proprioception = Flux.ignore(()->state.proprioception |> getdata)
 
     #Encoder
     latent = rollout!(actor_critic.encoder, imitation_target, reset_mask)
@@ -83,7 +83,7 @@ function actor(actor_critic::AbstractEncDec, state, reset_mask, action=nothing)
 end
 
 function critic(actor_critic::AbstractEncDec, state)
-    input = data(state)
+    input = getdata(state)
     return view(actor_critic.critic(input), 1, :, :)
 end
 

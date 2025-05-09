@@ -1,13 +1,12 @@
 import Dates
 import TOML
 include("utils/parse_config.jl")
-include("utils/component_tensor.jl")
 include("utils/profiler.jl")
 include("environments/environments.jl")
 include("networks/networks.jl")
 include("algorithms/algorithms.jl")
 
-params = parse_config(ARGS)#["configs/imitation_tiny.toml"]
+params = parse_config(ARGS)
 
 #Setup the environment
 walker = Environments.Rodent(;params.physics...)
@@ -15,11 +14,11 @@ reward_spec = Environments.EqualRewardWeights(;params.reward...)
 target = Environments.load_imitation_target(walker)
 template_env = Environments.ImitationEnv(walker, reward_spec, target; params.imitation...)
 if haskey(params, :mod)
-    if haskey(params.mod, :imitation_speedup_range)
-        template_env = Environments.FPSMod(template_env, params.mod.imitation_speedup_range)
-    end
     if haskey(params.mod, :simplified_target) && params.mod.simplified_target
         template_env = Environments.SimplifiedTarget(template_env)
+    end
+    if haskey(params.mod, :imitation_speedup_range)
+        template_env = Environments.FPSMod(template_env, params.mod.imitation_speedup_range)
     end
 end
 
@@ -71,8 +70,10 @@ function logger(epoch, dict_to_log)
     Timers.reset!(Timers.default_timer)
 end
 
+logger(_, _) = nothing
+
 #Run the training loop
-Algorithms.ppo(collector, networks_gpu, params; logger=logger)
+Algorithms.ppo(collector, networks_gpu, params; logger)
 
 #Cleanup
 Wandb.close(lg)

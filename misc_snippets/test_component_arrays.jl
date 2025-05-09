@@ -65,7 +65,25 @@ using ComponentArrays
 small_comp_array = ComponentArray(a=[0.1, 0.2], b=0.3)
 comp_matrix = ComponentMatrix(randn(3, 5), getaxes(small_comp_array)[1], FlatAxis())
 get_a1(x) = view(x, Val(:a), 1)
-get_a(x, i) = view(x, Val(:a), i)
+get_a(x, i) = view(x, Val{:a}(), i)
 
 @code_warntype get_a1(comp_matrix)
 @code_warntype get_a(comp_matrix, 1)
+
+const i = 1
+@code_warntype view(comp_matrix, Val{:a}(), i)
+
+ComponentArrays._getindex(view, comp_matrix, Val{:a}(), 1)
+
+get_arow(x) = view(x, Val{:a}(), :)
+
+@code_warntype comp_matrix[:a, 2]
+
+
+get_a_test(x, i) = view(view(x, :a, :), :, i)
+
+@code_warntype get_a_test(comp_matrix, 1)
+
+@btime get_a_test($comp_matrix, 1);
+@btime get_a($comp_matrix, 1);
+@btime get_a1($comp_matrix);
