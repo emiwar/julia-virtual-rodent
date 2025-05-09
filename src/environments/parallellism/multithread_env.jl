@@ -33,8 +33,8 @@ info(mc::MultithreadEnv)  = mc.infos
 null_action(mc::MultithreadEnv) = zero(mc.actions)
 
 #Utils
-raw_states(mc::MultithreadEnv)  = ComponentArrays.getdata(mc.states)
-raw_infos(mc::MultithreadEnv)   = ComponentArrays.getdata(mc.infos)
+raw_states(mc::MultithreadEnv)  = getdata(mc.states)
+raw_infos(mc::MultithreadEnv)   = getdata(mc.infos)
 actions(mc::MultithreadEnv) = mc.actions
 n_envs(multithreadEnv::MultithreadEnv) = length(multithreadEnv.environments)
 env_type(multithreadEnv::MultithreadEnv) = eltype(multithreadEnv.environments)

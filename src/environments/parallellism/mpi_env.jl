@@ -30,10 +30,10 @@ function MpiEnv(template_env, n_envs; block_workers::Bool, n_steps_per_epoch::In
         info_size, = size(template_info)
         action_size, = size(template_action)
 
-        states  = ComponentTensor(zeros(Float32, state_size, n_envs), (getaxes(template_state)[1], FlatAxis()))
+        states  = ComponentArray(zeros(Float32, state_size, n_envs), (getaxes(template_state)[1], FlatAxis()))
         rewards = zeros(Float32, n_envs)
         status  = zeros(UInt8, n_envs)
-        infos   = ComponentTensor(zeros(Float32, info_size, n_envs), (getaxes(template_info)[1], FlatAxis()))
+        infos   = ComponentArray(zeros(Float32, info_size, n_envs), (getaxes(template_info)[1], FlatAxis()))
         actions = zeros(Float32, action_size, n_envs)
         return MpiEnvRoot(states, rewards, status, infos, actions, base_env)
     else
@@ -63,8 +63,8 @@ reward(mc::MpiEnv) = mc.rewards
 status(mc::MpiEnv) = mc.status
 actions(mc::MpiEnv) = mc.actions
 
-raw_states(mc::MpiEnvRoot)  = ComponentArrays.getdata(mc.states)
-raw_infos(mc::MpiEnvRoot)   = ComponentArrays.getdata(mc.infos)
+raw_states(mc::MpiEnvRoot)  = getdata(mc.states)
+raw_infos(mc::MpiEnvRoot)   = getdata(mc.infos)
 
 raw_states(::MpiEnvWorker)  = nothing
 raw_infos(::MpiEnvWorker)   = nothing
