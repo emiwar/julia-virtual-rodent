@@ -32,7 +32,7 @@ foot_mods = true
 
 [reward]
 control_cost = 0.005
-energy_cost = 0.001
+energy_cost = 0.01
 alive_bonus = 0.1
     [reward.falloff]
     com = 0.05
@@ -55,6 +55,6 @@ loss_weight_entropy = -0.2
 learning_rate = 0.0001
 n_miniepochs = 1
 gamma = 0.95
-loss_weight_kl = 0.1
+loss_weight_kl = 0.01
 lambda = 0.95
 clip_range = 0.2
