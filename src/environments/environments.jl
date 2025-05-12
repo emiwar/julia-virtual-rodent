@@ -6,7 +6,6 @@ import LinearAlgebra: norm, dot
 import MPI
 using StaticArrays
 using ComponentArrays: ComponentArray, getdata, getaxes, FlatAxis
-#using ..ComponentTensors
 using ..Timers: lap
 
 include("abstract_env.jl")

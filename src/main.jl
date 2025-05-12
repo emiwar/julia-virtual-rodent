@@ -57,7 +57,7 @@ function logger(epoch, dict_to_log)
     #Checkpoint the network weights every `checkpoint_interval` epochs
     if epoch % params.training.checkpoint_interval == 0
         checkpoint_fn = "runs/checkpoints/$(params.wandb.run_name)/step-$(epoch).bson"
-        networks_cpu = networks |> Flux.cpu
+        networks_cpu = networks_gpu |> Flux.cpu
         BSON.bson(checkpoint_fn; actor_critic=networks_cpu,
                                  model_state=Flux.state(networks_cpu))
         lg.wrun.log_model(checkpoint_fn, "checkpoint-step-$(epoch).bson")
@@ -69,8 +69,6 @@ function logger(epoch, dict_to_log)
     Wandb.log(lg, dict_to_log)
     Timers.reset!(Timers.default_timer)
 end
-
-logger(_, _) = nothing
 
 #Run the training loop
 Algorithms.ppo(collector, networks_gpu, params; logger)
