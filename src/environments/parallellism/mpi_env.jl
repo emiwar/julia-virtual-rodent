@@ -23,16 +23,18 @@ function MpiEnv(template_env, n_envs; block_workers::Bool, n_steps_per_epoch::In
     n_local_envs = n_envs ÷ mpi_size
     base_env = MultithreadEnv(template_env, n_local_envs)
     if mpi_rank == 0
-        template_state  = state(template_env) |> ComponentTensor
-        template_info   = info(template_env) |> ComponentTensor
+        template_state  = state(template_env) |> ComponentArray
+        template_info   = info(template_env) |> ComponentArray
         template_action = null_action(template_env)
-    
-        zeros32(inds...) = zeros(Float32, inds...)
-        states  = BatchComponentTensor(template_state, n_envs, array_fcn=zeros32)
+        state_size, = size(template_state)
+        info_size, = size(template_info)
+        action_size, = size(template_action)
+
+        states  = ComponentArray(zeros(Float32, state_size, n_envs), (getaxes(template_state)[1], FlatAxis()))
         rewards = zeros(Float32, n_envs)
         status  = zeros(UInt8, n_envs)
-        infos   = BatchComponentTensor(template_info, n_envs, array_fcn=zeros32)
-        actions = zeros(Float32, length(template_action), n_envs)
+        infos   = ComponentArray(zeros(Float32, info_size, n_envs), (getaxes(template_info)[1], FlatAxis()))
+        actions = zeros(Float32, action_size, n_envs)
         return MpiEnvRoot(states, rewards, status, infos, actions, base_env)
     else
         worker = MpiEnvWorker(base_env)
@@ -61,8 +63,8 @@ reward(mc::MpiEnv) = mc.rewards
 status(mc::MpiEnv) = mc.status
 actions(mc::MpiEnv) = mc.actions
 
-raw_states(mc::MpiEnvRoot)  = data(mc.states)
-raw_infos(mc::MpiEnvRoot)   = data(mc.infos)
+raw_states(mc::MpiEnvRoot)  = getdata(mc.states)
+raw_infos(mc::MpiEnvRoot)   = getdata(mc.infos)
 
 raw_states(::MpiEnvWorker)  = nothing
 raw_infos(::MpiEnvWorker)   = nothing

@@ -1,13 +1,12 @@
 import Dates
 import TOML
 include("utils/parse_config.jl")
-include("utils/component_tensor.jl")
 include("utils/profiler.jl")
 include("environments/environments.jl")
 include("networks/networks.jl")
 include("algorithms/algorithms.jl")
 
-params = parse_config(ARGS)#["configs/imitation_tiny.toml"]
+params = parse_config(ARGS)
 
 #Setup the environment
 walker = Environments.Rodent(;params.physics...)
@@ -15,11 +14,11 @@ reward_spec = Environments.EqualRewardWeights(;params.reward...)
 target = Environments.load_imitation_target(walker)
 template_env = Environments.ImitationEnv(walker, reward_spec, target; params.imitation...)
 if haskey(params, :mod)
-    if haskey(params.mod, :imitation_speedup_range)
-        template_env = Environments.FPSMod(template_env, params.mod.imitation_speedup_range)
-    end
     if haskey(params.mod, :simplified_target) && params.mod.simplified_target
         template_env = Environments.SimplifiedTarget(template_env)
+    end
+    if haskey(params.mod, :imitation_speedup_range)
+        template_env = Environments.FPSMod(template_env, params.mod.imitation_speedup_range)
     end
 end
 
@@ -58,7 +57,7 @@ function logger(epoch, dict_to_log)
     #Checkpoint the network weights every `checkpoint_interval` epochs
     if epoch % params.training.checkpoint_interval == 0
         checkpoint_fn = "runs/checkpoints/$(params.wandb.run_name)/step-$(epoch).bson"
-        networks_cpu = networks |> Flux.cpu
+        networks_cpu = networks_gpu |> Flux.cpu
         BSON.bson(checkpoint_fn; actor_critic=networks_cpu,
                                  model_state=Flux.state(networks_cpu))
         lg.wrun.log_model(checkpoint_fn, "checkpoint-step-$(epoch).bson")
@@ -72,7 +71,7 @@ function logger(epoch, dict_to_log)
 end
 
 #Run the training loop
-Algorithms.ppo(collector, networks_gpu, params; logger=logger)
+Algorithms.ppo(collector, networks_gpu, params; logger)
 
 #Cleanup
 Wandb.close(lg)

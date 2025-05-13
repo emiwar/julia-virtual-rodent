@@ -5,7 +5,7 @@ import HDF5
 import LinearAlgebra: norm, dot
 import MPI
 using StaticArrays
-using ..ComponentTensors
+using ComponentArrays: ComponentArray, getdata, getaxes, FlatAxis
 using ..Timers: lap
 
 include("abstract_env.jl")

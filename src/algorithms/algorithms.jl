@@ -6,7 +6,7 @@ import Flux
 import Statistics
 using ProgressMeter
 
-using ..ComponentTensors
+using ComponentArrays: ComponentArray, FlatAxis, getaxes, getdata
 using ..Environments
 using ..Networks
 using ..Timers: lap

@@ -39,7 +39,7 @@ function dm_control_rodent(;torque_actuators=true,
     return MuJoCo.load_model(mjcf_model_file)
 end
 
-function dm_control_model_with_ghost(;torque_actuators=true, foot_mods=true, scale=1.0, ghost_alpha=0.2)
+function dm_control_rodent_with_ghost(;torque_actuators=true, foot_mods=true, scale=1.0, ghost_alpha=0.2)
     rat = dm_locomotion.walkers.rodent.Rat(;torque_actuators, foot_mods)
     dm_locomotion.walkers.rescale.rescale_subtree(rat.root_body, scale, scale)
 
@@ -68,7 +68,7 @@ function dm_control_model_with_ghost(;torque_actuators=true, foot_mods=true, sca
     model = MuJoCo.load_model(mjcf_model_file)
 end
 
-function load_imitation_target(walker::Walker, src="src/environments/assets/diego_curated_snippets.h5")
+function load_imitation_target_old(walker::Walker, src="src/environments/assets/diego_curated_snippets.h5")
     f = HDF5.h5open(src, "r")
     body_positions = read_as_batch(f, "body_positions")
     body_quats = read_as_batch(f, "body_quaternions")
@@ -99,4 +99,45 @@ end
 function read_as_batch(f, label)
     clips = map(i->"clip_$(i-1)", 1:length(keys(f)))
     cat((read(f["$clip/walkers/walker_0/$label"])' for clip in clips)...; dims=3)
+end
+
+
+function read_timepoint(fid, walker, clip_id, t)
+    clip = fid["clip_$(clip_id-1)/walkers/walker_0/"]
+    ComponentArray(
+        qpos = (
+            root_pos = clip["position"][t, :],
+            root_quat = clip["quaternion"][t, :],
+            joints = clip["joints"][t, :]
+        ),
+        qvel = (
+            root_vel = clip["velocity"][t, :],
+            root_angvel = clip["angular_velocity"][t, :],
+            joints_vel = clip["joints_velocity"][t, :]
+        ),
+        com = clip["center_of_mass"][t, :],
+        body_positions = map(ind->clip["body_positions"][t, ind], conseq_inds(bodies_order(walker), 3)),
+        body_quats = map(ind->clip["body_quaternions"][t, ind], conseq_inds(bodies_order(walker), 4)),
+        appendages = map(ind->clip["appendages"][t, ind], conseq_inds(appendages_order(walker), 3)),
+    )
+end
+
+function load_imitation_target(walker::Walker, src="src/environments/assets/diego_curated_snippets.h5")
+    f = HDF5.h5open(src, "r")
+    n_clips = count(startswith("clip_"), keys(f))
+    clip_dur = size(f["clip_0/walkers/walker_0/position"], 1)
+
+    sample = read_timepoint(f, walker, 1, 1)
+    target = ComponentArray(fill(NaN, length(sample), clip_dur, n_clips),
+                            (getaxes(sample)[1], FlatAxis(), FlatAxis()))
+    function copyto!(target::ComponentArray, source)
+        for key in keys(getaxes(target)[1])
+            copyto!(view(target, key, :), view(source, key, :))
+        end
+    end
+    copyto!(target, source) = Base.copyto!(target, source')
+    for i=1:n_clips
+        copyto!(view(target, :, :, i), read_timepoint(f, walker, i, :))
+    end
+    return target
 end

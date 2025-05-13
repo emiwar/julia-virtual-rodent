@@ -59,11 +59,11 @@ function qpos_root(walker::Walker)
 end
 
 function joint_indices(walker::Walker)
-    return 8:length(walker.data.qpos)
+    return Int32(8):(walker.model.nq::Int32)
 end
 
 function joint_vel_indices(walker::Walker)
-    return 7:length(walker.data.qvel)
+    return Int32(7):(walker.model.nv::Int32)
 end
 
 function step!(walker::Walker)
