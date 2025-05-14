@@ -48,7 +48,6 @@ function info(env::JoystickEnv)
         forward_speed = forward_speed(env),
         turning_speed = turning_speed(env),
         head_height   = head_height(env),
-        command = env.command,
         reward_forward = rewards.forward,
         reward_turning = rewards.turning,
         reward_head_height = rewards.head,
@@ -115,7 +114,11 @@ head_height(env::JoystickEnv) = subtree_com(env.walker, "walker/skull")[3]
 # Commands
 function random_joystick_command()
     speed = -0.1 + 0.7*rand()
-    turning_speed = speed > 0.25 ? 0.0 : -0.5 + rand()
+    turning_speed = speed > 0.25 ? 0.0 : -1.0 + 2.0*rand()
+    #if rand() < 0.2
+    #    speed = 0.0
+    #    turning_speed = 0.0
+    #end
     if abs(speed) < 0.05 && abs(turning_speed) < 0.1
         head_height = 0.08 + 0.05*rand()
     else

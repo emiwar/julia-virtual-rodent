@@ -91,6 +91,14 @@ function compute_batch_stats(collector::Collector)
     for key in keys(getaxes(collector.infos)[1])
         merge!(logdict, quantile_dict("rollout_batch/$key", getproperty(collector.infos, key)))
     end
+    if :command in keys(getaxes(collector.states)[1])
+        logdict["forward_corr"] = Statistics.cor(view(collector.infos.forward_speed, :), 
+                view(collector.states.command.forward |> Flux.cpu, :))
+        logdict["turning_corr"] = Statistics.cor(view(collector.infos.turning_speed, :), 
+                view(collector.states.command.turning |> Flux.cpu, :))
+        logdict["head_height_corr"] = Statistics.cor(view(collector.infos.head_height, :), 
+                view(collector.states.command.head |> Flux.cpu, :))
+    end
     return logdict
 end
 
