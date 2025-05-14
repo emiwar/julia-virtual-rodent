@@ -32,7 +32,11 @@ function parse_config(args)
         end
     end
     params["wandb"]["run_name"] = replace(params["wandb"]["run_name"], "{NOW}"=>string(Dates.now()))
-    params["network"]["bottleneck"] = Symbol(params["network"]["bottleneck"])
-    params["network"]["decoder_type"] = Symbol(params["network"]["decoder_type"])
+    to_sym = [("network", "bottleneck"), ("network", "decoder_type"), ("network", "actor_type")]
+    for (l1, l2) in to_sym
+        if haskey(params, l1) && haskey(params[l1], l2)
+            params[l1][l2] = Symbol(params[l1][l2])
+        end
+    end
     return dict_to_named_tuple(params)
 end

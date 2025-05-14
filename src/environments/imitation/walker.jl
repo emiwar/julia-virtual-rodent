@@ -72,6 +72,7 @@ end
 
 function reset!(walker::Walker)
     MuJoCo.reset!(walker.model, walker.data)
+    MuJoCo.forward!(walker.model, walker.data)
 end
 
 function set_ctrl!(walker::Walker, action)

@@ -1,0 +1,44 @@
+[wandb]
+project = "Rodent-Joystick"
+run_name = "Joystick-{NOW}"
+
+[rollout]
+n_envs = 512
+reset_on_epoch_start = false
+n_epochs = 500000
+n_steps_per_epoch = 16
+use_mpi = false
+
+[network]
+actor_type = "LSTM"
+actor_size = [1024, 1024]
+critic_size = [1024, 1024]
+sigma_min = 0.01
+sigma_max = 0.5
+
+[physics]
+spawn_z_offset = 0.01
+n_physics_steps = 5
+timestep = 0.002
+torque_control = true
+hip_mods = false
+body_scale = 1.0
+min_torso_z = 0.035
+foot_mods = true
+
+[reward]
+    [reward.falloff]
+    forward = 0.4
+    turning = 0.4
+    head = 0.04
+
+[training]
+checkpoint_interval = 10000
+loss_weight_critic = 0.5
+loss_weight_actor = 1.0
+loss_weight_entropy = -0.2
+learning_rate = 0.0001
+n_miniepochs = 1
+gamma = 0.95
+lambda = 0.95
+clip_range = 0.2

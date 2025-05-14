@@ -21,6 +21,9 @@ include("imitation/imitation_reward_spec.jl")
 include("imitation/mods/fps_mod.jl")
 include("imitation/mods/simplified_target.jl")
 
+#Joystick
+include("joystick_env.jl")
+
 #Parallellism
 include("parallellism/multithread_env.jl")
 include("parallellism/mpi_env.jl")

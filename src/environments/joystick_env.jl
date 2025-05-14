@@ -1,4 +1,4 @@
-mutable struct RodentJoystickEnv{W, F <:NamedTuple, C <: NamedTuple} <: AbstractEnv# <: RodentFollowEnv
+mutable struct JoystickEnv{W, F <:NamedTuple, C <: NamedTuple} <: AbstractEnv# <: RodentFollowEnv
     walker::W
     falloffs::F
     command::C
@@ -9,25 +9,27 @@ mutable struct RodentJoystickEnv{W, F <:NamedTuple, C <: NamedTuple} <: Abstract
     cumulative_reward::Float64
 end
 
-function RodentJoystickEnv(walker, falloffs)
-    env = RodentJoystickEnv(walker, falloffs, random_joystick_command(),
-                            (@SVector zeros(3)), (@SVector zeros(4)), 0.0, 0, 0.0)
+function JoystickEnv(walker, falloffs)
+    command = random_joystick_command()
+    falloffs = map(k->k=>getproperty(falloffs, k), keys(command)) |> NamedTuple
+    env = JoystickEnv(walker, falloffs, command,
+                      (@SVector zeros(3)), (@SVector zeros(4)), 0.0, 0, 0.0)
     reset!(env)
     return env
 end
 
-function reward(env::RodentJoystickEnv)
+function reward(env::JoystickEnv)
     sum(compute_rewards(env)) #alive bonus and control cost?
 end
 
-function state(env::RodentJoystickEnv)
-    (proprioception = proprioception(walker),
+function state(env::JoystickEnv)
+    (proprioception = proprioception(env.walker),
      command = env.command)
 end
 
-duplicate(env::RodentJoystickEnv) = RodentJoystickEnv(clone(env.walker), env.falloffs)
+duplicate(env::JoystickEnv) = JoystickEnv(clone(env.walker), env.falloffs)
 
-function status(env::RodentJoystickEnv)
+function status(env::JoystickEnv)
     if torso_z(env.walker) < min_torso_z(env.walker)
         return TERMINATED
     else
@@ -35,7 +37,7 @@ function status(env::RodentJoystickEnv)
     end
 end
 
-function info(env::RodentJoystickEnv)
+function info(env::JoystickEnv)
     (
         info(env.walker)...,   
         lifetime = float(env.lifetime),
@@ -49,7 +51,7 @@ function info(env::RodentJoystickEnv)
 end
 
 #Actions
-function act!(env::RodentJoystickEnv, action)
+function act!(env::JoystickEnv, action)
     env.last_torso_pos  = body_xpos(env.walker,  "walker/torso")
     env.last_torso_quat = body_xquat(env.walker, "walker/torso")
     set_ctrl!(env.walker, action)
@@ -67,7 +69,7 @@ function act!(env::RodentJoystickEnv, action)
     end
 end
 
-function reset!(env::RodentJoystickEnv)
+function reset!(env::JoystickEnv)
     env.lifetime = 0
     env.cumulative_reward = 0.0
     env.time_since_command = 0.0
@@ -77,18 +79,19 @@ function reset!(env::RodentJoystickEnv)
     env.last_torso_quat = body_xquat(env.walker, "walker/torso")    
 end
 
-function compute_rewards(env::RodentJoystickEnv)
+null_action(env::JoystickEnv) = null_action(env.walker)
+
+function compute_rewards(env::JoystickEnv)
     current = (forward = forward_speed(env),
                turning = turning_speed(env),
                head    = head_height(env))
-    targets = get_command(env)
-    rewards = map((c,t,f)->exp(-((c-t)/f)^2), current, targets, env.falloffs)
+    rewards = map((c,t,f)->exp(-((c-t)/f)^2), current, env.command, env.falloffs)
     return rewards
 end
 
 # Speed calulations
 #(finite difference between env tranistions might be more robust than MuJoCo props)
-function forward_speed(env::RodentJoystickEnv)
+function forward_speed(env::JoystickEnv)
     timestep = dt(env.walker) * env.walker.n_physics_steps
     vec = (body_xpos(env.walker, "walker/torso") - env.last_torso_pos) ./ timestep
     allocentric_v = SVector(vec[1], vec[2], 0.0)
@@ -96,13 +99,13 @@ function forward_speed(env::RodentJoystickEnv)
     return egocentric_v[1] #Is x forward? Or should it be y?
 end
 
-function turning_speed(env::RodentJoystickEnv)
+function turning_speed(env::JoystickEnv)
     timestep = dt(env.walker) * env.walker.n_physics_steps
-    az_diff = azimuth_between(env.last_torso_quat, body_xquat(env, "walker/torso"))
+    az_diff = azimuth_between(env.last_torso_quat, body_xquat(env.walker, "walker/torso"))
     return az_diff / timestep
 end
 
-head_height(env::RodentJoystickEnv) = subtree_com(env.walker, "walker/skull")[3]
+head_height(env::JoystickEnv) = subtree_com(env.walker, "walker/skull")[3]
 
 # Commands
 function random_joystick_command()
@@ -113,16 +116,20 @@ function random_joystick_command()
     else
         head_height = 0.05 + 0.03*rand()
     end
-    return (foward=speed, turning=turning_speed, head=head_height)
+    return (forward=speed, turning=turning_speed, head=head_height)
 end
 
-function Base.show(io::IO, env::RodentJoystickEnv)
+function Base.show(io::IO, env::JoystickEnv)
     compact = get(io, :compact, false)
     if compact
-        print(io, "RodentJoystickEnv")
+        print(io, "JoystickEnv{Walker=$(env.walker)}")
     else
-        println(io, "RodentJoystickEnv:")
-        println(io, "\tlifetime: $(env.lifetime)")
-        println(io, "\tcumulative_reward: $(env.cumulative_reward)")
+        indent = " " ^ get(io, :indent, 0)
+        println(io, "$(indent)JoystickEnv")
+        indented_io = IOContext(io, :indent => (get(io, :indent, 0) + 2))
+        show(indented_io, env.walker)
+        println(io, "$(indent)lifetime: $(env.lifetime)")
+        println(io, "$(indent)cumulative_reward: $(env.cumulative_reward)")
+        println(io, "$(indent)time_since_command: $(env.time_since_command)")
     end
 end

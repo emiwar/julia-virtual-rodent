@@ -17,7 +17,14 @@ function ppo(collector, networks, params; logger = (_, _)->nothing)
 
         #Apply the gradient updates
         ppo_log = ppo_update!(collector, networks, network_state_at_epoch_start,
-                              network_state_at_epoch_end, opt_state, params)
+                              network_state_at_epoch_end, opt_state;
+                              gamma = params.training.gamma,
+                              lambda = params.training.lambda,
+                              clip_range = params.training.clip_range |> Float32,
+                              n_miniepochs = params.training.n_miniepochs,
+                              loss_weights = (actor   = params.training.loss_weight_actor,
+                                              critic  = params.training.loss_weight_critic,
+                                              entropy = params.training.loss_weight_entropy))
 
         #Compute batch statistics for logging
         logdict = compute_batch_stats(collector)
@@ -56,15 +63,14 @@ function next_value_f(current_state_value, next_state_value, status)
 end
 
 function ppo_update!(batch, actor_critic, actor_critic_start_state, actor_critic_stop_state,
-                     opt_state, params)
+                     opt_state; gamma, lambda, clip_range::Float32, n_miniepochs, loss_weights::NamedTuple)
     lap(:ppo_update_init)
     logdict = Dict{String, Float64}()
     n_envs, n_steps_per_batch = size(batch.rewards)
     lap(:ppo_critic)
     old_values = Networks.critic(actor_critic, batch.states)
     lap(:ppo_advantages)
-    advantages = compute_advantages(batch.rewards, old_values, batch.status,
-                                    params.training.gamma, params.training.lambda)
+    advantages = compute_advantages(batch.rewards, old_values, batch.status, gamma, lambda)
     lap(:ppo_target_values)
     non_final_states = view(batch.states, :, :, 1:n_steps_per_batch)
     non_final_statevalues = view(old_values, :, 1:n_steps_per_batch)
@@ -72,8 +78,7 @@ function ppo_update!(batch, actor_critic, actor_critic_start_state, actor_critic
     actions = view(batch.actor_outputs, :action, :, :)
     batch_loglikelihoods = view(batch.actor_outputs, :loglikelihood, :, :)
     reset_mask = view(batch.status, :, 1:n_steps_per_batch) .!= Environments.RUNNING
-    clip_range = Float32(params.training.clip_range)
-    for j = 1:params.training.n_miniepochs
+    for j = 1:n_miniepochs
         lap(:restore_latent_state)
         Networks.restore_latent_state!(actor_critic, actor_critic_start_state)
         lap(:ppo_gradients)
@@ -92,9 +97,9 @@ function ppo_update!(batch, actor_critic, actor_critic_start_state, actor_critic
             #Entropy loss
             entropy_loss = sum(actor_output.entropy_loss) / length(actor_output.entropy_loss)
 
-            total_loss = params.training.loss_weight_actor * actor_loss + 
-                         params.training.loss_weight_critic * critic_loss +
-                         params.training.loss_weight_entropy * entropy_loss +
+            total_loss = loss_weights.actor * actor_loss + 
+                         loss_weights.critic * critic_loss +
+                         loss_weights.entropy * entropy_loss +
                          Networks.regularization_loss(actor_critic)
          
             Flux.ignore() do

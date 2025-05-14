@@ -7,6 +7,8 @@ using Flux
 
 import ..Environments
 
+include("actor_critic.jl")
+
 include("enc_dec.jl")
 include("info_bottleneck.jl")
 include("variational_bottleneck.jl")

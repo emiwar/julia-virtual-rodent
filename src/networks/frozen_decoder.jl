@@ -3,12 +3,6 @@
 struct FrozenDecoder{D, E, PB} <: Environments.AbstractEnv
     decoder::D
     base_env::E
-    proprioception_buffer::PB
-end
-
-function FrozenDecoder(decoder, base_env::Environments.AbstractEnv) 
-    template_state = Environments.state(base_env)
-    return FrozenDecoder(decoder, base_env, ComponentArray(template_state))
 end
 
 Environments.state(env::FrozenDecoder) = Environments.state(env.base_env)
@@ -17,10 +11,8 @@ Environments.info(env::FrozenDecoder) = Environments.info(env.base_env)
 Environments.status(env::FrozenDecoder) = Environments.status(env.base_env)
 
 function Environments.act!(env::FrozenDecoder, actions)
-    reset_mask, proprioception = Flux.ignore() do
-        env.proprioception_buffer[:] = Environments.state(env).proprioception
-        Environments.status(env) .!= Environments.RUNNING, env.proprioception_buffer |> Flux.gpu
-    end
+    reset_mask = Environments.status(env) .!= Environments.RUNNING |> Flux.gpu
+    proprioception = Environments.state(env) |> Flux.gpu
 
     #Treat actions as latent of the decoder
     decoder_input = cat(actions, proprioception; dims=1)

@@ -15,8 +15,8 @@ using ProgressMeter
 using ComponentArrays: ComponentArray, getdata
 include("../src/utils/wandb_logger.jl")
 
-T = 2000
-wandb_run_id = "e5dq60om" #"624ifrxa" # #"7mzfglak"
+T = 5000
+wandb_run_id = "w54we3a2"#"icdnu112" #"624ifrxa" # #"7mzfglak"
 
 params, weights_file_name = load_from_wandb(wandb_run_id, r"step-.*")
 
@@ -46,7 +46,7 @@ if haskey(params, :mod)
         env = Environments.SimplifiedTarget(env)
     end
     if haskey(params.mod, :imitation_speedup_range)
-        env = Environments.FPSMod(env, params.mod.imitation_speedup_range)
+        env = Environments.FPSMod(env, float(params.mod.imitation_speedup_range))
     end
 end
 
