@@ -32,12 +32,15 @@ duplicate(env::JoystickEnv) = JoystickEnv(clone(env.walker), env.falloffs)
 function status(env::JoystickEnv)
     if torso_z(env.walker) < min_torso_z(env.walker)
         return TERMINATED
+    elseif env.lifetime >= 1000
+        return TRUNCATED
     else
         return RUNNING
     end
 end
 
 function info(env::JoystickEnv)
+    rewards = compute_rewards(env)
     (
         info(env.walker)...,   
         lifetime = float(env.lifetime),
@@ -46,7 +49,9 @@ function info(env::JoystickEnv)
         turning_speed = turning_speed(env),
         head_height   = head_height(env),
         command = env.command,
-        rewards = compute_rewards(env),
+        reward_forward = rewards.forward,
+        reward_turning = rewards.turning,
+        reward_head_height = rewards.head,
     )
 end
 
