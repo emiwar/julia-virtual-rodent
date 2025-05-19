@@ -10,7 +10,11 @@ params = parse_config(ARGS)
 
 #Setup the environment
 walker = Environments.Rodent(;params.physics...)
-template_env = Environments.JoystickEnv(walker, params.reward...)
+if params.wandb.project == "Rodent-MoveToTarget"
+    template_env = Environments.MoveToTargetEnv(walker)
+elseif params.wandb.project == "Rodent-Joystick"
+    template_env = Environments.JoystickEnv(walker, params.reward...)
+end
 
 #MPI or local multithreading of environment
 if params.rollout.use_mpi

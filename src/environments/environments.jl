@@ -23,6 +23,7 @@ include("imitation/mods/simplified_target.jl")
 
 #Joystick
 include("joystick_env.jl")
+include("move_to_target_env.jl")
 
 #Parallellism
 include("parallellism/multithread_env.jl")
