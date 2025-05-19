@@ -1,18 +1,23 @@
 mutable struct MoveToTargetEnv{W} <: AbstractEnv# <: RodentFollowEnv
     walker::W
+    control_cost::Float64
+    alive_bonus::Float64
     target::MVector{3, Float64}
     lifetime::Int64
     cumulative_reward::Float64
 end
 
-function MoveToTargetEnv(walker)
-    env = MoveToTargetEnv(walker, MVector(0.0, 0.0, 0.0), 0, 0.0)
+function MoveToTargetEnv(walker, control_cost, alive_bonus)
+    env = MoveToTargetEnv(walker, control_cost, alive_bonus,
+                          MVector(0.0, 0.0, 0.0), 0, 0.0)
     reset!(env)
     return env
 end
 
 function reward(env::MoveToTargetEnv)
-    return clamp(1.0 - dist_to_target(env), 0.0, 1.0)
+    control_reward = -env.control_cost * norm(env.walker.data.ctrl)^2
+    closeness_reward = clamp(1.0 - dist_to_target(env), 0.0, 1.0)
+    return closeness_reward + control_reward + env.alive_bonus
 end
 
 function state(env::MoveToTargetEnv)
@@ -20,7 +25,7 @@ function state(env::MoveToTargetEnv)
      target_vector = target_vector(env))
 end
 
-duplicate(env::MoveToTargetEnv) = MoveToTargetEnv(clone(env.walker))
+duplicate(env::MoveToTargetEnv) = MoveToTargetEnv(clone(env.walker), env.control_cost, env.alive_bonus)
 
 function status(env::MoveToTargetEnv)
     if torso_z(env.walker) < min_torso_z(env.walker)

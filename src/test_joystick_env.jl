@@ -11,7 +11,7 @@ params = parse_config(ARGS)
 #Setup the environment
 walker = Environments.Rodent(;params.physics...)
 if params.wandb.project == "Rodent-MoveToTarget"
-    template_env = Environments.MoveToTargetEnv(walker)
+    template_env = Environments.MoveToTargetEnv(walker, params.reward.control_cost, params.reward.alive_bonus)
 elseif params.wandb.project == "Rodent-Joystick"
     template_env = Environments.JoystickEnv(walker, params.reward...)
 end

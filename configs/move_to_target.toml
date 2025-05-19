@@ -5,7 +5,7 @@ run_name = "MoveToTarget-{NOW}"
 [rollout]
 n_envs = 512
 reset_on_epoch_start = false
-n_epochs = 500000
+n_epochs = 10000
 n_steps_per_epoch = 16
 use_mpi = false
 
@@ -27,6 +27,8 @@ min_torso_z = 0.035
 foot_mods = true
 
 [reward]
+control_cost = 0.005
+alive_bonus = 0.1
 
 [training]
 checkpoint_interval = 10000
