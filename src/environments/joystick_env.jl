@@ -56,7 +56,7 @@ end
 
 #Actions
 function act!(env::JoystickEnv, action)
-    env.last_torso_pos  = body_xpos(env.walker,  "walker/torso")
+    env.last_torso_pos  = subtree_com(env.walker,  "walker/torso")
     env.last_torso_quat = body_xquat(env.walker, "walker/torso")
     set_ctrl!(env.walker, action)
     for _=1:env.walker.n_physics_steps
@@ -79,7 +79,7 @@ function reset!(env::JoystickEnv)
     env.time_since_command = 0.0
     env.command = random_joystick_command()
     reset!(env.walker)
-    env.last_torso_pos  = body_xpos(env.walker,  "walker/torso")
+    env.last_torso_pos  = subtree_com(env.walker,  "walker/torso")
     env.last_torso_quat = body_xquat(env.walker, "walker/torso")    
 end
 
@@ -97,7 +97,7 @@ end
 #(finite difference between env tranistions might be more robust than MuJoCo props)
 function forward_speed(env::JoystickEnv)
     timestep = dt(env.walker) * env.walker.n_physics_steps
-    vec = (body_xpos(env.walker, "walker/torso") - env.last_torso_pos) ./ timestep
+    vec = (subtree_com(env.walker, "walker/torso") - env.last_torso_pos) ./ timestep
     allocentric_v = SVector(vec[1], vec[2], 0.0)
     egocentric_v  = body_xmat(env.walker, "walker/torso") * allocentric_v
     return egocentric_v[1] #Is x forward? Or should it be y?
