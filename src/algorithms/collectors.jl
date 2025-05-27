@@ -34,7 +34,7 @@ function CuCollector(env, template_actor, steps_per_batch)
     CuCollector(env, states, rewards, status, infos, actor_outputs)
 end
 
-function collect_epoch!(collector::Collector, networks)
+function collect_epoch!(collector::Collector, networks, auto_reset=true)
     lap(:first_state)
     Environments.prepare_epoch!(collector.env)
     collector.states[:, :, 1] = Environments.state(collector.env)
@@ -52,7 +52,7 @@ function collect_epoch!(collector::Collector, networks)
         actions = @view collector.actor_outputs.action[:, :, t]
 
         #Apply the action and step the environment
-        Environments.act!(collector.env, actions)
+        Environments.act!(collector.env, actions, auto_reset)
 
         #Record the transition
         lap(:rollout_move_to_gpu)

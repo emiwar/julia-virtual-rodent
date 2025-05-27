@@ -16,7 +16,7 @@ using ComponentArrays: ComponentArray, getdata
 include("../src/utils/wandb_logger.jl")
 
 T = 5000
-wandb_run_id = "w54we3a2"#"icdnu112" #"624ifrxa" # #"7mzfglak"
+wandb_run_id = "icdnu112" #"624ifrxa" # #"7mzfglak"
 
 params, weights_file_name = load_from_wandb(wandb_run_id, r"step-.*")
 

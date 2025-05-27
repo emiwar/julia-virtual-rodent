@@ -61,6 +61,8 @@ function load_from_wandb(run_id, checkpoint::Regex=r"\.bson"; project="emiwar-te
             return NamedTuple(Symbol(k) => to_named_tuple(d[k]["value"], false) for k in d)
         elseif Bool(PythonCall.pytype(d) == PythonCall.pyimport("builtins").dict)
             return NamedTuple(Symbol(k) => to_named_tuple(d[k], false) for k in d)
+        elseif Bool(PythonCall.pytype(d) == PythonCall.pyimport("builtins").list)
+            return PythonCall.pyconvert(Vector, d)
         else
             return PythonCall.pyconvert(Any, d)
         end

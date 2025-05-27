@@ -29,7 +29,7 @@ function ActorCritic(actor_sizes::Vector{Int}, critic_sizes::Vector{Int}, action
                      actor_type=:MLP, sigma_min=0.01, sigma_max=0.5, gamma=nothing)
     if actor_type == :MLP
         actor = Chain((create_layers(Dense, "actor", actor_sizes, tanh)...,
-                       mu_and_sigma=Dense(decoder_sizes[end] => 2*action_size, tanh, init=zeros32))...)
+                       mu_and_sigma=Dense(actor_sizes[end] => 2*action_size, tanh, init=zeros32))...)
     elseif actor_type == :LSTM
         #Q: Should the final layer actually be a Dense layer?
         actor = Chain((create_layers(LSTM, "actor", actor_sizes)...,
