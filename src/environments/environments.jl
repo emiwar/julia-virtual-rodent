@@ -5,6 +5,7 @@ import HDF5
 import LinearAlgebra: norm, dot
 import MPI
 using StaticArrays
+import ComponentArrays
 using ComponentArrays: ComponentArray, getdata, getaxes, FlatAxis
 using ..Timers: lap
 

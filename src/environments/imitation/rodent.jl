@@ -1,7 +1,7 @@
-struct Rodent <: Walker
+struct Rodent{S} <: Walker
     model::MuJoCo.Model
     data::MuJoCo.Data
-    sensorranges::Dict{String, UnitRange{Int64}}
+    sensors::S
     n_physics_steps::Int64
     min_torso_z::Float64
     spawn_z_offset::Float64
@@ -20,14 +20,15 @@ function Rodent(;body_scale::Float64, torque_control::Bool, foot_mods::Bool, hip
                               physics_timestep = timestep,
                               control_timestep = timestep*n_physics_steps)
     data = MuJoCo.init_data(model)
-    sensors = SVector("velocimeter", "accelerometer", "gyro", "palm_L", "palm_R", "sole_L",
-                      "sole_R", "torso")
-    sensorranges = prepare_sensorranges(model, "walker/" .* sensors)
-    Rodent(model, data, sensorranges, n_physics_steps, min_torso_z, spawn_z_offset)
+    
+    sensors = ComponentArray(view(data.sensordata, :), create_sensorindex(model))
+    Rodent(model, data, sensors, n_physics_steps, min_torso_z, spawn_z_offset)
 end
 
 function clone(rodent::Rodent)
-    Rodent(rodent.model, MuJoCo.init_data(rodent.model), rodent.sensorranges,
+    new_data = MuJoCo.init_data(rodent.model)
+    Rodent(rodent.model, new_data,
+           ComponentArray(view(new_data.sensordata, :), create_sensorindex(rodent.model)),
            rodent.n_physics_steps, rodent.min_torso_z, rodent.spawn_z_offset)
 end
 
@@ -37,20 +38,20 @@ function proprioception(rodent::Rodent)
         joint_vel = (@view rodent.data.qvel[7:end]),
         actuations = (@view rodent.data.act[:]),
         head = (
-            velocity = sensor(rodent, "walker/velocimeter"),
-            accel = sensor(rodent, "walker/accelerometer"),
-            gyro = sensor(rodent, "walker/gyro")
+            velocity = sensor(rodent, "walker/velocimeter" |> Symbol |> Val),
+            accel = sensor(rodent, "walker/accelerometer" |> Symbol |> Val),
+            gyro = sensor(rodent, "walker/gyro" |> Symbol |> Val)
         ),
         torso = (
-            velocity = sensor(rodent, "walker/torso"),
+            velocity = sensor(rodent, "walker/torso" |> Symbol |> Val),
             xmat = reshape(body_xmat(rodent, "walker/torso"), :),
             com = subtree_com(rodent, "walker/torso")
         ),
         paw_contacts = (
-            palm_L = sensor(rodent, "walker/palm_L"),
-            palm_R = sensor(rodent, "walker/palm_R"),
-            sole_L = sensor(rodent, "walker/sole_L"),
-            sole_R = sensor(rodent, "walker/sole_R")
+            palm_L = sensor(rodent, "walker/palm_L" |> Symbol |> Val),
+            palm_R = sensor(rodent, "walker/palm_R" |> Symbol |> Val),
+            sole_L = sensor(rodent, "walker/sole_L" |> Symbol |> Val),
+            sole_R = sensor(rodent, "walker/sole_R" |> Symbol |> Val)
         )
     )
 end
@@ -66,12 +67,12 @@ end
 
 min_torso_z(rodent::Rodent) = rodent.min_torso_z
 
-bodies_order(::Type{Rodent}) = SVector("torso", "pelvis", "upper_leg_L", "lower_leg_L", "foot_L",
+bodies_order(::Type{R}) where R<:Rodent = SVector("torso", "pelvis", "upper_leg_L", "lower_leg_L", "foot_L",
                                     "upper_leg_R", "lower_leg_R", "foot_R", "skull", "jaw",
                                     "scapula_L", "upper_arm_L", "lower_arm_L", "finger_L",
                                     "scapula_R", "upper_arm_R", "lower_arm_R", "finger_R")
 
-appendages_order(::Type{Rodent}) = SVector("lower_arm_R", "lower_arm_L", "foot_R", "foot_L", "skull")
+appendages_order(::Type{R}) where R<:Rodent = SVector("lower_arm_R", "lower_arm_L", "foot_R", "foot_L", "skull")
 
 bodies_order(rodent::Rodent) = bodies_order(typeof(rodent))
 appendages_order(rodent::Rodent) = appendages_order(typeof(rodent))

@@ -7,7 +7,7 @@ Base.@kwdef struct EqualRewardWeights <: ImitationRewardSpec
     energy_cost::Float64
 end
 
-function compute_rewards(env::ImitationEnv{Rodent, EqualRewardWeights})
+function compute_rewards(env::ImitationEnv{R, EqualRewardWeights}) where R<:Rodent
     spec = env.reward_spec
     angle_error = angle_to_target(env)
     joint_error_sqr = joint_error(env)
@@ -25,7 +25,7 @@ function compute_rewards(env::ImitationEnv{Rodent, EqualRewardWeights})
     )
 end
 
-function appendages_reward(env::ImitationEnv{Rodent, EqualRewardWeights})
+function appendages_reward(env::ImitationEnv{R, EqualRewardWeights}) where R<:Rodent
     spec = env.reward_spec
     errors = appendages_error(env)
     reward = 0.0

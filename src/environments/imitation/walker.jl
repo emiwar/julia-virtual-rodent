@@ -1,33 +1,20 @@
 abstract type Walker end
 
-function read_sensor_value(walker::Walker, sensor_id::Integer)
-    ind = walker.model.sensor_adr[sensor_id+1]
-    len = walker.model.sensor_dim[sensor_id+1]
-    return view(walker.data.sensordata, (ind+1):(ind+len))
-end
-
-function read_sensor_value(walker::Walker, sensor_name::String)
-    sensor_id = MuJoCo.mj_name2id(walker.model, MuJoCo.mjOBJ_SENSOR, sensor_name)
-    if sensor_id == -1
-        error("Cannot find sensor '$sensor_name'")
-    end
-    return read_sensor_value(walker, sensor_id)
-end
 
 null_action(walker::Walker) = zeros(walker.model.nu)
 
-function prepare_sensorranges(model::MuJoCo.Model, sensors)
-    sensorranges = Dict{String, UnitRange{Int64}}()
-    for sensor in sensors
-        sensor_id = MuJoCo.mj_name2id(model, MuJoCo.mjOBJ_SENSOR, sensor)
-        if sensor_id == -1
-            error("Cannot find sensor '$sensor'")
+function create_sensorindex(model::MuJoCo.Model)
+    map(1:model.nsensor) do i
+        start = model.sensor_adr[i] + 1
+        len  = model.sensor_dim[i]
+        stop = start + len - 1
+        name = Symbol(MuJoCo.mj_id2name(model, MuJoCo.mjOBJ_SENSOR, i-1) |> unsafe_string)
+        if len==1
+            return name=>start
+        else 
+            name=>ComponentArrays.ViewAxis(start:stop, ComponentArrays.Shaped1DAxis((Int64(len),)))
         end
-        ind = model.sensor_adr[sensor_id+1]
-        len = model.sensor_dim[sensor_id+1]
-        sensorranges[sensor] = (ind+1):(ind+len)
-    end
-    return sensorranges
+    end |> NamedTuple |> ComponentArrays.Axis
 end
 
 function subtree_com(walker::Walker, body::String)
@@ -50,9 +37,9 @@ function body_xquat(walker::Walker, body::String)
     SVector{4}(view(walker.data.xquat, ind, :))
 end
 
-function sensor(walker::Walker, sensorname::String)
-    return view(walker.data.sensordata, walker.sensorranges[sensorname])
-end
+sensor(walker::Walker, sensorname::String) = sensor(walker, Symbol(sensorname))
+sensor(walker::Walker, sensorname::Symbol) = sensor(walker, Val(sensorname))
+sensor(walker::Walker, sensorname::Val) = view(walker.sensors, sensorname)
 
 function qpos_root(walker::Walker)
     return @view walker.data.qpos[1:7]
@@ -97,3 +84,13 @@ function energy_use(walker::Walker)
 end
 
 dt(walker::Walker) = walker.model.opt.timestep
+
+function joint_angle(walker::Walker, name::String)
+    joint_id = MuJoCo.mj_name2id(walker.model, MuJoCo.mjOBJ_JOINT, name)
+    if joint_id < 0
+        throw(KeyError(name))
+    end
+    ind = walker.model.jnt_qposadr[joint_id + 1] + 1 #MuJoCo (C) is 0-indexed, Julia is 1-indexed
+    return walker.data.qpos[ind] 
+end
+
