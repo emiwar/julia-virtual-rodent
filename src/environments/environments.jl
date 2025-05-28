@@ -22,6 +22,9 @@ include("imitation/imitation_reward_spec.jl")
 include("imitation/mods/fps_mod.jl")
 include("imitation/mods/simplified_target.jl")
 
+include("modular_imitation/modular_rodent.jl")
+include("modular_imitation/modular_imitation.jl")
+
 #Joystick
 include("joystick_env.jl")
 include("move_to_target_env.jl")
