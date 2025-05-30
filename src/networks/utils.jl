@@ -1,5 +1,6 @@
 randn_like(arr::AbstractArray) = randn(size(arr)...)
 randn_like(arr::CUDA.AnyCuArray) = CUDA.randn(size(arr)...)
+randn_like(nt::NamedTuple) = map(randn_like, nt)
 
 #For latent network states during debugging
 function Base.isapprox(a::NamedTuple, b::NamedTuple)

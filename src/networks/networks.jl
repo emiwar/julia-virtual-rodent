@@ -2,8 +2,9 @@ module Networks
 import Random
 
 import CUDA
-using ComponentArrays: ComponentArray, getdata
+using ComponentArrays: ComponentArray, ComponentVector, getdata
 using Flux
+using ConcreteStructs
 
 import ..Environments
 
@@ -16,5 +17,7 @@ include("variational_bottleneck.jl")
 include("action_samplers.jl")
 include("network_recorder.jl")
 include("utils.jl")
+
+include("parallell_control.jl")
 
 end

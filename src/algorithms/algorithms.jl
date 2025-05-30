@@ -7,6 +7,7 @@ import Statistics
 using ProgressMeter
 
 using ComponentArrays: ComponentArray, FlatAxis, getaxes, getdata
+using ConcreteStructs
 using ..Environments
 using ..Networks
 using ..Timers: lap

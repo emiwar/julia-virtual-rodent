@@ -1,17 +1,18 @@
 abstract type Collector end
 
-struct CuCollector{E, S, I, A} <: Collector
+@concrete struct CuCollector{E} <: Collector
     env::E
-    states::S
-    rewards::CUDA.CuMatrix{Float32}
+    states<:ComponentArray
+    rewards<:Union{CUDA.CuMatrix{Float32}, ComponentArray}
     status::CUDA.CuMatrix{UInt8}
-    infos::I
-    actor_outputs::A
+    infos<:ComponentArray
+    actor_outputs<:ComponentArray
 end
 
 function CuCollector(env, template_actor, steps_per_batch)
     template_state  = Environments.state(env)
     template_info   = Environments.info(env)
+    template_reward   = Environments.reward(env)
     state_size, n_envs = size(template_state)
     info_size, n_envs = size(template_info)
 
@@ -22,7 +23,16 @@ function CuCollector(env, template_actor, steps_per_batch)
     #Big GPU ComponentArrays for storing the entire batch
     states = ComponentArray(CUDA.zeros(state_size, n_envs, steps_per_batch+1),
                             (getaxes(template_state)[1], FlatAxis(), FlatAxis()))
-    rewards = CUDA.zeros(n_envs, steps_per_batch)
+    
+    if template_reward isa Union{ComponentArray, NamedTuple}
+        template_reward = ComponentArray(template_reward)
+        reward_size, = size(template_reward)
+        rewards = ComponentArray(CUDA.zeros(reward_size, n_envs, steps_per_batch),
+                                 (getaxes(template_reward)[1], FlatAxis(), FlatAxis()))
+    else
+        @assert template_reward isa Number
+        rewards = CUDA.zeros(n_envs, steps_per_batch)
+    end
     status = CUDA.zeros(UInt8, n_envs, steps_per_batch+1)
     actor_outputs = ComponentArray(CUDA.zeros(actor_output_size, n_envs, steps_per_batch),
                                    (getaxes(template_actor_output)[1], FlatAxis(), FlatAxis()))
@@ -58,14 +68,17 @@ function collect_epoch!(collector::Collector, networks, auto_reset=true)
         lap(:rollout_move_to_gpu)
         collector.states[:, :, t+1] = Environments.state(collector.env)
         collector.infos[:, :, t+1] = Environments.info(collector.env)
-        collector.rewards[:, t] = Environments.reward(collector.env)
+        if ndims(collector.rewards) == 1
+            collector.rewards[:, t] = Environments.reward(collector.env)
+        else
+            collector.rewards[:, :, t] = Environments.reward(collector.env)
+        end
         collector.status[:, t+1] = Environments.status(collector.env)
     end
 end
 
-n_envs(collector::CuCollector) = size(collector.rewards, 1)
-steps_per_epoch(collector::CuCollector) = size(collector.rewards, 2)
-
+n_envs(collector::CuCollector) = size(collector.status, 1)
+steps_per_epoch(collector::CuCollector) = size(collector.status, 2)-1
 
 function compute_batch_stats(collector::Collector)
     lap(:logging_batch_stats)

@@ -1,7 +1,8 @@
-struct ModularRodent{S} <: Walker
+@concrete struct ModularRodent <: Walker
     model::MuJoCo.Model
     data::MuJoCo.Data
-    sensors::S
+    sensors<:ComponentVector
+    actuators<:ComponentVector
     n_physics_steps::Int64
     min_torso_z::Float64
     spawn_z_offset::Float64
@@ -12,13 +13,15 @@ function ModularRodent(;min_torso_z::Float64, spawn_z_offset::Float64, n_physics
     model = MuJoCo.load_model(model_path)
     data = MuJoCo.init_data(model)
     sensors = ComponentArray(view(data.sensordata, :), create_sensorindex(model))
-    ModularRodent(model, data, sensors, n_physics_steps, min_torso_z, spawn_z_offset)
+    actuators = ComponentArray(view(data.ctrl, :), create_actuatorindex(model))
+    ModularRodent(model, data, sensors, actuators, n_physics_steps, min_torso_z, spawn_z_offset)
 end
 
 function clone(rodent::ModularRodent)
     new_data = MuJoCo.init_data(rodent.model)
     ModularRodent(rodent.model, new_data,
                   ComponentArray(view(new_data.sensordata, :), create_sensorindex(rodent.model)),
+                  ComponentArray(view(new_data.ctrl, :), create_actuatorindex(rodent.model)),
                   rodent.n_physics_steps, rodent.min_torso_z, rodent.spawn_z_offset)
 end
 
@@ -160,7 +163,18 @@ function reset!(rodent::ModularRodent, start_qpos, start_qvel)
     MuJoCo.forward!(rodent.model, rodent.data)
 end
 
+function info(rodent::ModularRodent)
+    (
+        torso_x = torso_x(rodent),
+        torso_y = torso_y(rodent),
+        torso_z = torso_z(rodent),
+    )
+end
+
 min_torso_z(rodent::ModularRodent) = rodent.min_torso_z
+torso_x(rodent::ModularRodent) = subtree_com(rodent, "walker/torso")[1]
+torso_y(rodent::ModularRodent) = subtree_com(rodent, "walker/torso")[2]
+torso_z(rodent::ModularRodent) = subtree_com(rodent, "walker/torso")[3]
 
 bodies_order(::Type{R}) where R<:ModularRodent = SVector("torso", "pelvis", "upper_leg_L", "lower_leg_L", "foot_L",
                                     "upper_leg_R", "lower_leg_R", "foot_R", "skull", "jaw",
@@ -170,6 +184,66 @@ bodies_order(::Type{R}) where R<:ModularRodent = SVector("torso", "pelvis", "upp
 appendages_order(::Type{R}) where R<:ModularRodent = SVector("lower_arm_R", "lower_arm_L", "foot_R", "foot_L", "skull")
 bodies_order(rodent::ModularRodent) = bodies_order(typeof(rodent))
 appendages_order(rodent::ModularRodent) = appendages_order(typeof(rodent))
+
+function null_action(rodent::ModularRodent)
+    (
+        hand_L = (@SVector zeros(2)),
+        arm_L  = (@SVector zeros(4)),
+        hand_R = (@SVector zeros(2)), 
+        arm_R  = (@SVector zeros(4)),
+        foot_L = (@SVector zeros(2)),
+        leg_L  = (@SVector zeros(4)),
+        foot_R = (@SVector zeros(2)),
+        leg_R  = (@SVector zeros(4)),
+        torso  = (@SVector zeros(3)),
+        head   = (@SVector zeros(5)),
+    )
+end
+
+function set_ctrl!(rodent::ModularRodent, action)
+    rodent.actuators.lumbar_extend     = clamp(action.torso[1], -1.0, 1.0)
+    rodent.actuators.lumbar_bend       = clamp(action.torso[2], -1.0, 1.0)
+    rodent.actuators.lumbar_twist      = clamp(action.torso[3], -1.0, 1.0)
+
+    rodent.actuators.cervical_extend    = clamp(action.head[1], -1.0, 1.0)
+    rodent.actuators.cervical_bend      = clamp(action.head[2], -1.0, 1.0)
+    rodent.actuators.cervical_twist     = clamp(action.head[3], -1.0, 1.0)
+
+    rodent.actuators.hip_L_supinate     = clamp(action.leg_L[1], -1.0, 1.0)
+    rodent.actuators.hip_L_abduct       = clamp(action.leg_L[2], -1.0, 1.0)
+    rodent.actuators.hip_L_extend        = clamp(action.leg_L[3], -1.0, 1.0)
+    rodent.actuators.knee_L             = clamp(action.leg_L[4], -1.0, 1.0)
+
+    rodent.actuators.ankle_L            = clamp(action.foot_L[1], -1.0, 1.0)
+    rodent.actuators.toe_L              = clamp(action.foot_L[2], -1.0, 1.0)
+
+    rodent.actuators.hip_R_supinate     = clamp(action.leg_R[1], -1.0, 1.0)
+    rodent.actuators.hip_R_abduct       = clamp(action.leg_R[2], -1.0, 1.0)
+    rodent.actuators.hip_R_extend        = clamp(action.leg_R[3], -1.0, 1.0)
+    rodent.actuators.knee_R             = clamp(action.leg_R[4], -1.0, 1.0)
+
+    rodent.actuators.ankle_R            = clamp(action.foot_R[1], -1.0, 1.0)
+    rodent.actuators.toe_R              = clamp(action.foot_R[2], -1.0, 1.0)
+
+    rodent.actuators.atlas              = clamp(action.head[4], -1.0, 1.0)
+    rodent.actuators.mandible           = clamp(action.head[5], -1.0, 1.0)
+
+    rodent.actuators.scapula_L_supinate = clamp(action.arm_L[1], -1.0, 1.0)
+    rodent.actuators.scapula_L_abduct   = clamp(action.arm_L[2], -1.0, 1.0)
+    rodent.actuators.scapula_L_extend   = clamp(action.arm_L[3], -1.0, 1.0)
+    rodent.actuators.elbow_L            = clamp(action.arm_L[4], -1.0, 1.0)
+
+    rodent.actuators.wrist_L            = clamp(action.hand_L[1], -1.0, 1.0)
+    rodent.actuators.finger_L           = clamp(action.hand_L[2], -1.0, 1.0)
+
+    rodent.actuators.scapula_R_supinate = clamp(action.arm_R[1], -1.0, 1.0)
+    rodent.actuators.scapula_R_abduct   = clamp(action.arm_R[2], -1.0, 1.0)
+    rodent.actuators.scapula_R_extend   = clamp(action.arm_R[3], -1.0, 1.0)
+    rodent.actuators.elbow_R            = clamp(action.arm_R[4], -1.0, 1.0)
+
+    rodent.actuators.wrist_R            = clamp(action.hand_R[1], -1.0, 1.0)
+    rodent.actuators.finger_R           = clamp(action.hand_R[2], -1.0, 1.0)
+end
 
 function Base.show(io::IO, rodent::ModularRodent)
     compact = get(io, :compact, false)

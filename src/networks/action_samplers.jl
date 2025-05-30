@@ -24,3 +24,24 @@ function GaussianActionSampler(; sigma_min=0.0f0, sigma_max=1.0f0)
         return (;action, mu, sigma, loglikelihood, entropy_loss)
     end
 end
+
+function ModularActionSampler(; sigma_min=0.0f0, sigma_max=1.0f0)
+    #Assume unscaled sigma is in [-1, 1]
+    sigma_scale  = 0.5f0 * (sigma_max - sigma_min)
+    sigma_offset = 0.5f0 * (sigma_min + sigma_max)
+
+    function sample(mu_and_sigma, action=nothing)
+        mu = map(x->selectdim(x, 1, 1:(size(x,1)÷2)), mu_and_sigma)
+        unscaled_sigma = map(x->selectdim(x, 1, (size(x,1)÷2+1):size(x,1)), mu_and_sigma)
+        sigma = map(s -> sigma_offset .+ sigma_scale .* s, unscaled_sigma)
+        if isnothing(action)
+            xsi = Flux.ignore(()->randn_like(mu))
+            action = map((m,s,x) -> m .+ s .* x, mu, sigma, xsi)
+        end
+        loglikelihood = map(action, mu, sigma) do a, m, s
+            -0.5f0 .* sum(((a .- m) ./ s).^2; dims=1) .- sum(log.(s); dims=1)
+        end
+        entropy_loss = sum(map(s -> 0.5sum(log.((2π*exp(1)).*(s.^2)); dims=1) / size(s, 1), sigma))
+        return (;action, mu, sigma, loglikelihood, entropy_loss)
+    end
+end

@@ -1,25 +1,24 @@
-struct ModularImitationEnv{W, ImTarget, CR} <: AbstractEnv
-    walker::W
-    target::ImTarget
+@concrete struct ModularImitationEnv <: AbstractEnv
+    walker<:Walker
+    target_poses<:ComponentArray
+    target_sensors<:ComponentArray
     max_target_distance::Float64
     restart_on_reset::Bool
     target_fps::Float64
     target_timepoint::Base.RefValue{Float64}
     target_clip::Base.RefValue{Int64}
     lifetime::Base.RefValue{Int64}
-    cumulative_reward::CR
 end
 
 function ModularImitationEnv(walker; max_target_distance::Float64,
                              restart_on_reset::Bool=true, target_fps::Float64=50.0)
-    target = precompute_target(walker)
+    target_poses = load_imitation_target(walker)[(:qpos, :qvel), :, :]
+    target_sensors = precompute_target(walker, target_poses)
     target_timepoint = Ref(0.0)
     target_clip = Ref(0)
     lifetime = Ref(0)
-    cumulative_reward = nothing
-    env = ModularImitationEnv{typeof(walker), typeof(target), typeof(cumulative_reward)}(
-            walker, target, max_target_distance, restart_on_reset, target_fps,
-            target_timepoint, target_clip, lifetime, cumulative_reward)
+    env = ModularImitationEnv(walker, target_poses, target_sensors, max_target_distance,
+                              restart_on_reset, target_fps, target_timepoint, target_clip, lifetime)
     reset!(env)
     return env
 end
@@ -145,7 +144,7 @@ function compute_rewards(env::ModularImitationEnv)
         ),
         leg_L = (
             knee_joint = reward_shape(prop.leg_L.knee_angle, target.leg_L.knee_angle),
-            foot_pos = reward_shape(prop.leg_L.egocentric_hand_pos, target.leg_L.egocentric_hand_pos),
+            foot_pos = reward_shape(prop.leg_L.egocentric_foot_pos, target.leg_L.egocentric_foot_pos),
         ),
         foot_R = (
             toe_joint = reward_shape(prop.foot_R.toe_angle, target.foot_R.toe_angle),
@@ -155,7 +154,7 @@ function compute_rewards(env::ModularImitationEnv)
         ),
         leg_R = (
             knee_joint = reward_shape(prop.leg_R.knee_angle, target.leg_R.knee_angle),
-            foot_pos = reward_shape(prop.leg_R.egocentric_hand_pos, target.leg_R.egocentric_hand_pos),
+            foot_pos = reward_shape(prop.leg_R.egocentric_foot_pos, target.leg_R.egocentric_foot_pos),
         ),
         torso = (
             orientation = cosine_dist(prop.torso.accelerometer, target.torso.accelerometer)
@@ -170,13 +169,13 @@ end
 reward(env::ModularImitationEnv) = map(sum, compute_rewards(env))
 
 function status(env::ModularImitationEnv)
-    target_distance = norm(com_error(env))
+    #target_distance = norm(com_error(env))
     if torso_z(env.walker) < min_torso_z(env.walker)
         return TERMINATED
-    elseif imitation_horizon(env)[end] >= clip_length(env)
+    elseif target_frame(env)+1 >= clip_length(env)
         return TRUNCATED
-    elseif target_distance > env.max_target_distance
-        return TERMINATED
+    #elseif target_distance > env.max_target_distance
+    #    return TERMINATED
     else
         return RUNNING
     end
@@ -186,7 +185,7 @@ function info(env::ModularImitationEnv)
     (
         info(env.walker)...,   
         lifetime = float(env.lifetime[]),
-        cumulative_reward = env.cumulative_reward,
+        #cumulative_reward = env.cumulative_reward,
         compute_rewards(env)...
     )
 end
@@ -198,17 +197,17 @@ function act!(env::ModularImitationEnv, action)
     end
     env.target_timepoint[] += dt(env.walker) * env.walker.n_physics_steps
     env.lifetime[] += 1
-    env.cumulative_reward .+= reward(env)
+    #env.cumulative_reward .+= reward(env)
 end
 
 function reset!(env::ModularImitationEnv, next_clip, next_frame)
     env.lifetime[] = 0
-    env.cumulative_reward .= 0.0
+    #env.cumulative_reward .= 0.0
     env.target_clip[] = next_clip
     env.target_timepoint[] = next_frame / env.target_fps
 
-    start_qpos = view(env.target.qpos, :, target_frame(env), target_clip(env))
-    start_qvel = view(env.target.qvel, :, target_frame(env), target_clip(env))
+    start_qpos = view(env.target_poses.qpos, :, target_frame(env), target_clip(env))
+    start_qvel = view(env.target_poses.qvel, :, target_frame(env), target_clip(env))
     reset!(env.walker, start_qpos, start_qvel)
 end
 
@@ -220,11 +219,11 @@ function reset!(env::ModularImitationEnv)
     end
 end
 
-function duplicate(env::ModularImitationEnv{W, ImTarget, CR}) where {W, ImTarget, CR}
-    new_env = ModularImitationEnv{W, ImTarget, CR}(
-        clone(env.walker), env.target,
+function duplicate(env::ModularImitationEnv)
+    new_env = ModularImitationEnv(
+        clone(env.walker), env.target_poses, env.target_sensors,
         env.max_target_distance, env.restart_on_reset, env.target_fps,
-        Ref(0.0), Ref(0), Ref(0), zero(env.cumulative_reward)
+        Ref(0.0), Ref(0), Ref(0)#, zero(env.cumulative_reward)
     )
     reset!(new_env)
     return new_env
@@ -232,23 +231,22 @@ end
 
 null_action(env::ModularImitationEnv) = null_action(env.walker)
 
-clip_length(env::ModularImitationEnv) = size(env.target)[2]
-n_clips(env::ModularImitationEnv) = size(env.target)[3]
+clip_length(env::ModularImitationEnv) = size(env.target_sensors)[2]
+n_clips(env::ModularImitationEnv) = size(env.target_sensors)[3]
 target_frame(env::ModularImitationEnv) = round(Int64, env.target_timepoint[] * env.target_fps)
 target_clip(env::ModularImitationEnv) = env.target_clip[]
 
 function get_current_target(env::ModularImitationEnv)
     precise_frame = env.target_timepoint[] * env.target_fps
     int_frame = floor(Int64, precise_frame)
-    target = view(env.target, :, int_frame, env.target_clip[])
-    next_target = view(env.target, :, int_frame+1, env.target_clip[])
+    target = view(env.target_sensors, :, int_frame, env.target_clip[])
+    next_target = view(env.target_sensors, :, int_frame+1, env.target_clip[])
     frac_frame = precise_frame - int_frame
     interpolated = (1-frac_frame) .* target .+ frac_frame .* next_target
     return interpolated
 end
 
-function precompute_target(walker::ModularRodent)
-    orig_target = load_imitation_target(walker)
+function precompute_target(walker::ModularRodent, orig_target::ComponentArray)
     _, dur, n_clips = size(orig_target)
     template_prop = proprioception(walker) |> ComponentArray
     new_target = ComponentArray(zeros(length(template_prop), dur, n_clips),
@@ -266,17 +264,16 @@ function precompute_target(walker::ModularRodent)
 end
 
 function Base.show(io::IO, env::ModularImitationEnv)
-    ImLen = im_len(env)
+    #ImLen = im_len(env)
     compact = get(io, :compact, false)
     if compact
-        print(io, "ModularImitationEnv{Walker=")
-        print(io, env.walker)
-        print(io, ", ImLen = $ImLen}")
+        print(io, "ModularImitationEnv{Walker=$(env.walker)}")
     else
         indent = " " ^ get(io, :indent, 0)
-        println(io, "$(indent)ModularImitationEnv{ImLen=$ImLen}")hand
-        show(indented_io, env.reward_spec)hand
+        println(io, "$(indent)ModularImitationEnv")
+        indented_io = IOContext(io, :indent => (get(io, :indent, 0) + 2))
+        show(indented_io, env.walker)
         println(io, "$(indent)  lifetime: $(env.lifetime[])")
-        println(io, "$(indent)  cumulative_reward: $(env.cumulative_reward)")
+        #println(io, "$(indent)  cumulative_reward: $(env.cumulative_reward)")
     end
 end

@@ -17,6 +17,20 @@ function create_sensorindex(model::MuJoCo.Model)
     end |> NamedTuple |> ComponentArrays.Axis
 end
 
+function create_actuatorindex(model::MuJoCo.Model)
+    map(1:model.na) do i
+        start = model.actuator_actadr[i] + 1
+        len  = model.actuator_actnum[i]
+        stop = start + len - 1
+        name = Symbol(MuJoCo.mj_id2name(model, MuJoCo.mjOBJ_ACTUATOR, i-1) |> unsafe_string)
+        if len==1
+            return name=>start
+        else 
+            name=>ComponentArrays.ViewAxis(start:stop, ComponentArrays.Shaped1DAxis((Int64(len),)))
+        end
+    end |> NamedTuple |> ComponentArrays.Axis
+end
+
 function subtree_com(walker::Walker, body::String)
     ind = MuJoCo.NamedAccess.index_by_name(walker.data, MuJoCo.mjOBJ_BODY, body)+1
     SVector{3}(view(walker.data.subtree_com, ind, :))
