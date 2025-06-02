@@ -67,8 +67,7 @@ function prepare_epoch!(multithreadEnv::MultithreadEnv)
 end
 
 function act!(multithreadEnv::MultithreadEnv, auto_reset::Bool=true)
-    #@Threads.threads 
-    for i=1:n_envs(multithreadEnv)
+    @Threads.threads for i=1:n_envs(multithreadEnv)
         env = multithreadEnv.environments[i]
         action = @view multithreadEnv.actions[:, i]
         act!(env, action)

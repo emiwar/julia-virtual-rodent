@@ -86,7 +86,7 @@ function mppo_update!(batch, actor_critic, actor_critic_start_state, actor_criti
             critic_loss = sum((target_values .- new_values).^2) / length(non_final_statevalues)
 
             #Entropy loss
-            entropy_loss = sum(actor_output.entropy_loss) / length(actor_output.entropy_loss)view(collector.actor_outputs.action, :, :, :)
+            entropy_loss = sum(actor_output.entropy_loss) / length(actor_output.entropy_loss)
 
             total_loss = loss_weights.actor * actor_loss + 
                          loss_weights.critic * critic_loss +
