@@ -13,8 +13,8 @@ function ParallelControl(template_state::ComponentVector, template_action::Compo
     actors = map(input_sizes, output_sizes) do input_size, output_size
         Chain(Dense(input_size=>hidden_size, tanh), Dense(hidden_size=>2*output_size, tanh))
     end
-    critics = map(input_sizes, output_sizes) do input_size, output_size
-        Chain(Dense(input_size=>hidden_size, tanh), Dense(hidden_size=>output_size))
+    critics = map(input_sizes) do input_size
+        Chain(Dense(input_size=>hidden_size, tanh), Dense(hidden_size=>1))
     end
     action_sampler = ModularActionSampler(;sigma_min, sigma_max)
     return ParallelControl(actors, critics, action_sampler)
@@ -31,8 +31,8 @@ ParallelControl(template_state::NamedTuple; kwargs...) = ParallelControl(Compone
 #   pc.action_sampler(actor_outputs)
 #end
 
-function actor(pc::ParallelControl, states::ComponentArray, reset_index)
-    (
+function actor(pc::ParallelControl, states::ComponentArray, reset_index, action=nothing)
+    pc.action_sampler((
         hand_L = pc.actors.hand_L(states.hand_L |> autodiff_clean),
         hand_R = pc.actors.hand_R(states.hand_R |> autodiff_clean),
         arm_L = pc.actors.arm_L(states.arm_L |> autodiff_clean),
@@ -43,7 +43,7 @@ function actor(pc::ParallelControl, states::ComponentArray, reset_index)
         leg_R = pc.actors.leg_R(states.leg_R |> autodiff_clean),
         torso = pc.actors.torso(states.torso |> autodiff_clean),
         head = pc.actors.head(states.head |> autodiff_clean),
-    ) |> pc.action_sampler
+    ), action)
 end
 
 function critic(pc::ParallelControl, states::ComponentArray)

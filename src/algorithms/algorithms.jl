@@ -15,4 +15,6 @@ using ..Timers: lap
 include("collectors.jl")
 include("ppo.jl")
 
+include("multiagent_ppo.jl")
+
 end

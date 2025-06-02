@@ -37,6 +37,11 @@ function ModularActionSampler(; sigma_min=0.0f0, sigma_max=1.0f0)
         if isnothing(action)
             xsi = Flux.ignore(()->randn_like(mu))
             action = map((m,s,x) -> m .+ s .* x, mu, sigma, xsi)
+        else
+            action = Flux.ignore() do
+                #TODO: Hack to assume gradients don't flow through actions (will be true for PPO, though)
+                NamedTuple((k=>getproperty(action, k)) for k in keys(first(getaxes(action))))
+            end
         end
         loglikelihood = map(action, mu, sigma) do a, m, s
             -0.5f0 .* sum(((a .- m) ./ s).^2; dims=1) .- sum(log.(s); dims=1)

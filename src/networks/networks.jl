@@ -2,7 +2,7 @@ module Networks
 import Random
 
 import CUDA
-using ComponentArrays: ComponentArray, ComponentVector, getdata
+using ComponentArrays: ComponentArray, ComponentVector, getdata, getaxes
 using Flux
 using ConcreteStructs
 
