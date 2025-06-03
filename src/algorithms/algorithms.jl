@@ -5,6 +5,7 @@ import CUDA
 import Flux
 import Statistics
 using ProgressMeter
+using LinearAlgebra: norm, dot
 
 using ComponentArrays: ComponentArray, FlatAxis, getaxes, getdata
 using ConcreteStructs

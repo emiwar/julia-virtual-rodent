@@ -137,6 +137,7 @@ function proprioception(rodent::ModularRodent)
             lumbar_bend = sensor(rodent, "torso/lumbar_bend" |> Symbol |> Val),
             lumbar_twist = sensor(rodent, "torso/lumbar_twist" |> Symbol |> Val),
             linvel = sensor(rodent, "torso/linvel" |> Symbol |> Val),
+            height_above_ground = 10.0 * torso_z(rodent),
         ),
         head = (
             accelerometer = 0.1 * SVector{3}(sensor(rodent, "head/accelerometer" |> Symbol |> Val)),
@@ -150,6 +151,7 @@ function proprioception(rodent::ModularRodent)
             cervical_extend = sensor(rodent, "head/cervical_extend" |> Symbol |> Val),
             cervical_bend = sensor(rodent, "head/cervical_bend" |> Symbol |> Val),
             cervical_twist = sensor(rodent, "head/cervical_twist" |> Symbol |> Val),
+            height_above_ground = 10.0 * subtree_com(rodent, "walker/skull")[3]
         )
     )
 end
@@ -159,6 +161,12 @@ function reset!(rodent::ModularRodent, start_qpos, start_qvel)
     rodent.data.qpos .= start_qpos
     rodent.data.qpos[3] += rodent.spawn_z_offset
     rodent.data.qvel .= start_qvel
+    #Run model forward to get correct initial state
+    MuJoCo.forward!(rodent.model, rodent.data)
+end
+
+function reset!(rodent::ModularRodent)
+    MuJoCo.reset!(rodent.model, rodent.data)
     #Run model forward to get correct initial state
     MuJoCo.forward!(rodent.model, rodent.data)
 end
@@ -211,7 +219,7 @@ function set_ctrl!(rodent::ModularRodent, action)
 
     rodent.actuators.hip_L_supinate     = clamp(action.leg_L[1], -1.0, 1.0)
     rodent.actuators.hip_L_abduct       = clamp(action.leg_L[2], -1.0, 1.0)
-    rodent.actuators.hip_L_extend        = clamp(action.leg_L[3], -1.0, 1.0)
+    rodent.actuators.hip_L_extend       = clamp(action.leg_L[3], -1.0, 1.0)
     rodent.actuators.knee_L             = clamp(action.leg_L[4], -1.0, 1.0)
 
     rodent.actuators.ankle_L            = clamp(action.foot_L[1], -1.0, 1.0)
@@ -219,7 +227,7 @@ function set_ctrl!(rodent::ModularRodent, action)
 
     rodent.actuators.hip_R_supinate     = clamp(action.leg_R[1], -1.0, 1.0)
     rodent.actuators.hip_R_abduct       = clamp(action.leg_R[2], -1.0, 1.0)
-    rodent.actuators.hip_R_extend        = clamp(action.leg_R[3], -1.0, 1.0)
+    rodent.actuators.hip_R_extend       = clamp(action.leg_R[3], -1.0, 1.0)
     rodent.actuators.knee_R             = clamp(action.leg_R[4], -1.0, 1.0)
 
     rodent.actuators.ankle_R            = clamp(action.foot_R[1], -1.0, 1.0)

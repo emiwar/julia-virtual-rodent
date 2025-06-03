@@ -716,11 +716,12 @@
     <tendonpos name="torso/lumbar_bend" tendon="walker/lumbar_bend"/>
     <tendonpos name="torso/lumbar_twist" tendon="walker/lumbar_twist"/>
     <subtreelinvel name="torso/linvel" body="walker/torso"/>
+    <framezaxis name="torso/zaxis" objtype="xbody" objname="walker/torso"/>
 
     <accelerometer name="head/accelerometer" site="walker/head"/>
     <framepos name="head/egocentric_pos" objtype="xbody" objname="walker/skull" reftype="xbody" refname="walker/torso" />
     <framexaxis name="head/xaxis" objtype="xbody" objname="walker/skull" reftype="xbody" refname="walker/torso" />
-    <framezaxis name="head/zaxis" objtype="xbody" objname="walker/skull" reftype="xbody" refname="walker/torso" />
+    <framezaxis name="head/zaxis" objtype="xbody" objname="walker/skull" />
     <force name="head/neck_force" site="walker/head" />
     <jointpos name="head/atlas" joint="walker/atlas" />
     <jointpos name="head/atlant_extend" joint="walker/vertebra_atlant_extend" />

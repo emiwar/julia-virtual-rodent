@@ -100,10 +100,18 @@ function mppo_update!(batch, actor_critic, actor_critic_start_state, actor_criti
                 logdict["losses/actor_loss"]   = actor_loss
                 logdict["losses/entropy_loss"] = entropy_loss
                 logdict["losses/regularization_loss"]  = Networks.regularization_loss(actor_critic)
-                #merge!(logdict, quantile_dict("critic/predicted_values", new_values))
-                #merge!(logdict, quantile_dict("critic/target_values", target_values))
-                #merge!(logdict, quantile_dict("critic/advantages", advantages))
-                #logdict["critic/explained_variance"] = 1.0 - critic_loss / Statistics.var(target_values)
+                for (i, k) in enumerate(keys(first(getaxes(advantages))))
+                    new_v = view(new_values, i, :, :)
+                    target_v =  view(target_values, i, :, :)
+                    merge!(logdict, quantile_dict("critic/$k/predicted_values", new_v))
+                    merge!(logdict, quantile_dict("critic/$k/target_values", target_v))
+                    #merge!(logdict, quantile_dict("critic/advantages", advantages))
+                    
+                    err = sum((target_v .- new_v).^2) / length(new_v)
+                    logdict["critic/$k/error"] = err
+                    var = sum(target_v.^2) / length(target_v) - (sum(target_v) / length(target_v))^2
+                    logdict["critic/$k/unexplained_variance"] = err / var
+                end
             end
             return total_loss
         end
