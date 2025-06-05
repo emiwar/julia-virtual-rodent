@@ -7,11 +7,11 @@ include("environments/environments.jl")
 include("networks/networks.jl")
 include("algorithms/algorithms.jl")
 
-params = parse_config(["configs/modular_imitation.toml", "-wandb.run_name", "StandUp-{NOW}"])#ARGS)
+params = parse_config(ARGS)#["configs/modular_imitation.toml"])#, "-wandb.run_name", "StandUp-{NOW}"])#ARGS)
 
 #Setup the environment
 walker = Environments.ModularRodent(;params.physics...)
-template_env = Environments.ModularStandupEnv(walker)#; params.imitation...)
+template_env = Environments.ModularImitationEnv(walker; params.imitation...)
 
 #MPI or local multithreading of environment
 if params.rollout.use_mpi

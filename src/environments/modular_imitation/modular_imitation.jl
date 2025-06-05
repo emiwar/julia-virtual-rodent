@@ -95,7 +95,12 @@ function state(env::ModularImitationEnv)
         ),
         torso = (
             proprioception = prop.torso,
-            imitation_target = (accelerometer = target.torso.accelerometer,)
+            imitation_target = (
+                zaxis = target.torso.zaxis,
+                lumbar_bend   = target.torso.lumbar_bend,
+                lumbar_twist  = target.torso.lumbar_twist,
+                lumbar_extend = target.torso.lumbar_extend,
+            )
         ),
         head = (
             proprioception = prop.head,
@@ -109,7 +114,7 @@ function state(env::ModularImitationEnv)
 end
 
 function compute_rewards(env::ModularImitationEnv)
-    reward_shape(a, b) = exp(-(norm(a-b)/0.25)^2)
+    reward_shape(a, b) = exp(-(norm(a-b)/0.5))
     cosine_dist(a, b) = dot(a, b) / norm(a) / norm(b)
     prop = proprioception(env.walker)
     target = get_current_target(env)
@@ -118,7 +123,7 @@ function compute_rewards(env::ModularImitationEnv)
             finger_joint = reward_shape(prop.hand_L.finger_angle, target.hand_L.finger_angle),
             wrist_joint = reward_shape(prop.hand_L.wrist_angle, target.hand_L.wrist_angle),
             orientation = dot(prop.hand_L.xaxis, target.hand_L.xaxis),
-            hand_pos = reward_shape(prop.hand_L.egocentric_hand_pos, target.hand_L.egocentric_hand_pos),
+            #hand_pos = reward_shape(prop.hand_L.egocentric_hand_pos, target.hand_L.egocentric_hand_pos),
         ),
         arm_L = (
             hand_pos = reward_shape(prop.arm_L.egocentric_hand_pos, target.arm_L.egocentric_hand_pos),
@@ -129,7 +134,7 @@ function compute_rewards(env::ModularImitationEnv)
             finger_joint = reward_shape(prop.hand_R.finger_angle, target.hand_R.finger_angle),
             wrist_joint = reward_shape(prop.hand_R.wrist_angle, target.hand_R.wrist_angle),
             orientation = dot(prop.hand_R.xaxis, target.hand_R.xaxis),
-            hand_pos = reward_shape(prop.hand_R.egocentric_hand_pos, target.hand_R.egocentric_hand_pos),
+            #hand_pos = reward_shape(prop.hand_R.egocentric_hand_pos, target.hand_R.egocentric_hand_pos),
         ),
         arm_R = (
             hand_pos = reward_shape(prop.arm_R.egocentric_hand_pos, target.arm_R.egocentric_hand_pos),
@@ -140,28 +145,38 @@ function compute_rewards(env::ModularImitationEnv)
             toe_joint = reward_shape(prop.foot_L.toe_angle, target.foot_L.toe_angle),
             ankle_joint = reward_shape(prop.foot_L.ankle_angle, target.foot_L.ankle_angle),
             orientation = dot(prop.foot_L.xaxis, target.foot_L.xaxis),
-            foot_pos = reward_shape(prop.foot_L.egocentric_foot_pos, target.foot_L.egocentric_foot_pos),
+            #foot_pos = reward_shape(prop.foot_L.egocentric_foot_pos, target.foot_L.egocentric_foot_pos),
         ),
         leg_L = (
             knee_joint = reward_shape(prop.leg_L.knee_angle, target.leg_L.knee_angle),
+            knee_pos = reward_shape(prop.leg_L.egocentric_knee_pos, target.leg_L.egocentric_knee_pos),
             foot_pos = reward_shape(prop.leg_L.egocentric_foot_pos, target.leg_L.egocentric_foot_pos),
+            orientation = dot(prop.foot_L.xaxis, target.foot_L.xaxis),
         ),
         foot_R = (
             toe_joint = reward_shape(prop.foot_R.toe_angle, target.foot_R.toe_angle),
             ankle_joint = reward_shape(prop.foot_R.ankle_angle, target.foot_R.ankle_angle),
             orientation = dot(prop.foot_R.xaxis, target.foot_R.xaxis),
-            foot_pos = reward_shape(prop.foot_R.egocentric_foot_pos, target.foot_R.egocentric_foot_pos),
+            #foot_pos = reward_shape(prop.foot_R.egocentric_foot_pos, target.foot_R.egocentric_foot_pos),
         ),
         leg_R = (
             knee_joint = reward_shape(prop.leg_R.knee_angle, target.leg_R.knee_angle),
+            knee_pos = reward_shape(prop.leg_R.egocentric_knee_pos, target.leg_R.egocentric_knee_pos),
             foot_pos = reward_shape(prop.leg_R.egocentric_foot_pos, target.leg_R.egocentric_foot_pos),
+            orientation = dot(prop.foot_R.xaxis, target.foot_R.xaxis),
         ),
         torso = (
-            orientation = cosine_dist(prop.torso.accelerometer, target.torso.accelerometer)
+            orientation_z = cosine_dist(prop.torso.zaxis, target.torso.zaxis),
+            height_above_ground = reward_shape(prop.torso.height_above_ground, target.torso.height_above_ground),
+            lumbar_bend   = reward_shape(prop.torso.lumbar_bend,   target.torso.lumbar_bend),
+            lumbar_twist  = reward_shape(prop.torso.lumbar_twist,  target.torso.lumbar_twist),
+            lumbar_extend = reward_shape(prop.torso.lumbar_extend, target.torso.lumbar_extend),
         ),
         head = (
-            orientation = cosine_dist(prop.head.accelerometer, target.head.accelerometer),
-            head_pos = reward_shape(prop.head.egocentric_pos, target.head.egocentric_pos)
+            orientation_x = cosine_dist(prop.head.xaxis, target.head.xaxis),
+            orientation_z = cosine_dist(prop.head.zaxis, target.head.zaxis),
+            head_pos = reward_shape(prop.head.egocentric_pos, target.head.egocentric_pos),
+            mandible = reward_shape(prop.head.mandible, target.head.mandible),
         )
     )
 end
@@ -182,11 +197,20 @@ function status(env::ModularImitationEnv)
 end
 
 function info(env::ModularImitationEnv)
+    prop = proprioception(env.walker)
+    target = get_current_target(env)
     (
         info(env.walker)...,   
         lifetime = float(env.lifetime[]),
+        head_pos_error   = norm(prop.head.egocentric_pos - target.head.egocentric_pos),
+        hand_L_pos_error = norm(prop.hand_L.egocentric_hand_pos - target.hand_L.egocentric_hand_pos),
+        foot_L_pos_error = norm(prop.foot_L.egocentric_foot_pos - target.foot_L.egocentric_foot_pos),
+        finger_L_joint_err = first(prop.hand_L.finger_angle - target.hand_L.finger_angle),
+        wrist_L_joint_err  = first(prop.hand_L.wrist_angle  - target.hand_L.wrist_angle),
+        torso_height_above_ground = prop.torso.height_above_ground,
+        torso_z_dot = prop.torso.zaxis[3],
         #cumulative_reward = env.cumulative_reward,
-        compute_rewards(env)...
+        reward_terms = compute_rewards(env),
     )
 end
 
