@@ -1,6 +1,6 @@
 <mujoco model="floor">
   <compiler boundmass="1.0000000000000001e-05" boundinertia="9.9999999999999994e-12" coordinate="local" angle="radian" eulerseq="xyz"/>
-  <option timestep="0.002" cone="elliptic" noslip_iterations="5" noslip_tolerance="0"/>
+  <option timestep="0.001" cone="elliptic" noslip_iterations="5" noslip_tolerance="0"/>
   <size njmax="8000" nconmax="4000"/>
   <visual>
     <quality shadowsize="2048"/>
@@ -161,7 +161,7 @@
     <geom name="groundplane" class="/" type="plane" size="8 8 0.25" material="groundplane"/>
     <camera name="top_camera" class="/" fovy="10.058147163570894" pos="0 0 100" quat="1 0 0 0"/>
     <body name="walker/">
-      <freejoint name="walker/"/>
+      <!-- freejoint name="walker/"/ -->
       <body name="walker/torso" pos="0.030995260545782881 2.058524937651458e-07 0.065089572631199674">
         <light name="walker/tracking_light" class="walker/" mode="trackcom" pos="0 0 3"/>
         <camera name="walker/back" class="walker/" mode="trackcom" pos="-1 0 0.5" xyaxes="0 -1 0 1 0 2"/>

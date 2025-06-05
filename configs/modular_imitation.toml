@@ -16,8 +16,9 @@ sigma_min = 0.01
 sigma_max = 0.5
 
 [physics]
+fixed_root = false
 spawn_z_offset = 0.01
-n_physics_steps = 5
+n_physics_steps = 10
 min_torso_z = 0.035
 
 [reward]
@@ -28,10 +29,10 @@ restart_on_reset = true
 target_fps = 50.0
 
 [training]
-checkpoint_interval = 2500
+checkpoint_interval = 1000
 loss_weight_critic = 0.5
 loss_weight_actor = 1.0
-loss_weight_entropy = -0.0
+loss_weight_entropy = -0.001
 learning_rate = 0.0001
 n_miniepochs = 1
 gamma = 0.8

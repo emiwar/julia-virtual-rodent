@@ -8,8 +8,12 @@
     spawn_z_offset::Float64
 end
 
-function ModularRodent(;min_torso_z::Float64, spawn_z_offset::Float64, n_physics_steps::Int64)
-    model_path = joinpath(@__DIR__, "../assets/rodent_extra_sensors.xml")
+function ModularRodent(;fixed_root::Bool=false, min_torso_z::Float64, spawn_z_offset::Float64, n_physics_steps::Int64)
+    if fixed_root
+        model_path = joinpath(@__DIR__, "..", "assets", "rodent_extra_sensors_fixed_root.xml")
+    else
+        model_path = joinpath(@__DIR__, "..", "assets", "rodent_extra_sensors.xml")
+    end
     model = MuJoCo.load_model(model_path)
     data = MuJoCo.init_data(model)
     sensors = ComponentArray(view(data.sensordata, :), create_sensorindex(model))
@@ -96,6 +100,7 @@ function proprioception(rodent::ModularRodent)
         ),
         leg_L = (
             egocentric_foot_pos = 20.0 * SVector{3}(sensor(rodent, "leg_L/egocentric_foot_pos" |> Symbol |> Val)),
+            egocentric_knee_pos = 20.0 * SVector{3}(sensor(rodent, "leg_L/egocentric_knee_pos" |> Symbol |> Val)),
             hip_supinate = sensor(rodent, "leg_L/hip_supinate" |> Symbol |> Val),
             hip_abduct = sensor(rodent, "leg_L/hip_abduct" |> Symbol |> Val),
             hip_extend = sensor(rodent, "leg_L/hip_extend" |> Symbol |> Val),
@@ -121,6 +126,7 @@ function proprioception(rodent::ModularRodent)
         ),
         leg_R = (
             egocentric_foot_pos = 20.0 * SVector{3}(sensor(rodent, "leg_R/egocentric_foot_pos" |> Symbol |> Val)),
+            egocentric_knee_pos = 20.0 * SVector{3}(sensor(rodent, "leg_R/egocentric_knee_pos" |> Symbol |> Val)),
             hip_supinate = sensor(rodent, "leg_R/hip_supinate" |> Symbol |> Val),
             hip_abduct = sensor(rodent, "leg_R/hip_abduct" |> Symbol |> Val),
             hip_extend = sensor(rodent, "leg_R/hip_extend" |> Symbol |> Val),
@@ -133,6 +139,7 @@ function proprioception(rodent::ModularRodent)
         ),
         torso = (
             accelerometer = 0.1 * SVector{3}(sensor(rodent, "torso/accelerometer" |> Symbol |> Val)),
+            zaxis = sensor(rodent, "torso/zaxis" |> Symbol |> Val),
             lumbar_extend = sensor(rodent, "torso/lumbar_extend" |> Symbol |> Val),
             lumbar_bend = sensor(rodent, "torso/lumbar_bend" |> Symbol |> Val),
             lumbar_twist = sensor(rodent, "torso/lumbar_twist" |> Symbol |> Val),
@@ -196,9 +203,9 @@ appendages_order(rodent::ModularRodent) = appendages_order(typeof(rodent))
 function null_action(rodent::ModularRodent)
     (
         hand_L = (@SVector zeros(2)),
-        arm_L  = (@SVector zeros(4)),
+        arm_L  = (@SVector zeros(6)),
         hand_R = (@SVector zeros(2)), 
-        arm_R  = (@SVector zeros(4)),
+        arm_R  = (@SVector zeros(6)),
         foot_L = (@SVector zeros(2)),
         leg_L  = (@SVector zeros(4)),
         foot_R = (@SVector zeros(2)),
@@ -209,6 +216,7 @@ function null_action(rodent::ModularRodent)
 end
 
 function set_ctrl!(rodent::ModularRodent, action)
+    @assert all(a->all(isfinite, a), action)
     rodent.actuators.lumbar_extend     = clamp(action.torso[1], -1.0, 1.0)
     rodent.actuators.lumbar_bend       = clamp(action.torso[2], -1.0, 1.0)
     rodent.actuators.lumbar_twist      = clamp(action.torso[3], -1.0, 1.0)
@@ -239,7 +247,9 @@ function set_ctrl!(rodent::ModularRodent, action)
     rodent.actuators.scapula_L_supinate = clamp(action.arm_L[1], -1.0, 1.0)
     rodent.actuators.scapula_L_abduct   = clamp(action.arm_L[2], -1.0, 1.0)
     rodent.actuators.scapula_L_extend   = clamp(action.arm_L[3], -1.0, 1.0)
-    rodent.actuators.elbow_L            = clamp(action.arm_L[4], -1.0, 1.0)
+    rodent.actuators.shoulder_L         = clamp(action.arm_L[4], -1.0, 1.0)
+    rodent.actuators.shoulder_sup_L     = clamp(action.arm_L[5], -1.0, 1.0)
+    rodent.actuators.elbow_L            = clamp(action.arm_L[6], -1.0, 1.0)
 
     rodent.actuators.wrist_L            = clamp(action.hand_L[1], -1.0, 1.0)
     rodent.actuators.finger_L           = clamp(action.hand_L[2], -1.0, 1.0)
@@ -247,7 +257,9 @@ function set_ctrl!(rodent::ModularRodent, action)
     rodent.actuators.scapula_R_supinate = clamp(action.arm_R[1], -1.0, 1.0)
     rodent.actuators.scapula_R_abduct   = clamp(action.arm_R[2], -1.0, 1.0)
     rodent.actuators.scapula_R_extend   = clamp(action.arm_R[3], -1.0, 1.0)
-    rodent.actuators.elbow_R            = clamp(action.arm_R[4], -1.0, 1.0)
+    rodent.actuators.shoulder_R         = clamp(action.arm_R[4], -1.0, 1.0)
+    rodent.actuators.shoulder_sup_R     = clamp(action.arm_R[5], -1.0, 1.0)
+    rodent.actuators.elbow_R            = clamp(action.arm_R[6], -1.0, 1.0)
 
     rodent.actuators.wrist_R            = clamp(action.hand_R[1], -1.0, 1.0)
     rodent.actuators.finger_R           = clamp(action.hand_R[2], -1.0, 1.0)

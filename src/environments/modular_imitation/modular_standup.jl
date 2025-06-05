@@ -1,13 +1,15 @@
-@concrete struct ModularStandupEnv <: AbstractEnv
+@concrete terse struct ModularStandupEnv <: AbstractEnv
     walker<:Walker
-    target<:NamedTuple
+    target<:ComponentVector
     lifetime::Base.RefValue{Int64}
     randomTrunc::Base.RefValue{Bool}
 end
 
 function ModularStandupEnv(walker)
     reset!(walker)
-    target = proprioception(walker)
+    #walker_clone = clone(walker)
+    #MuJoCo.forward!(walker_clone.model, walker_clone.data)
+    target = ComponentVector(proprioception(walker))
     env = ModularStandupEnv(walker, target, Ref(0), Ref(false))
     reset!(env)
     return env
@@ -85,7 +87,12 @@ function state(env::ModularStandupEnv)
         ),
         torso = (
             proprioception = prop.torso,
-            imitation_target = (accelerometer = target.torso.accelerometer,)
+            imitation_target = (
+                zaxis = target.torso.zaxis,
+                lumbar_bend   = target.torso.lumbar_bend,
+                lumbar_twist  = target.torso.lumbar_twist,
+                lumbar_extend = target.torso.lumbar_extend,
+            )
         ),
         head = (
             proprioception = prop.head,
@@ -99,7 +106,7 @@ function state(env::ModularStandupEnv)
 end
 
 function compute_rewards(env::ModularStandupEnv)
-    reward_shape(a, b) = exp(-(norm(a-b)/0.25)^2)
+    reward_shape(a, b) = exp(-(norm(a-b)/0.5))#exp(-(norm(a-b)/0.25)^2)
     cosine_dist(a, b) = dot(a, b) / norm(a) / norm(b)
     prop = proprioception(env.walker)
     target = env.target
@@ -134,7 +141,9 @@ function compute_rewards(env::ModularStandupEnv)
         ),
         leg_L = (
             knee_joint = reward_shape(prop.leg_L.knee_angle, target.leg_L.knee_angle),
+            knee_pos = reward_shape(prop.leg_L.egocentric_knee_pos, target.leg_L.egocentric_knee_pos),
             foot_pos = reward_shape(prop.leg_L.egocentric_foot_pos, target.leg_L.egocentric_foot_pos),
+            orientation = dot(prop.foot_L.xaxis, target.foot_L.xaxis),
         ),
         foot_R = (
             toe_joint = reward_shape(prop.foot_R.toe_angle, target.foot_R.toe_angle),
@@ -144,13 +153,20 @@ function compute_rewards(env::ModularStandupEnv)
         ),
         leg_R = (
             knee_joint = reward_shape(prop.leg_R.knee_angle, target.leg_R.knee_angle),
+            knee_pos = reward_shape(prop.leg_R.egocentric_knee_pos, target.leg_R.egocentric_knee_pos),
             foot_pos = reward_shape(prop.leg_R.egocentric_foot_pos, target.leg_R.egocentric_foot_pos),
+            orientation = dot(prop.foot_R.xaxis, target.foot_R.xaxis),
         ),
         torso = (
+            orientation_z = cosine_dist(prop.torso.zaxis, target.torso.zaxis),
             height_above_ground = reward_shape(prop.torso.height_above_ground, target.torso.height_above_ground),
+            lumbar_bend   = reward_shape(prop.torso.lumbar_bend,   target.torso.lumbar_bend),
+            lumbar_twist  = reward_shape(prop.torso.lumbar_twist,  target.torso.lumbar_twist),
+            lumbar_extend = reward_shape(prop.torso.lumbar_extend, target.torso.lumbar_extend),
         ),
         head = (
-            orientation = cosine_dist(prop.head.zaxis, target.head.zaxis),
+            orientation_x = cosine_dist(prop.head.xaxis, target.head.xaxis),
+            orientation_z = cosine_dist(prop.head.zaxis, target.head.zaxis),
             head_pos = reward_shape(prop.head.egocentric_pos, target.head.egocentric_pos),
             mandible = reward_shape(prop.head.mandible, target.head.mandible),
         )
@@ -179,8 +195,9 @@ function info(env::ModularStandupEnv)
         finger_L_joint_err = first(prop.hand_L.finger_angle - target.hand_L.finger_angle),
         wrist_L_joint_err  = first(prop.hand_L.wrist_angle  - target.hand_L.wrist_angle),
         torso_height_above_ground = prop.torso.height_above_ground,
+        torso_z_dot = prop.torso.zaxis[3],
         #cumulative_reward = env.cumulative_reward,
-        compute_rewards(env)...
+        reward_terms = compute_rewards(env),
     )
 end
 

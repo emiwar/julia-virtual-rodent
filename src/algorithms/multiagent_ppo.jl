@@ -74,7 +74,7 @@ function mppo_update!(batch, actor_critic, actor_critic_start_state, actor_criti
         lap(:ppo_gradients)
         gradients = Flux.gradient(actor_critic) do actor_critic
             actor_output = Networks.actor(actor_critic, non_final_states, reset_mask, actions)
-            new_likelihoods = vcat(actor_output.loglikelihood...)
+            new_likelihoods = vcat(actor_output.loglikelihood...) #BUG!!!! Can't assume column orders are the same as in advantages
             likelihood_ratios = exp.(new_likelihoods .- batch_loglikelihoods)
             grad_cand1 = likelihood_ratios .* advantages
             clamped_ratios = clamp.(likelihood_ratios, 1.0f0 - clip_range, 1.0f0 + clip_range)
@@ -92,7 +92,7 @@ function mppo_update!(batch, actor_critic, actor_critic_start_state, actor_criti
                          loss_weights.critic * critic_loss +
                          loss_weights.entropy * entropy_loss +
                          Networks.regularization_loss(actor_critic)
-         
+
             Flux.ignore() do
                 lap(:logging_ppo_stats)
                 logdict["losses/total_loss"]   = total_loss

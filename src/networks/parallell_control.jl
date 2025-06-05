@@ -35,12 +35,12 @@ ParallelControl(template_state::NamedTuple; kwargs...) = ParallelControl(Compone
 function actor(pc::ParallelControl, states::ComponentArray, reset_index, action=nothing)
     pc.action_sampler((
         hand_L = pc.actors.hand_L(states.hand_L |> autodiff_clean),
-        hand_R = pc.actors.hand_R(states.hand_R |> autodiff_clean),
         arm_L = pc.actors.arm_L(states.arm_L |> autodiff_clean),
+        hand_R = pc.actors.hand_R(states.hand_R |> autodiff_clean),
         arm_R = pc.actors.arm_R(states.arm_R |> autodiff_clean),
         foot_L = pc.actors.foot_L(states.foot_L |> autodiff_clean),
-        foot_R = pc.actors.foot_R(states.foot_R |> autodiff_clean),
         leg_L = pc.actors.leg_L(states.leg_L |> autodiff_clean),
+        foot_R = pc.actors.foot_R(states.foot_R |> autodiff_clean),
         leg_R = pc.actors.leg_R(states.leg_R |> autodiff_clean),
         torso = pc.actors.torso(states.torso |> autodiff_clean),
         head = pc.actors.head(states.head |> autodiff_clean),
@@ -50,15 +50,15 @@ end
 function critic(pc::ParallelControl, states::ComponentArray)
     (
         hand_L = pc.critics.hand_L(states.hand_L |> autodiff_clean) .* 2f1,
-        hand_R = pc.critics.hand_R(states.hand_R |> autodiff_clean) .* 2f1,
         arm_L = pc.critics.arm_L(states.arm_L |> autodiff_clean) .* 2f1,
+        hand_R = pc.critics.hand_R(states.hand_R |> autodiff_clean) .* 2f1,
         arm_R = pc.critics.arm_R(states.arm_R |> autodiff_clean) .* 2f1,
         foot_L = pc.critics.foot_L(states.foot_L |> autodiff_clean) .* 2f1,
-        foot_R = pc.critics.foot_R(states.foot_R |> autodiff_clean) .* 2f1,
         leg_L = pc.critics.leg_L(states.leg_L |> autodiff_clean) .* 2f1,
+        foot_R = pc.critics.foot_R(states.foot_R |> autodiff_clean) .* 2f1,
         leg_R = pc.critics.leg_R(states.leg_R |> autodiff_clean) .* 2f1,
-        torso = pc.critics.torso(states.torso |> autodiff_clean) .* 2f1,
-        head = pc.critics.head(states.head |> autodiff_clean) .* 2f1,
+        torso = pc.critics.torso(states.torso |> autodiff_clean) .* 5f1,
+        head = pc.critics.head(states.head |> autodiff_clean) .* 5f1,
     )
 end
 
