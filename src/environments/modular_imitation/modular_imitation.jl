@@ -40,7 +40,7 @@ function state(env::ModularImitationEnv)
             proprioception = prop.arm_L,
             imitation_target = (
                 hand_pos = target.arm_L.egocentric_hand_pos,
-                elbow_pos = target.arm_L.egocentric_elbow_pos,
+                #elbow_pos = target.arm_L.egocentric_elbow_pos,
                 elbow_angle = target.arm_L.elbow_angle,
             )
         ),
@@ -57,7 +57,7 @@ function state(env::ModularImitationEnv)
             proprioception = prop.arm_R,
             imitation_target = (
                 hand_pos = target.arm_R.egocentric_hand_pos,
-                elbow_pos = target.arm_R.egocentric_elbow_pos,
+                #elbow_pos = target.arm_R.egocentric_elbow_pos,
                 elbow_angle = target.arm_R.elbow_angle,
             )
         ),
@@ -100,6 +100,7 @@ function state(env::ModularImitationEnv)
                 lumbar_bend   = target.torso.lumbar_bend,
                 lumbar_twist  = target.torso.lumbar_twist,
                 lumbar_extend = target.torso.lumbar_extend,
+                height_above_ground = target.torso.height_above_ground,
             )
         ),
         head = (
@@ -127,7 +128,7 @@ function compute_rewards(env::ModularImitationEnv)
         ),
         arm_L = (
             hand_pos = reward_shape(prop.arm_L.egocentric_hand_pos, target.arm_L.egocentric_hand_pos),
-            elbow_pos = reward_shape(prop.arm_L.egocentric_elbow_pos, target.arm_L.egocentric_elbow_pos),
+            #elbow_pos = reward_shape(prop.arm_L.egocentric_elbow_pos, target.arm_L.egocentric_elbow_pos),
             elbow_joint = reward_shape(prop.hand_L.elbow_angle, target.hand_L.elbow_angle),
         ),
         hand_R = (
@@ -138,7 +139,7 @@ function compute_rewards(env::ModularImitationEnv)
         ),
         arm_R = (
             hand_pos = reward_shape(prop.arm_R.egocentric_hand_pos, target.arm_R.egocentric_hand_pos),
-            elbow_pos = reward_shape(prop.arm_R.egocentric_elbow_pos, target.arm_R.egocentric_elbow_pos),
+            #elbow_pos = reward_shape(prop.arm_R.egocentric_elbow_pos, target.arm_R.egocentric_elbow_pos),
             elbow_joint = reward_shape(prop.hand_R.elbow_angle, target.hand_R.elbow_angle),
         ),
         foot_L = (
@@ -149,7 +150,7 @@ function compute_rewards(env::ModularImitationEnv)
         ),
         leg_L = (
             knee_joint = reward_shape(prop.leg_L.knee_angle, target.leg_L.knee_angle),
-            knee_pos = reward_shape(prop.leg_L.egocentric_knee_pos, target.leg_L.egocentric_knee_pos),
+            #knee_pos = reward_shape(prop.leg_L.egocentric_knee_pos, target.leg_L.egocentric_knee_pos),
             foot_pos = reward_shape(prop.leg_L.egocentric_foot_pos, target.leg_L.egocentric_foot_pos),
             orientation = dot(prop.foot_L.xaxis, target.foot_L.xaxis),
         ),
@@ -161,7 +162,7 @@ function compute_rewards(env::ModularImitationEnv)
         ),
         leg_R = (
             knee_joint = reward_shape(prop.leg_R.knee_angle, target.leg_R.knee_angle),
-            knee_pos = reward_shape(prop.leg_R.egocentric_knee_pos, target.leg_R.egocentric_knee_pos),
+            #knee_pos = reward_shape(prop.leg_R.egocentric_knee_pos, target.leg_R.egocentric_knee_pos),
             foot_pos = reward_shape(prop.leg_R.egocentric_foot_pos, target.leg_R.egocentric_foot_pos),
             orientation = dot(prop.foot_R.xaxis, target.foot_R.xaxis),
         ),

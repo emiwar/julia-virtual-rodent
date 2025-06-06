@@ -1,6 +1,6 @@
 [wandb]
 project = "Modular-Imitation"
-run_name = "ShortTest-{NOW}"
+run_name = "NewEgocentricCalc-{NOW}"
 
 [rollout]
 n_envs = 256

@@ -6,7 +6,7 @@ include("../src/environments/environments.jl")
 include("../src/networks/networks.jl")
 include("../src/algorithms/algorithms.jl")
 
-walker = Environments.ModularRodent(min_torso_z=0.035, spawn_z_offset=0.01, n_physics_steps=5)
+walker = Environments.ModularRodent(min_torso_z=0.035, spawn_z_offset=0.01, n_physics_steps=10)
 env = Environments.ModularImitationEnv(walker; max_target_distance=0.1)
 
 Environments.proprioception(walker)
