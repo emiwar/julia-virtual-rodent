@@ -1,6 +1,6 @@
 [wandb]
 project = "Modular-Imitation"
-run_name = "NewEgocentricCalc-{NOW}"
+run_name = "ExtraPelvicTarget-{NOW}"
 
 [rollout]
 n_envs = 256

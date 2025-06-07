@@ -714,6 +714,7 @@
     <force name="leg_R/hip_force" site="walker/knee_R" />
 
     <accelerometer name="torso/accelerometer" site="walker/back"/>
+    <gyro name="torso/gyro" site="walker/back"/>
     <tendonpos name="torso/lumbar_extend" tendon="walker/lumbar_extend"/>
     <tendonpos name="torso/lumbar_bend" tendon="walker/lumbar_bend"/>
     <tendonpos name="torso/lumbar_twist" tendon="walker/lumbar_twist"/>
@@ -731,6 +732,7 @@
     <tendonpos name="head/cervical_extend" tendon="walker/cervical_extend"/>
     <tendonpos name="head/cervical_bend" tendon="walker/cervical_bend"/>
     <tendonpos name="head/cervical_twist" tendon="walker/cervical_twist"/>
-
+    
+    <framezaxis name="pelvis/zaxis" objtype="xbody" objname="walker/pelvis" />
   </sensor>
 </mujoco>
