@@ -75,6 +75,7 @@ function state(env::ModularImitationEnv)
             imitation_target = (
                 foot_pos = target.leg_L.egocentric_foot_pos,
                 knee_angle = target.leg_L.knee_angle,
+                pelvis_z = target.leg_L.pelvis_zaxis,
             )
         ),
         foot_R = (
@@ -91,6 +92,7 @@ function state(env::ModularImitationEnv)
             imitation_target = (
                 foot_pos = target.leg_R.egocentric_foot_pos,
                 knee_angle = target.leg_R.knee_angle,
+                pelvis_z = target.leg_R.pelvis_zaxis,
             )
         ),
         torso = (
@@ -190,6 +192,8 @@ function status(env::ModularImitationEnv)
     prop = proprioception(env.walker)
     target = get_current_target(env)
     if dot(prop.torso.zaxis, target.torso.zaxis) < 0.5
+        return TERMINATED
+    elseif dot(prop.leg_L.pelvis_zaxis, target.leg_L.pelvis_zaxis) < 0.5
         return TERMINATED
     elseif prop.torso.height_above_ground < env.walker.min_torso_z
         return TERMINATED

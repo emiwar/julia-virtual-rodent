@@ -19,7 +19,7 @@ sigma_max = 0.5
 fixed_root = false
 spawn_z_offset = 0.01
 n_physics_steps = 10
-min_torso_z = 0.045
+min_torso_z = 0.050
 
 [reward]
 
