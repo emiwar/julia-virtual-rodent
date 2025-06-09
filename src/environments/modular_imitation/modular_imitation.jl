@@ -191,11 +191,11 @@ reward(env::ModularImitationEnv) = map(sum, compute_rewards(env))
 function status(env::ModularImitationEnv)
     prop = proprioception(env.walker)
     target = get_current_target(env)
-    if dot(prop.torso.zaxis, target.torso.zaxis) < 0.5
-        return TERMINATED
-    elseif dot(prop.leg_L.pelvis_zaxis, target.leg_L.pelvis_zaxis) < 0.5
-        return TERMINATED
-    elseif prop.torso.height_above_ground < env.walker.min_torso_z
+    #if dot(prop.torso.zaxis, target.torso.zaxis) < 0.5
+    #    return TERMINATED
+    #elseif dot(prop.leg_L.pelvis_zaxis, target.leg_L.pelvis_zaxis) < 0.5
+    #    return TERMINATED
+    if prop.torso.height_above_ground/10.0 < env.walker.min_torso_z
         return TERMINATED
     elseif target_frame(env)+1 >= clip_length(env)
         return TRUNCATED

@@ -1,6 +1,6 @@
 [wandb]
 project = "Modular-Imitation"
-run_name = "ExtraPelvicTarget-{NOW}"
+run_name = "MinTorsoZOnly-{NOW}"
 
 [rollout]
 n_envs = 256
@@ -19,7 +19,7 @@ sigma_max = 0.5
 fixed_root = false
 spawn_z_offset = 0.01
 n_physics_steps = 10
-min_torso_z = 0.050
+min_torso_z = 0.045
 
 [reward]
 
@@ -35,7 +35,7 @@ loss_weight_actor = 1.0
 loss_weight_entropy = -0.001
 learning_rate = 0.0001
 n_miniepochs = 1
-gamma = 0.8
+gamma = 0.9
 loss_weight_kl = 0.1
 lambda = 0.95
 clip_range = 0.2
