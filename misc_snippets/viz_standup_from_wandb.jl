@@ -15,8 +15,8 @@ using ProgressMeter
 using ComponentArrays: ComponentArray, getdata
 include("../src/utils/wandb_logger.jl")
 
-T = 3000
-wandb_run_id = "wwkw996t" #"624ifrxa" # #"7mzfglak"
+T = 2000
+wandb_run_id = "8q1ev2fb" #"624ifrxa" # #"7mzfglak"
 
 params, weights_file_name = load_from_wandb(wandb_run_id, r"step-.*"; project="emiwar-team/Modular-Imitation")
 
@@ -48,9 +48,10 @@ ProgressMeter.@showprogress for t=1:T
         Flux.reset!(actor_critic)
     end
 end
-dot(prop.torso.zaxis, target.torso.zaxis)
+
 new_data = MuJoCo.init_data(walker.model)
 MuJoCo.visualise!(walker.model, new_data, trajectories = physics_states)
 
-Environments.state(env)
-Environments.compute_rewards(env)
+using PrettyPrinting
+Environments.state(env) |> pprint
+Environments.compute_rewards(env) |> pprint

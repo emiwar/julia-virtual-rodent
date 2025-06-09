@@ -117,6 +117,7 @@ function proprioception(rodent::ModularRodent)
             knee_force = sensor(rodent, "leg_L/knee_force" |> Symbol |> Val),
             hip_force = sensor(rodent, "leg_L/hip_force" |> Symbol |> Val),
             pelvis_zaxis = torso_yawmat(rodent) * SVector{3}(sensor(rodent, "pelvis/zaxis" |> Symbol |> Val)),
+            hip_height = site_z(rodent, "walker/hip_L") .* 20.0,
         ),
         foot_R = (
             sole_contact = sensor(rodent, "foot_R/sole_contact" |> Symbol |> Val),
@@ -146,6 +147,7 @@ function proprioception(rodent::ModularRodent)
             knee_force = sensor(rodent, "leg_R/knee_force" |> Symbol |> Val),
             hip_force = sensor(rodent, "leg_R/hip_force" |> Symbol |> Val),
             pelvis_zaxis = torso_yawmat(rodent) * SVector{3}(sensor(rodent, "pelvis/zaxis" |> Symbol |> Val)),
+            hip_height = site_z(rodent, "walker/hip_R") .* 20.0,
         ),
         torso = (
             accelerometer = 0.1 * SVector{3}(sensor(rodent, "torso/accelerometer" |> Symbol |> Val)),
@@ -220,8 +222,8 @@ function torso_yawmat(rodent::ModularRodent)
     @SMatrix [cos(yaw) -sin(yaw) 0.0; sin(yaw) cos(yaw) 0.0; 0.0 0.0 1.0]
 end
 
-function body_relpos(rodent::ModularRodent, site::String)
-    bodyind = MuJoCo.NamedAccess.index_by_name(rodent.data, MuJoCo.mjOBJ_BODY, site)+1
+function body_relpos(rodent::ModularRodent, body::String)
+    bodyind = MuJoCo.NamedAccess.index_by_name(rodent.data, MuJoCo.mjOBJ_BODY, body)+1
     bodypos = SVector{3}(view(rodent.data.xpos, bodyind, :))
 
     torsoind = MuJoCo.NamedAccess.index_by_name(rodent.data, MuJoCo.mjOBJ_BODY, "walker/torso")+1
@@ -230,6 +232,11 @@ function body_relpos(rodent::ModularRodent, site::String)
     torsoxy = SVector(torsopos[1], torsopos[2], 0.0)
     rotmat = torso_yawmat(rodent)
     return rotmat * (bodypos - torsoxy)
+end
+
+function site_z(rodent::ModularRodent, site::String)
+    siteind = MuJoCo.NamedAccess.index_by_name(rodent.data, MuJoCo.mjOBJ_SITE, site)+1
+    return rodent.data.site_xpos[siteind, 3]
 end
 
 function null_action(rodent::ModularRodent)
