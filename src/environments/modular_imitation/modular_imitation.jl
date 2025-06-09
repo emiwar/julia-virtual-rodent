@@ -149,9 +149,9 @@ function compute_rewards(env::ModularImitationEnv)
             #foot_pos = reward_shape(prop.foot_L.egocentric_foot_pos, target.foot_L.egocentric_foot_pos),
         ),
         leg_L = (
-            #knee_joint = reward_shape(prop.leg_L.knee_angle, target.leg_L.knee_angle),
+            knee_joint = reward_shape(prop.leg_L.knee_angle, target.leg_L.knee_angle),
             #knee_pos = reward_shape(prop.leg_L.egocentric_knee_pos, target.leg_L.egocentric_knee_pos),
-            #foot_pos = reward_shape(prop.leg_L.egocentric_foot_pos, target.leg_L.egocentric_foot_pos),
+            foot_pos = reward_shape(prop.leg_L.egocentric_foot_pos, target.leg_L.egocentric_foot_pos),
             #orientation = dot(prop.foot_L.xaxis, target.foot_L.xaxis),
             pelvis_z = dot(prop.leg_L.pelvis_zaxis, target.leg_L.pelvis_zaxis),
         ),
@@ -162,9 +162,9 @@ function compute_rewards(env::ModularImitationEnv)
             #foot_pos = reward_shape(prop.foot_R.egocentric_foot_pos, target.foot_R.egocentric_foot_pos),
         ),
         leg_R = (
-            #knee_joint = reward_shape(prop.leg_R.knee_angle, target.leg_R.knee_angle),
+            knee_joint = reward_shape(prop.leg_R.knee_angle, target.leg_R.knee_angle),
             #knee_pos = reward_shape(prop.leg_R.egocentric_knee_pos, target.leg_R.egocentric_knee_pos),
-            #foot_pos = reward_shape(prop.leg_R.egocentric_foot_pos, target.leg_R.egocentric_foot_pos),
+            foot_pos = reward_shape(prop.leg_R.egocentric_foot_pos, target.leg_R.egocentric_foot_pos),
             #orientation = dot(prop.foot_R.xaxis, target.foot_R.xaxis),
             pelvis_z = dot(prop.leg_R.pelvis_zaxis, target.leg_R.pelvis_zaxis),
         ),
@@ -188,8 +188,10 @@ reward(env::ModularImitationEnv) = map(sum, compute_rewards(env))
 
 function status(env::ModularImitationEnv)
     prop = proprioception(env.walker)
-+   target = get_current_target(env)
+    target = get_current_target(env)
     if dot(prop.torso.zaxis, target.torso.zaxis) < 0.5
+        return TERMINATED
+    elseif prop.torso.height_above_ground < env.walker.min_torso_z
         return TERMINATED
     elseif target_frame(env)+1 >= clip_length(env)
         return TRUNCATED
