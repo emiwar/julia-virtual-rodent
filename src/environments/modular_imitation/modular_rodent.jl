@@ -8,6 +8,9 @@
     spawn_z_offset::Float64
 end
 
+#TODO: Create a destrutor that deallocates the UnsafeArrays `sensors` and `actuators` safely,
+#before deallocating the `data` object
+
 function ModularRodent(;fixed_root::Bool=false, min_torso_z::Float64, spawn_z_offset::Float64, n_physics_steps::Int64)
     if fixed_root
         model_path = joinpath(@__DIR__, "..", "assets", "rodent_extra_sensors_fixed_root.xml")
@@ -43,6 +46,7 @@ function proprioception(rodent::ModularRodent)
             xaxis = sensor(rodent, "hand_L/xaxis" |> Symbol |> Val),
             finger_force = sensor(rodent, "hand_L/finger_force" |> Symbol |> Val),
             wrist_force = sensor(rodent, "hand_L/wrist_force" |> Symbol |> Val),
+            elbow_height = Environments.site_z(rodent, "walker/elbow_L") * 20.0,
         ),
         arm_L = (
             #egocentric_hand_pos = 20.0 * SVector{3}(sensor(rodent, "arm_L/egocentric_hand_pos" |> Symbol |> Val)),
@@ -59,6 +63,8 @@ function proprioception(rodent::ModularRodent)
             wrist_force = sensor(rodent, "arm_L/wrist_force" |> Symbol |> Val),
             elbow_force = sensor(rodent, "arm_L/elbow_force" |> Symbol |> Val),
             shoulder_force = sensor(rodent, "arm_L/shoulder_force" |> Symbol |> Val),
+            elbow_height = Environments.site_z(rodent, "walker/elbow_L") * 20.0,
+            shoulder_height = Environments.site_z(rodent, "walker/shoulder_L") * 20.0,
         ),
         hand_R = (
             palm_contact = sensor(rodent, "hand_R/palm_contact" |> Symbol |> Val),
@@ -72,6 +78,7 @@ function proprioception(rodent::ModularRodent)
             xaxis = sensor(rodent, "hand_R/xaxis" |> Symbol |> Val),
             finger_force = sensor(rodent, "hand_R/finger_force" |> Symbol |> Val),
             wrist_force = sensor(rodent, "hand_R/wrist_force" |> Symbol |> Val),
+            elbow_height = Environments.site_z(rodent, "walker/elbow_R") * 20.0,
         ),
         arm_R = (
             #egocentric_hand_pos = 20.0 * SVector{3}(sensor(rodent, "arm_R/egocentric_hand_pos" |> Symbol |> Val)),
@@ -88,6 +95,8 @@ function proprioception(rodent::ModularRodent)
             wrist_force = sensor(rodent, "arm_R/wrist_force" |> Symbol |> Val),
             elbow_force = sensor(rodent, "arm_R/elbow_force" |> Symbol |> Val),
             shoulder_force = sensor(rodent, "arm_R/shoulder_force" |> Symbol |> Val),
+            elbow_height = Environments.site_z(rodent, "walker/elbow_R") * 20.0,
+            shoulder_height = Environments.site_z(rodent, "walker/shoulder_R") * 20.0,
         ),
         foot_L = (
             sole_contact = sensor(rodent, "foot_L/sole_contact" |> Symbol |> Val),
