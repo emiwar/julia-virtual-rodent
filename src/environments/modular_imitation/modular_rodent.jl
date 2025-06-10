@@ -50,7 +50,7 @@ function proprioception(rodent::ModularRodent)
         ),
         arm_L = (
             #egocentric_hand_pos = 20.0 * SVector{3}(sensor(rodent, "arm_L/egocentric_hand_pos" |> Symbol |> Val)),
-            #egocentric_elbow_pos = 20.0 * SVector{3}(sensor(rodent, "arm_L/egocentric_elbow_pos" |> Symbol |> Val)),
+            egocentric_elbow_pos = 20.0 * SVector{3}(sensor(rodent, "arm_L/egocentric_elbow_pos" |> Symbol |> Val)),
             egocentric_hand_pos = body_relpos(rodent, "walker/hand_L") .* 20,
             wrist_angle = sensor(rodent, "arm_L/wrist_angle" |> Symbol |> Val),
             elbow_angle = sensor(rodent, "arm_L/elbow_angle" |> Symbol |> Val),
@@ -82,7 +82,7 @@ function proprioception(rodent::ModularRodent)
         ),
         arm_R = (
             #egocentric_hand_pos = 20.0 * SVector{3}(sensor(rodent, "arm_R/egocentric_hand_pos" |> Symbol |> Val)),
-            #egocentric_elbow_pos = 20.0 * SVector{3}(sensor(rodent, "arm_R/egocentric_elbow_pos" |> Symbol |> Val)),
+            egocentric_elbow_pos = 20.0 * SVector{3}(sensor(rodent, "arm_R/egocentric_elbow_pos" |> Symbol |> Val)),
             egocentric_hand_pos = body_relpos(rodent, "walker/hand_R") .* 20,
             wrist_angle = sensor(rodent, "arm_R/wrist_angle" |> Symbol |> Val),
             elbow_angle = sensor(rodent, "arm_R/elbow_angle" |> Symbol |> Val),
@@ -114,7 +114,7 @@ function proprioception(rodent::ModularRodent)
         ),
         leg_L = (
             #egocentric_foot_pos = 20.0 * SVector{3}(sensor(rodent, "leg_L/egocentric_foot_pos" |> Symbol |> Val)),
-            #egocentric_knee_pos = 20.0 * SVector{3}(sensor(rodent, "leg_L/egocentric_knee_pos" |> Symbol |> Val)),
+            egocentric_knee_pos = 20.0 * SVector{3}(sensor(rodent, "leg_L/egocentric_knee_pos" |> Symbol |> Val)),
             egocentric_foot_pos = body_relpos(rodent, "walker/foot_L") .* 20,
             hip_supinate = sensor(rodent, "leg_L/hip_supinate" |> Symbol |> Val),
             hip_abduct = sensor(rodent, "leg_L/hip_abduct" |> Symbol |> Val),
@@ -144,7 +144,7 @@ function proprioception(rodent::ModularRodent)
         ),
         leg_R = (
             #egocentric_foot_pos = 20.0 * SVector{3}(sensor(rodent, "leg_R/egocentric_foot_pos" |> Symbol |> Val)),
-            #egocentric_knee_pos = 20.0 * SVector{3}(sensor(rodent, "leg_R/egocentric_knee_pos" |> Symbol |> Val)),
+            egocentric_knee_pos = 20.0 * SVector{3}(sensor(rodent, "leg_R/egocentric_knee_pos" |> Symbol |> Val)),
             egocentric_foot_pos = body_relpos(rodent, "walker/foot_R") .* 20,
             hip_supinate = sensor(rodent, "leg_R/hip_supinate" |> Symbol |> Val),
             hip_abduct = sensor(rodent, "leg_R/hip_abduct" |> Symbol |> Val),

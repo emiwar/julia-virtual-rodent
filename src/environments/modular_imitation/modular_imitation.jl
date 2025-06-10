@@ -162,10 +162,10 @@ function compute_rewards(env::ModularImitationEnv)
         ),
         leg_L = (
             knee_joint = reward_shape(prop.leg_L.knee_angle, target.leg_L.knee_angle),
-            #knee_pos = reward_shape(prop.leg_L.egocentric_knee_pos, target.leg_L.egocentric_knee_pos),
+            knee_pos = reward_shape(prop.leg_L.egocentric_knee_pos, target.leg_L.egocentric_knee_pos),
             foot_pos = reward_shape(prop.leg_L.egocentric_foot_pos, target.leg_L.egocentric_foot_pos),
-            #orientation = dot(prop.foot_L.xaxis, target.foot_L.xaxis),
-            #pelvis_z = dot(prop.leg_L.pelvis_zaxis, target.leg_L.pelvis_zaxis),
+            orientation = dot(prop.foot_L.xaxis, target.foot_L.xaxis),
+            pelvis_z = dot(prop.leg_L.pelvis_zaxis, target.leg_L.pelvis_zaxis),
             hip_height = reward_shape(prop.leg_L.hip_height, target.leg_L.hip_height),
         ),
         foot_R = (
@@ -176,10 +176,11 @@ function compute_rewards(env::ModularImitationEnv)
         ),
         leg_R = (
             knee_joint = reward_shape(prop.leg_R.knee_angle, target.leg_R.knee_angle),
-            #knee_pos = reward_shape(prop.leg_R.egocentric_knee_pos, target.leg_R.egocentric_knee_pos),
+            knee_pos = reward_shape(prop.leg_R.egocentric_knee_pos, target.leg_R.egocentric_knee_pos),
             foot_pos = reward_shape(prop.leg_R.egocentric_foot_pos, target.leg_R.egocentric_foot_pos),
-            #orientation = dot(prop.foot_R.xaxis, target.foot_R.xaxis),
-            hip_height = reward_shape(prop.leg_R.hip_height, target.leg_R.hip_height),
+            orientation = dot(prop.foot_R.xaxis, target.foot_R.xaxis),
+	    pelvis_z = dot(prop.leg_L.pelvis_zaxis, target.leg_L.pelvis_zaxis),
+	    hip_height = reward_shape(prop.leg_R.hip_height, target.leg_R.hip_height),
         ),
         torso = (
             orientation_z = cosine_dist(prop.torso.zaxis, target.torso.zaxis),

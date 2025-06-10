@@ -3,15 +3,15 @@ project = "Modular-Imitation"
 run_name = "MinTorsoZOnly-{NOW}"
 
 [rollout]
-n_envs = 256
+n_envs = 512
 reset_on_epoch_start = false
 n_epochs = 100000
 n_steps_per_epoch = 16
 use_mpi = false
 
 [network]
-actor_hidden_size = 64
-critic_hidden_size = 64
+actor_hidden_size = 128
+critic_hidden_size = 128
 sigma_min = 0.01
 sigma_max = 0.5
 
@@ -32,7 +32,7 @@ target_fps = 50.0
 checkpoint_interval = 1000
 loss_weight_critic = 0.5
 loss_weight_actor = 1.0
-loss_weight_entropy = -0.001
+loss_weight_entropy = -0.01
 learning_rate = 0.0001
 n_miniepochs = 1
 gamma = 0.9
