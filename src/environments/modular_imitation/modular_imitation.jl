@@ -209,6 +209,10 @@ function status(env::ModularImitationEnv)
     #    return TERMINATED
     if prop.torso.height_above_ground/10.0 < env.walker.min_torso_z
         return TERMINATED
+    elseif prop.leg_L.hip_height / target.leg_L.hip_height < 0.8
+        return TERMINATED
+    elseif prop.leg_R.hip_height / target.leg_R.hip_height < 0.8
+        return TERMINATED
     elseif target_frame(env)+1 >= clip_length(env)
         return TRUNCATED
     #elseif target_distance > env.max_target_distance
