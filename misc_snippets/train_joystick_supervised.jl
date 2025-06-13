@@ -1,25 +1,23 @@
-import Wandb
-import BSON
 import Dates
 import TOML
+import Wandb
+import BSON
+import Flux
 import PythonCall
-import CUDA
-import Flux; using Flux: Chain, gpu, Dense, Adam
-using StaticArrays: SVector, SMatrix
+using StaticArrays
 using ProgressMeter
+using ComponentArrays
 include("../src/utils/parse_config.jl")
-include("../src/utils/component_tensor.jl")
 include("../src/utils/profiler.jl")
-include("../src/utils/wandb_logger.jl")
 include("../src/environments/environments.jl")
 include("../src/networks/networks.jl")
-include("../src/networks/utils.jl")
 include("../src/algorithms/algorithms.jl")
+include("../src/utils/wandb_logger.jl")
 
-using .Networks: EncDec, VariationalBottleneck, GaussianActionSampler#, split_halfway
-using .ComponentTensors: array
+#using .Networks: EncDec, VariationalBottleneck, GaussianActionSampler, split_halfway
+#using .ComponentTensors: array
 
-wandb_run_id = "zf8zs3kq" #"7mzfglak"
+wandb_run_id = "14af3zyc" #"zf8zs3kq" #"7mzfglak"
 
 params, weights_file_name = load_from_wandb(wandb_run_id, r"step-.*")
 falloffs = params.reward.falloff
@@ -32,7 +30,8 @@ actor_critic = BSON.load(weights_file_name)[:actor_critic] |> Flux.gpu
 walker = Environments.Rodent(;merge(params.physics, (;body_scale=1.0))...)
 reward_spec = Environments.EqualRewardWeights(;reward_params...)
 target = Environments.load_imitation_target(walker)
-template_env = Environments.ImitationEnv(walker, reward_spec, target; params.imitation...)
+imparams = merge(params.imitation, (target_fps = 50.0,))#float(params.imitation.target_fps),))
+template_env = Environments.ImitationEnv(walker, reward_spec, target; imparams...)
 n_envs = size(target)[3]
 env = Environments.MultithreadEnv(template_env, n_envs)
 batch_dims = (500, n_envs)
@@ -55,13 +54,12 @@ Flux.reset!(actor_critic)
 Environments.prepare_epoch!(env)
 ProgressMeter.@showprogress for t=1:batch_dims[1]
     reset_mask = Environments.status(env) .!= Environments.RUNNING
-    #
-    imitation_target = Environments.state(env).imitation_target |> array
-    proprioception = Environments.state(env).proprioception |> array
-    latent = rollout!(actor_critic.encoder, imitation_target |> gpu, reset_mask |> gpu)
-    decoder_input = cat(latent, proprioception |> gpu; dims=1)
-    decoder_output = rollout!(actor_critic.decoder, decoder_input, reset_mask |> gpu)
-    mu, unscaled_sigma = split_halfway(decoder_output; dim=1)
+    imitation_target = Environments.state(env).imitation_target |> getdata
+    proprioception = Environments.state(env).proprioception |> getdata
+    latent = Networks.rollout!(actor_critic.encoder, imitation_target |> Flux.gpu, reset_mask |> Flux.gpu)
+    decoder_input = cat(latent, proprioception |> Flux.gpu; dims=1)
+    decoder_output = Networks.rollout!(actor_critic.decoder, decoder_input, reset_mask |> Flux.gpu)
+    mu, unscaled_sigma = Networks.split_halfway(decoder_output; dim=1)
     Environments.act!(env, mu)
     all_walkers = map(e->e.walker, env.environments)
     push!(torso_xpos,  Environments.body_xpos.(all_walkers, "walker/torso"))
@@ -98,6 +96,7 @@ for t=eachindex(commands)
     trainoutputs[:, t] = commands_latents[t]
 end
 
+using Flux
 model = Chain(Dense(3 => 1024, tanh), Dense(1024 => 1024, tanh), Dense(1024=>60)) #Dense(1024=>1024, tanh),
 
 traininputs = gpu(traininputs)
@@ -121,7 +120,7 @@ end
 
 joystick_model = Flux.cpu(model)
 
-BSON.bson("joystick_model5.bson"; joystick_model)
+BSON.bson("joystick_mlp_$(wandb_run_id).bson"; joystick_model)
 
 import Plots
 Plots.plot(losses)
