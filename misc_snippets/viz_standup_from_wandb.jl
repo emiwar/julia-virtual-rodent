@@ -16,7 +16,7 @@ using ComponentArrays: ComponentArray, getdata
 include("../src/utils/wandb_logger.jl")
 
 T = 2000
-wandb_run_id = "ci0hnl94" #"624ifrxa" # #"7mzfglak"
+wandb_run_id = "g7zblopl" #"624ifrxa" # #"7mzfglak"
 
 params, weights_file_name = load_from_wandb(wandb_run_id, r"step-.*"; project="emiwar-team/Modular-Imitation")
 

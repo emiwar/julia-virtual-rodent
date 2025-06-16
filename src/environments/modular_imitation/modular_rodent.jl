@@ -65,6 +65,7 @@ function proprioception(rodent::ModularRodent)
             shoulder_force = sensor(rodent, "arm_L/shoulder_force" |> Symbol |> Val),
             elbow_height = Environments.site_z(rodent, "walker/elbow_L") * 20.0,
             shoulder_height = Environments.site_z(rodent, "walker/shoulder_L") * 20.0,
+            hand_linvel = torso_yawmat(rodent) * SVector{3}(sensor(rodent, "arm_L/hand_linvel" |> Symbol |> Val)),
         ),
         hand_R = (
             palm_contact = sensor(rodent, "hand_R/palm_contact" |> Symbol |> Val),
@@ -97,6 +98,7 @@ function proprioception(rodent::ModularRodent)
             shoulder_force = sensor(rodent, "arm_R/shoulder_force" |> Symbol |> Val),
             elbow_height = Environments.site_z(rodent, "walker/elbow_R") * 20.0,
             shoulder_height = Environments.site_z(rodent, "walker/shoulder_R") * 20.0,
+            hand_linvel = torso_yawmat(rodent) * SVector{3}(sensor(rodent, "arm_R/hand_linvel" |> Symbol |> Val)),
         ),
         foot_L = (
             sole_contact = sensor(rodent, "foot_L/sole_contact" |> Symbol |> Val),
@@ -127,6 +129,8 @@ function proprioception(rodent::ModularRodent)
             hip_force = sensor(rodent, "leg_L/hip_force" |> Symbol |> Val),
             pelvis_zaxis = torso_yawmat(rodent) * SVector{3}(sensor(rodent, "pelvis/zaxis" |> Symbol |> Val)),
             hip_height = site_z(rodent, "walker/hip_L") .* 20.0,
+            hip_accelerometer = 0.1 * SVector{3}(sensor(rodent, "leg_L/hip_accelerometer" |> Symbol |> Val)),
+            hip_gyro = 0.1 * SVector{3}(sensor(rodent, "leg_L/hip_gyro" |> Symbol |> Val)),
         ),
         foot_R = (
             sole_contact = sensor(rodent, "foot_R/sole_contact" |> Symbol |> Val),
@@ -157,6 +161,8 @@ function proprioception(rodent::ModularRodent)
             hip_force = sensor(rodent, "leg_R/hip_force" |> Symbol |> Val),
             pelvis_zaxis = torso_yawmat(rodent) * SVector{3}(sensor(rodent, "pelvis/zaxis" |> Symbol |> Val)),
             hip_height = site_z(rodent, "walker/hip_R") .* 20.0,
+            hip_accelerometer = 0.1 * SVector{3}(sensor(rodent, "leg_R/hip_accelerometer" |> Symbol |> Val)),
+            hip_gyro = 0.1 * SVector{3}(sensor(rodent, "leg_R/hip_gyro" |> Symbol |> Val)),
         ),
         torso = (
             accelerometer = 0.1 * SVector{3}(sensor(rodent, "torso/accelerometer" |> Symbol |> Val)),
@@ -182,7 +188,14 @@ function proprioception(rodent::ModularRodent)
             cervical_extend = sensor(rodent, "head/cervical_extend" |> Symbol |> Val),
             cervical_bend = sensor(rodent, "head/cervical_bend" |> Symbol |> Val),
             cervical_twist = sensor(rodent, "head/cervical_twist" |> Symbol |> Val),
+            linvel = sensor(rodent, "head/linvel" |> Symbol |> Val),
             #height_above_ground = 10.0 * subtree_com(rodent, "walker/skull")[3]
+        ),
+        shared = (
+            torso_height_above_ground = body_relpos(rodent, "walker/torso")[3] * 10.0,
+            torso_accelerometer = 0.1 * SVector{3}(sensor(rodent, "torso/accelerometer" |> Symbol |> Val)),
+            torso_gyro = 0.1 * SVector{3}(sensor(rodent, "torso/gyro" |> Symbol |> Val)),
+            pelvis_zaxis = torso_yawmat(rodent) * SVector{3}(sensor(rodent, "pelvis/zaxis" |> Symbol |> Val)),
         )
     )
 end
