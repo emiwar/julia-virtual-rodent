@@ -639,7 +639,7 @@
     <force name="arm_L/wrist_force" site="walker/wrist_L" />
     <force name="arm_L/elbow_force" site="walker/elbow_L" />
     <force name="arm_L/shoulder_force" site="walker/shoulder_L" />
-    <framelinvel name="arm_L/hand_linvel" objtype="xbody" objname="walker/hand_L">
+    <framelinvel name="arm_L/hand_linvel" objtype="xbody" objname="walker/hand_L" />
     
     <touch name="hand_R/palm_contact" site="walker/palm_R"/>
     <framepos name="hand_R/egocentric_hand_pos" objtype="xbody" objname="walker/hand_R" reftype="xbody" refname="walker/torso" />
@@ -665,7 +665,7 @@
     <force name="arm_R/wrist_force" site="walker/wrist_R" />
     <force name="arm_R/elbow_force" site="walker/elbow_R" />
     <force name="arm_R/shoulder_force" site="walker/shoulder_R" />
-    <framelinvel name="arm_R/hand_linvel" objtype="xbody" objname="walker/hand_R">
+    <framelinvel name="arm_R/hand_linvel" objtype="xbody" objname="walker/hand_R" />
 
     <touch name="foot_L/sole_contact" site="walker/sole_L"/>
     <touch name="foot_L/heel_contact" site="walker/heel_L"/>
@@ -738,7 +738,7 @@
     <tendonpos name="head/cervical_extend" tendon="walker/cervical_extend"/>
     <tendonpos name="head/cervical_bend" tendon="walker/cervical_bend"/>
     <tendonpos name="head/cervical_twist" tendon="walker/cervical_twist"/>
-    <framelinvel name="head/linvel" objtype="xbody" objname="walker/skull" reftype="xbody" refname="walker/torso">
+    <framelinvel name="head/linvel" objtype="xbody" objname="walker/skull" reftype="xbody" refname="walker/torso" />
     
     <framezaxis name="pelvis/zaxis" objtype="xbody" objname="walker/pelvis" />
   </sensor>
