@@ -216,9 +216,9 @@ function status(env::ModularImitationEnv)
     #    return TERMINATED
     if prop.torso.height_above_ground/10.0 < env.walker.min_torso_z
         return TERMINATED
-    elseif prop.leg_L.hip_height / target.leg_L.hip_height < 0.8
+    elseif prop.leg_L.hip_height / target.leg_L.hip_height < 0.7
         return TERMINATED
-    elseif prop.leg_R.hip_height / target.leg_R.hip_height < 0.8
+    elseif prop.leg_R.hip_height / target.leg_R.hip_height < 0.7
         return TERMINATED
     elseif target_frame(env)+1 >= clip_length(env)
         return TRUNCATED
@@ -297,7 +297,7 @@ target_frame(env::ModularImitationEnv) = round(Int64, env.target_timepoint[] * e
 target_clip(env::ModularImitationEnv) = env.target_clip[]
 
 function get_current_target(env::ModularImitationEnv)
-    precise_frame = 1.0 #env.target_timepoint[] * env.target_fps
+    precise_frame = env.target_timepoint[] * env.target_fps
     int_frame = floor(Int64, precise_frame)
     target = view(env.target_sensors, :, int_frame, env.target_clip[])
     next_target = view(env.target_sensors, :, int_frame+1, env.target_clip[])

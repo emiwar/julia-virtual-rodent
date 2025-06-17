@@ -1,6 +1,6 @@
 [wandb]
 project = "Modular-Imitation"
-run_name = "MinTorsoZOnly-{NOW}"
+run_name = "BackToFullImitation-{NOW}"
 
 [rollout]
 n_envs = 512
@@ -19,7 +19,7 @@ sigma_max = 0.5
 fixed_root = false
 spawn_z_offset = 0.01
 n_physics_steps = 10
-min_torso_z = 0.045
+min_torso_z = 0.035
 
 [reward]
 
@@ -32,7 +32,7 @@ target_fps = 50.0
 checkpoint_interval = 1000
 loss_weight_critic = 0.5
 loss_weight_actor = 1.0
-loss_weight_entropy = -0.01
+loss_weight_entropy = -0.005
 learning_rate = 0.0001
 n_miniepochs = 1
 gamma = 0.9
