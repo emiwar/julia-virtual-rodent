@@ -83,18 +83,18 @@ function prepare_epoch!(mpiEnv::MpiEnv)
     MPI.Gather!(raw_infos(base_env),  raw_infos(mpiEnv), MPI.COMM_WORLD)
 end
 
-function act!(mpiEnv::MpiEnvRoot, actions)
+function act!(mpiEnv::MpiEnvRoot, actions, auto_reset::Bool=true)
     lap(:rollout_action_to_cpu)
     copyto!(mpiEnv.actions, actions)
-    step!(mpiEnv)
+    step!(mpiEnv, auto_reset)
 end
 
-function step!(mpiEnv::MpiEnv)
+function step!(mpiEnv::MpiEnv, auto_reset::Bool=true)
     base_env = mpiEnv.base_env
     lap(:mpi_scatter_actions)
     MPI.Scatter!(actions(mpiEnv), actions(base_env), MPI.COMM_WORLD)
     lap(:rollout_envs)
-    act!(base_env)
+    act!(base_env, auto_reset)
     lap(:mpi_wait_for_workers)
     MPI.Barrier(MPI.COMM_WORLD)
     lap(:mpi_gather_state)
