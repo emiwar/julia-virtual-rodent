@@ -30,7 +30,7 @@ function CuCollector(env, template_actor, steps_per_batch)
         rewards = ComponentArray(CUDA.zeros(reward_size, n_envs, steps_per_batch),
                                  (getaxes(template_reward)[1], FlatAxis(), FlatAxis()))
     else
-        @assert template_reward isa Number
+        @assert size(template_reward) == (n_envs,)
         rewards = CUDA.zeros(n_envs, steps_per_batch)
     end
     status = CUDA.zeros(UInt8, n_envs, steps_per_batch+1)
@@ -68,7 +68,7 @@ function collect_epoch!(collector::Collector, networks, auto_reset=true)
         lap(:rollout_move_to_gpu)
         collector.states[:, :, t+1] = Environments.state(collector.env)
         collector.infos[:, :, t+1] = Environments.info(collector.env)
-        if ndims(collector.rewards) == 1
+        if ndims(collector.rewards) == 2
             collector.rewards[:, t] = Environments.reward(collector.env)
         else
             collector.rewards[:, :, t] = Environments.reward(collector.env)
