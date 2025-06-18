@@ -1,0 +1,41 @@
+[wandb]
+project = "Modular-Imitation"
+run_name = "FootPos-{NOW}"
+
+[rollout]
+n_envs = 512
+reset_on_epoch_start = false
+n_epochs = 10000
+n_steps_per_epoch = 16
+use_mpi = false
+
+[network]
+actor_hidden_size = 128
+critic_hidden_size = 128
+sigma_min = 0.01
+sigma_max = 0.5
+
+[physics]
+fixed_root = false
+spawn_z_offset = 0.01
+n_physics_steps = 10
+min_torso_z = 0.035
+
+[reward]
+
+[imitation]
+max_target_distance = 0.1
+restart_on_reset = true
+target_fps = 50.0
+
+[training]
+checkpoint_interval = 250
+loss_weight_critic = 0.5
+loss_weight_actor = 1.0
+loss_weight_entropy = -0.005
+learning_rate = 0.0001
+n_miniepochs = 1
+gamma = 0.9
+loss_weight_kl = 0.1
+lambda = 0.95
+clip_range = 0.2

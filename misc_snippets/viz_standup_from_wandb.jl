@@ -16,7 +16,7 @@ using ComponentArrays: ComponentArray, getdata
 include("../src/utils/wandb_logger.jl")
 
 T = 4000
-wandb_run_id = "7dyqes1b" #"624ifrxa" # #"7mzfglak"
+wandb_run_id = "8byecuc6" #"624ifrxa" # #"7mzfglak"
 
 params, weights_file_name = load_from_wandb(wandb_run_id, r"step-.*"; project="emiwar-team/Modular-Imitation")
 
@@ -40,6 +40,7 @@ ProgressMeter.@showprogress for t=1:T
     for tt=1:n_physics_steps
         Environments.step!(env.walker)
         physics_states[:,(t-1) * n_physics_steps + tt] = MuJoCo.get_physics_state(walker.model, walker.data)
+        env.target_timepoint[] += Environments.dt(env.walker)
     end
     env.lifetime[] += 1
     if Environments.status(env) != Environments.RUNNING

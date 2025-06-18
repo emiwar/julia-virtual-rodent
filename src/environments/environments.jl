@@ -26,6 +26,7 @@ include("imitation/mods/simplified_target.jl")
 include("modular_imitation/modular_rodent.jl")
 include("modular_imitation/modular_imitation.jl")
 include("modular_imitation/modular_standup.jl")
+include("modular_imitation/foot_pos_env.jl")
 
 #Joystick
 include("joystick_env.jl")

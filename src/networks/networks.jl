@@ -19,5 +19,6 @@ include("network_recorder.jl")
 include("utils.jl")
 
 include("parallell_control.jl")
+include("foot_pos_net.jl")
 
 end
