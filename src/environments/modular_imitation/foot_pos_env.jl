@@ -146,6 +146,7 @@ end
 reward(env::FootPosEnv) = map(sum, compute_rewards(env))
 
 function status(env::FootPosEnv)
+    prop = proprioception(env.walker)
     if prop.torso.height_above_ground/10.0 < env.walker.min_torso_z
         return TERMINATED
     elseif env.randomTrunc[]
@@ -169,7 +170,7 @@ function info(env::FootPosEnv)
     )
 end
 
-function act!(env::FootPosEnv, action)
+function set_ctrl!(env::FootPosEnv, action)
     @assert all(a->all(isfinite, a), action)
     walker = env.walker
     walker.actuators.lumbar_extend     = clamp(action.torso[1], -1.0, 1.0)
@@ -218,6 +219,10 @@ function act!(env::FootPosEnv, action)
 
     walker.actuators.wrist_R            = clamp(action.arm_R[2], -1.0, 1.0)
     walker.actuators.finger_R           = clamp(action.arm_R[3], -1.0, 1.0)
+end
+
+function act!(env::FootPosEnv, action)
+    set_ctrl!(env, action)
     for _=1:env.walker.n_physics_steps
         step!(env.walker)
     end
