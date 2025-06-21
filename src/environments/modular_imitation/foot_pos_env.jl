@@ -130,10 +130,10 @@ function compute_rewards(env::FootPosEnv)
             pelvis_z = cosine_dist(prop.torso.pelvis_zaxis, target.torso.pelvis_zaxis),
             height_above_ground = reward_shape(prop.torso.height_above_ground, target.torso.height_above_ground),
         ),
-        arm_L = env.supportLimb[1] ? float(prop.hand_L.palm_contact[1]>0.0) : -norm(hand_L_target) - float(prop.hand_L.palm_contact[1]>0.0),
-        arm_R = env.supportLimb[2] ? float(prop.hand_R.palm_contact[1]>0.0) : -norm(hand_R_target) - float(prop.hand_R.palm_contact[1]>0.0),
-        leg_L = env.supportLimb[3] ? float(prop.foot_L.sole_contact[1]>0.0) : -norm(foot_L_target) - float(prop.foot_L.sole_contact[1]>0.0),
-        leg_R = env.supportLimb[4] ? float(prop.foot_R.sole_contact[1]>0.0) : -norm(foot_R_target) - float(prop.foot_R.sole_contact[1]>0.0),
+        arm_L = env.supportLimb[1] ? min(prop.hand_L.palm_contact[1], 0.5) : -norm(hand_L_target) - prop.hand_L.palm_contact[1],
+        arm_R = env.supportLimb[2] ? min(prop.hand_R.palm_contact[1], 0.5) : -norm(hand_R_target) - prop.hand_R.palm_contact[1],
+        leg_L = env.supportLimb[3] ? min(prop.foot_L.sole_contact[1], 0.5) : -norm(foot_L_target) - prop.foot_L.sole_contact[1],
+        leg_R = env.supportLimb[4] ? min(prop.foot_R.sole_contact[1], 0.5) : -norm(foot_R_target) - prop.foot_R.sole_contact[1],
         head = (
             orientation_x = cosine_dist(prop.head.xaxis, target.head.xaxis),
             orientation_z = cosine_dist(prop.head.zaxis, target.head.zaxis),
@@ -148,6 +148,14 @@ reward(env::FootPosEnv) = map(sum, compute_rewards(env))
 function status(env::FootPosEnv)
     prop = proprioception(env.walker)
     if prop.torso.height_above_ground/10.0 < env.walker.min_torso_z
+        return TERMINATED
+    elseif prop.leg_L.hip_height/20.0 < env.walker.min_torso_z
+        return TERMINATED
+    elseif prop.leg_R.hip_height/20.0 < env.walker.min_torso_z
+        return TERMINATED
+    elseif prop.arm_L.shoulder_height/20.0 < env.walker.min_torso_z
+        return TERMINATED
+    elseif prop.arm_R.shoulder_height/20.0 < env.walker.min_torso_z
         return TERMINATED
     elseif env.randomTrunc[]
         return TRUNCATED
@@ -181,44 +189,44 @@ function set_ctrl!(env::FootPosEnv, action)
     walker.actuators.cervical_bend      = clamp(action.head[2], -1.0, 1.0)
     walker.actuators.cervical_twist     = clamp(action.head[3], -1.0, 1.0)
 
-    walker.actuators.hip_L_supinate     = clamp(action.torso[4], -1.0, 1.0)
-    walker.actuators.hip_L_abduct       = clamp(action.torso[5], -1.0, 1.0)
-    walker.actuators.hip_L_extend       = clamp(action.torso[6], -1.0, 1.0)
-    walker.actuators.knee_L             = clamp(action.leg_L[1], -1.0, 1.0)
+    walker.actuators.hip_L_supinate     = clamp(action.leg_L[1], -1.0, 1.0)
+    walker.actuators.hip_L_abduct       = clamp(action.leg_L[2], -1.0, 1.0)
+    walker.actuators.hip_L_extend       = clamp(action.leg_L[3], -1.0, 1.0)
+    walker.actuators.knee_L             = clamp(action.leg_L[4], -1.0, 1.0)
 
-    walker.actuators.ankle_L            = clamp(action.leg_L[2], -1.0, 1.0)
-    walker.actuators.toe_L              = clamp(action.leg_L[3], -1.0, 1.0)
+    walker.actuators.ankle_L            = clamp(action.leg_L[5], -1.0, 1.0)
+    walker.actuators.toe_L              = clamp(action.leg_L[6], -1.0, 1.0)
 
-    walker.actuators.hip_R_supinate     = clamp(action.torso[7], -1.0, 1.0)
-    walker.actuators.hip_R_abduct       = clamp(action.torso[8], -1.0, 1.0)
-    walker.actuators.hip_R_extend       = clamp(action.torso[9], -1.0, 1.0)
-    walker.actuators.knee_R             = clamp(action.leg_R[1], -1.0, 1.0)
+    walker.actuators.hip_R_supinate     = clamp(action.leg_R[1], -1.0, 1.0)
+    walker.actuators.hip_R_abduct       = clamp(action.leg_R[2], -1.0, 1.0)
+    walker.actuators.hip_R_extend       = clamp(action.leg_R[3], -1.0, 1.0)
+    walker.actuators.knee_R             = clamp(action.leg_R[4], -1.0, 1.0)
 
-    walker.actuators.ankle_R            = clamp(action.leg_R[2], -1.0, 1.0)
-    walker.actuators.toe_R              = clamp(action.leg_R[3], -1.0, 1.0)
+    walker.actuators.ankle_R            = clamp(action.leg_R[5], -1.0, 1.0)
+    walker.actuators.toe_R              = clamp(action.leg_R[6], -1.0, 1.0)
 
     walker.actuators.atlas              = clamp(action.head[4], -1.0, 1.0)
     walker.actuators.mandible           = clamp(action.head[5], -1.0, 1.0)
 
-    walker.actuators.scapula_L_supinate = clamp(action.torso[10], -1.0, 1.0)
-    walker.actuators.scapula_L_abduct   = clamp(action.torso[11], -1.0, 1.0)
-    walker.actuators.scapula_L_extend   = clamp(action.torso[12], -1.0, 1.0)
-    walker.actuators.shoulder_L         = clamp(action.torso[13], -1.0, 1.0)
-    walker.actuators.shoulder_sup_L     = clamp(action.torso[14], -1.0, 1.0)
-    walker.actuators.elbow_L            = clamp(action.arm_L[1], -1.0, 1.0)
+    walker.actuators.scapula_L_supinate = clamp(action.arm_L[1], -1.0, 1.0)
+    walker.actuators.scapula_L_abduct   = clamp(action.arm_L[2], -1.0, 1.0)
+    walker.actuators.scapula_L_extend   = clamp(action.arm_L[3], -1.0, 1.0)
+    walker.actuators.shoulder_L         = clamp(action.arm_L[4], -1.0, 1.0)
+    walker.actuators.shoulder_sup_L     = clamp(action.arm_L[5], -1.0, 1.0)
+    walker.actuators.elbow_L            = clamp(action.arm_L[6], -1.0, 1.0)
 
-    walker.actuators.wrist_L            = clamp(action.arm_L[2], -1.0, 1.0)
-    walker.actuators.finger_L           = clamp(action.arm_L[3], -1.0, 1.0)
+    walker.actuators.wrist_L            = clamp(action.arm_L[7], -1.0, 1.0)
+    walker.actuators.finger_L           = clamp(action.arm_L[8], -1.0, 1.0)
 
-    walker.actuators.scapula_R_supinate = clamp(action.torso[15], -1.0, 1.0)
-    walker.actuators.scapula_R_abduct   = clamp(action.torso[16], -1.0, 1.0)
-    walker.actuators.scapula_R_extend   = clamp(action.torso[17], -1.0, 1.0)
-    walker.actuators.shoulder_R         = clamp(action.torso[18], -1.0, 1.0)
-    walker.actuators.shoulder_sup_R     = clamp(action.torso[19], -1.0, 1.0)
-    walker.actuators.elbow_R            = clamp(action.arm_R[1], -1.0, 1.0)
+    walker.actuators.scapula_R_supinate = clamp(action.arm_R[1], -1.0, 1.0)
+    walker.actuators.scapula_R_abduct   = clamp(action.arm_R[2], -1.0, 1.0)
+    walker.actuators.scapula_R_extend   = clamp(action.arm_R[3], -1.0, 1.0)
+    walker.actuators.shoulder_R         = clamp(action.arm_R[4], -1.0, 1.0)
+    walker.actuators.shoulder_sup_R     = clamp(action.arm_R[5], -1.0, 1.0)
+    walker.actuators.elbow_R            = clamp(action.arm_R[6], -1.0, 1.0)
 
-    walker.actuators.wrist_R            = clamp(action.arm_R[2], -1.0, 1.0)
-    walker.actuators.finger_R           = clamp(action.arm_R[3], -1.0, 1.0)
+    walker.actuators.wrist_R            = clamp(action.arm_R[7], -1.0, 1.0)
+    walker.actuators.finger_R           = clamp(action.arm_R[8], -1.0, 1.0)
 end
 
 function act!(env::FootPosEnv, action)
@@ -245,11 +253,11 @@ function duplicate(env::FootPosEnv)
 end
 
 null_action(env::FootPosEnv) = (
-    torso  = (@SVector zeros(19)),
-    arm_L  = (@SVector zeros(3)),
-    arm_R  = (@SVector zeros(3)),
-    leg_L  = (@SVector zeros(3)),
-    leg_R  = (@SVector zeros(3)),
+    torso  = (@SVector zeros(3)),
+    arm_L  = (@SVector zeros(8)),
+    arm_R  = (@SVector zeros(8)),
+    leg_L  = (@SVector zeros(6)),
+    leg_R  = (@SVector zeros(6)),
     head   = (@SVector zeros(5)),
 )
 

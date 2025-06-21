@@ -3,7 +3,7 @@ project = "Modular-Imitation"
 run_name = "FootPos-{NOW}"
 
 [rollout]
-n_envs = 512
+n_envs = 256
 reset_on_epoch_start = false
 n_epochs = 10000
 n_steps_per_epoch = 16

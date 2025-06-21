@@ -16,7 +16,7 @@ using ComponentArrays: ComponentArray, getdata
 include("../src/utils/wandb_logger.jl")
 
 T = 1000
-wandb_run_id = "lruk2ara" #"624ifrxa" # #"7mzfglak"
+wandb_run_id = "v4qkc030" #"624ifrxa" # #"7mzfglak"
 
 params, weights_file_name = load_from_wandb(wandb_run_id, r"step-.*"; project="emiwar-team/Modular-Imitation")
 
@@ -31,7 +31,7 @@ Environments.reset!(env)
 Flux.reset!(actor_critic)
 physics_states = zeros(walker.model.nq + walker.model.nv + walker.model.na,
                        T*params.physics.n_physics_steps)
-exploration = false#true
+exploration = true
 n_physics_steps = params.physics.n_physics_steps
 ProgressMeter.@showprogress for t=1:T
     env_state = Environments.state(env) |> ComponentArray |> Flux.gpu;
