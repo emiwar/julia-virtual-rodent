@@ -20,5 +20,6 @@ include("utils.jl")
 
 include("parallell_control.jl")
 include("foot_pos_net.jl")
+include("nervenet_like.jl")
 
 end
