@@ -52,6 +52,8 @@ null_action(mc::MultithreadEnv) = zero(mc.actions)
 #Utils
 raw_states(mc::MultithreadEnv)  = getdata(mc.states)
 raw_infos(mc::MultithreadEnv)   = getdata(mc.infos)
+raw_actions(mc::MultithreadEnv) = getdata(mc.actions)
+raw_rewards(mc::MultithreadEnv) = getdata(mc.rewards)
 actions(mc::MultithreadEnv) = mc.actions
 n_envs(multithreadEnv::MultithreadEnv) = length(multithreadEnv.environments)
 env_type(multithreadEnv::MultithreadEnv) = eltype(multithreadEnv.environments)

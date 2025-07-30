@@ -1,16 +1,16 @@
 abstract type MpiEnv end
 
-struct MpiEnvRoot{S, I, E} <: MpiEnv
-    states::S
-    rewards::Vector{Float32}
+@concrete struct MpiEnvRoot <: MpiEnv
+    states<:ComponentArray
+    rewards<:Union{Vector{Float32}, ComponentArray}
     status::Vector{UInt8}
-    infos::I
-    actions::Matrix{Float32}
-    base_env::E
+    infos<:ComponentArray
+    actions<:Union{Matrix{Float32}, ComponentArray}
+    base_env<:AbstractEnv
 end
 
-struct MpiEnvWorker{E} <: MpiEnv
-    base_env::E
+@concrete struct MpiEnvWorker <: MpiEnv
+    base_env<:AbstractEnv
 end
 
 function MpiEnv(template_env, n_envs; block_workers::Bool, n_steps_per_epoch::Int=-1)
@@ -23,18 +23,35 @@ function MpiEnv(template_env, n_envs; block_workers::Bool, n_steps_per_epoch::In
     n_local_envs = n_envs ÷ mpi_size
     base_env = MultithreadEnv(template_env, n_local_envs)
     if mpi_rank == 0
-        template_state  = state(template_env) |> ComponentArray
-        template_info   = info(template_env) |> ComponentArray
+        template_state  = state(template_env) |> ComponentVector
+        template_info   = info(template_env) |> ComponentVector
         template_action = null_action(template_env)
+        template_reward = reward(template_env)
         state_size, = size(template_state)
         info_size, = size(template_info)
-        action_size, = size(template_action)
-
+        
         states  = ComponentArray(zeros(Float32, state_size, n_envs), (getaxes(template_state)[1], FlatAxis()))
-        rewards = zeros(Float32, n_envs)
         status  = zeros(UInt8, n_envs)
         infos   = ComponentArray(zeros(Float32, info_size, n_envs), (getaxes(template_info)[1], FlatAxis()))
-        actions = zeros(Float32, action_size, n_envs)
+
+        if template_action isa Union{ComponentArray, NamedTuple}
+            template_action = ComponentArray(template_action)
+            action_size, = size(template_action)
+            actions = ComponentArray(zeros(Float32, action_size, n_envs), (getaxes(template_action)[1], FlatAxis()))
+        else
+            action_size, = size(template_action)
+            actions = zeros(Float32, action_size, n_envs)
+        end
+
+        if template_reward isa Union{ComponentArray, NamedTuple}
+            template_reward = ComponentArray(template_reward)
+            reward_size, = size(template_reward)
+            rewards = ComponentArray(zeros(Float32, reward_size, n_envs), (getaxes(template_reward)[1], FlatAxis()))
+        else
+            @assert template_reward isa Number
+            rewards = zeros(Float32, n_envs)
+        end
+
         return MpiEnvRoot(states, rewards, status, infos, actions, base_env)
     else
         worker = MpiEnvWorker(base_env)
@@ -65,12 +82,16 @@ actions(mc::MpiEnv) = mc.actions
 
 raw_states(mc::MpiEnvRoot)  = getdata(mc.states)
 raw_infos(mc::MpiEnvRoot)   = getdata(mc.infos)
+raw_actions(mc::MpiEnvRoot)   = getdata(mc.actions)
+raw_rewards(mc::MpiEnvRoot)   = getdata(mc.rewards)
 
 raw_states(::MpiEnvWorker)  = nothing
 raw_infos(::MpiEnvWorker)   = nothing
 status(::MpiEnvWorker)  = nothing
 reward(::MpiEnvWorker) = nothing
 actions(::MpiEnvWorker) = nothing
+raw_rewards(::MpiEnvWorker) = nothing
+raw_actions(::MpiEnvWorker) = nothing
 
 n_envs(mpiEnv::MpiEnv) = MPI.Comm_size(MPI.COMM_WORLD) * n_envs(mpiEnv.base_env)
 env_type(mpiEnv::MpiEnv) = env_type(mpiEnv.localEnv)
@@ -92,7 +113,7 @@ end
 function step!(mpiEnv::MpiEnv, auto_reset::Bool=true)
     base_env = mpiEnv.base_env
     lap(:mpi_scatter_actions)
-    MPI.Scatter!(actions(mpiEnv), actions(base_env), MPI.COMM_WORLD)
+    MPI.Scatter!(raw_actions(mpiEnv), raw_actions(base_env), MPI.COMM_WORLD)
     lap(:rollout_envs)
     act!(base_env, auto_reset)
     lap(:mpi_wait_for_workers)
@@ -100,7 +121,7 @@ function step!(mpiEnv::MpiEnv, auto_reset::Bool=true)
     lap(:mpi_gather_state)
     MPI.Gather!(raw_states(base_env),  raw_states(mpiEnv), MPI.COMM_WORLD)
     MPI.Gather!(raw_infos(base_env),  raw_infos(mpiEnv), MPI.COMM_WORLD)
-    MPI.Gather!(reward(base_env),  reward(mpiEnv), MPI.COMM_WORLD)
+    MPI.Gather!(raw_rewards(base_env),  raw_rewards(mpiEnv), MPI.COMM_WORLD)
     MPI.Gather!(status(base_env),  status(mpiEnv), MPI.COMM_WORLD)
 end
 
