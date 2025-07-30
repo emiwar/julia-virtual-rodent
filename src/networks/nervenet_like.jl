@@ -16,7 +16,7 @@ function NerveNet(template_state::ComponentVector, template_action::ComponentVec
     input_layers = map(s->Dense(s=>actor_hidden_size, tanh), input_sizes)
     afferents    = map(_->Dense(actor_hidden_size=>actor_hidden_size, tanh), input_sizes)
     efferents    = map(_->Dense(actor_hidden_size=>actor_hidden_size, tanh), input_sizes)
-    motor_layers = map(s->Dense(actor_hidden_size=>2*s, tanh), output_sizes)
+    motor_layers = map(s->Dense(actor_hidden_size=>2*s, tanh, init=zeros32), output_sizes)
     critics      = map(_->Dense(actor_hidden_size=>1, init=zeros32), input_sizes)
     action_sampler = ModularActionSampler(;sigma_min, sigma_max)
     return NerveNet(input_layers, afferents, efferents, motor_layers, critics, action_sampler)
