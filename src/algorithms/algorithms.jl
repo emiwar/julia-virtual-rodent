@@ -17,5 +17,6 @@ include("collectors.jl")
 include("ppo.jl")
 
 include("multiagent_ppo.jl")
+include("multiobjective_ppo.jl")
 
 end

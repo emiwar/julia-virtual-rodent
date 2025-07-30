@@ -16,7 +16,7 @@ function NerveNet(template_state::ComponentVector, template_action::ComponentVec
     input_layers = map(s->Dense(s=>actor_hidden_size, tanh), input_sizes)
     afferents    = map(_->Dense(actor_hidden_size=>actor_hidden_size, tanh), input_sizes)
     efferents    = map(_->Dense(actor_hidden_size=>actor_hidden_size, tanh), input_sizes)
-    motor_layers = map(s->Dense(actor_hidden_size=>2*s), output_sizes)
+    motor_layers = map(s->Dense(actor_hidden_size=>2*s, tanh), output_sizes)
     critics      = map(_->Dense(actor_hidden_size=>1, init=zeros32), input_sizes)
     action_sampler = ModularActionSampler(;sigma_min, sigma_max)
     return NerveNet(input_layers, afferents, efferents, motor_layers, critics, action_sampler)
@@ -111,16 +111,16 @@ function critic(nn::NerveNet, states::ComponentArray)
     x_hand_L = x_hand_L + nn.efferents.hand_L(x_arm_L)
     
     (
-        hand_L = nn.critics.hand_L(x_hand_L),
-        arm_L = nn.critics.arm_L(x_arm_L),
-        hand_R = nn.critics.hand_R(x_hand_R),
-        arm_R = nn.critics.arm_R(x_arm_R),
-        foot_L = nn.critics.foot_L(x_foot_L),
-        leg_L = nn.critics.leg_L(x_leg_L),
-        foot_R = nn.critics.foot_R(x_foot_R),
-        leg_R = nn.critics.leg_R(x_leg_R),
-        torso = nn.critics.torso(x_torso),
-        head = nn.critics.head(x_head),
+        hand_L = nn.critics.hand_L(x_hand_L) * 2f1,
+        arm_L = nn.critics.arm_L(x_arm_L) * 2f1,
+        hand_R = nn.critics.hand_R(x_hand_R) * 2f1,
+        arm_R = nn.critics.arm_R(x_arm_R) * 2f1,
+        foot_L = nn.critics.foot_L(x_foot_L) * 2f1,
+        leg_L = nn.critics.leg_L(x_leg_L) * 2f1,
+        foot_R = nn.critics.foot_R(x_foot_R) * 2f1,
+        leg_R = nn.critics.leg_R(x_leg_R) * 2f1,
+        torso = nn.critics.torso(x_torso) * 2f1,
+        head = nn.critics.head(x_head) * 2f1,
     )
 end
 

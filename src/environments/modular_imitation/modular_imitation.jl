@@ -34,19 +34,14 @@ function state(env::ModularImitationEnv)
                 wrist_angle = target.hand_L.wrist_angle,
                 finger_angle = target.hand_L.finger_angle,
                 xaxis = target.hand_L.xaxis,
-                elbow_height = target.hand_L.elbow_height
             ),
-            shared_prop = prop.shared
         ),
         arm_L = (
             proprioception = prop.arm_L,
             imitation_target = (
-                hand_pos = target.arm_L.egocentric_hand_pos,
-                #elbow_pos = target.arm_L.egocentric_elbow_pos,
                 elbow_angle = target.arm_L.elbow_angle,
                 elbow_height = target.arm_L.elbow_height,
             ),
-            shared_prop = prop.shared
         ),
         hand_R = (
             proprioception = prop.hand_R,
@@ -55,19 +50,14 @@ function state(env::ModularImitationEnv)
                 wrist_angle = target.hand_R.wrist_angle,
                 finger_angle = target.hand_R.finger_angle,
                 xaxis = target.hand_R.xaxis,
-                elbow_height = target.hand_R.elbow_height
             ),
-            shared_prop = prop.shared
         ),
         arm_R = (
             proprioception = prop.arm_R,
             imitation_target = (
-                hand_pos = target.arm_R.egocentric_hand_pos,
-                #elbow_pos = target.arm_R.egocentric_elbow_pos,
                 elbow_angle = target.arm_R.elbow_angle,
                 elbow_height = target.arm_R.elbow_height
             ),
-            shared_prop = prop.shared
         ),
         foot_L = (
             proprioception = prop.foot_L,
@@ -77,16 +67,13 @@ function state(env::ModularImitationEnv)
                 ankle_angle = target.foot_L.ankle_angle,
                 xaxis = target.foot_L.xaxis
             ),
-            shared_prop = prop.shared
         ),
         leg_L = (
             proprioception = prop.leg_L,
             imitation_target = (
-                foot_pos = target.leg_L.egocentric_foot_pos,
                 knee_angle = target.leg_L.knee_angle,
                 hip_height = target.leg_L.hip_height,
             ),
-            shared_prop = prop.shared
         ),
         foot_R = (
             proprioception = prop.foot_R,
@@ -96,16 +83,13 @@ function state(env::ModularImitationEnv)
                 ankle_angle = target.foot_R.ankle_angle,
                 xaxis = target.foot_R.xaxis
             ),
-            shared_prop = prop.shared
         ),
         leg_R = (
             proprioception = prop.leg_R,
             imitation_target = (
-                foot_pos = target.leg_R.egocentric_foot_pos,
                 knee_angle = target.leg_R.knee_angle,
                 hip_height = target.leg_R.hip_height,
             ),
-            shared_prop = prop.shared
         ),
         torso = (
             proprioception = prop.torso,
@@ -124,7 +108,6 @@ function state(env::ModularImitationEnv)
                 egocentric_pos = target.head.egocentric_pos,
                 mandible = target.head.mandible
             ),
-            shared_prop = prop.shared
         )
     )
 end
@@ -139,13 +122,13 @@ function compute_rewards(env::ModularImitationEnv)
             finger_joint = reward_shape(prop.hand_L.finger_angle, target.hand_L.finger_angle),
             wrist_joint = reward_shape(prop.hand_L.wrist_angle, target.hand_L.wrist_angle),
             orientation = dot(prop.hand_L.xaxis, target.hand_L.xaxis),
-            elbow_height = reward_shape(prop.hand_L.elbow_height, target.hand_L.elbow_height),
-            #hand_pos = reward_shape(prop.hand_L.egocentric_hand_pos, target.hand_L.egocentric_hand_pos),
+            #elbow_height = reward_shape(prop.hand_L.elbow_height, target.hand_L.elbow_height),
+            hand_pos = reward_shape(prop.hand_L.egocentric_hand_pos, target.hand_L.egocentric_hand_pos),
         ),
         arm_L = (
-            hand_pos = reward_shape(prop.arm_L.egocentric_hand_pos, target.arm_L.egocentric_hand_pos),
+            #hand_pos = reward_shape(prop.arm_L.egocentric_hand_pos, target.arm_L.egocentric_hand_pos),
             #elbow_pos = reward_shape(prop.arm_L.egocentric_elbow_pos, target.arm_L.egocentric_elbow_pos),
-            elbow_joint = reward_shape(prop.hand_L.elbow_angle, target.hand_L.elbow_angle),
+            elbow_joint = reward_shape(prop.arm_L.elbow_angle, target.arm_L.elbow_angle),
             elbow_height = reward_shape(prop.arm_L.elbow_height, target.arm_L.elbow_height),
             shoulder_height = reward_shape(prop.arm_L.shoulder_height, target.arm_L.shoulder_height),
         ),
@@ -153,13 +136,13 @@ function compute_rewards(env::ModularImitationEnv)
             finger_joint = reward_shape(prop.hand_R.finger_angle, target.hand_R.finger_angle),
             wrist_joint = reward_shape(prop.hand_R.wrist_angle, target.hand_R.wrist_angle),
             orientation = dot(prop.hand_R.xaxis, target.hand_R.xaxis),
-            elbow_height = reward_shape(prop.hand_R.elbow_height, target.hand_R.elbow_height),
-            #hand_pos = reward_shape(prop.hand_R.egocentric_hand_pos, target.hand_R.egocentric_hand_pos),
+            #elbow_height = reward_shape(prop.hand_R.elbow_height, target.hand_R.elbow_height),
+            hand_pos = reward_shape(prop.hand_R.egocentric_hand_pos, target.hand_R.egocentric_hand_pos),
         ),
         arm_R = (
-            hand_pos = reward_shape(prop.arm_R.egocentric_hand_pos, target.arm_R.egocentric_hand_pos),
+            #hand_pos = reward_shape(prop.arm_R.egocentric_hand_pos, target.arm_R.egocentric_hand_pos),
             #elbow_pos = reward_shape(prop.arm_R.egocentric_elbow_pos, target.arm_R.egocentric_elbow_pos),
-            elbow_joint = reward_shape(prop.hand_R.elbow_angle, target.hand_R.elbow_angle),
+            elbow_joint = reward_shape(prop.arm_R.elbow_angle, target.arm_R.elbow_angle),
             elbow_height = reward_shape(prop.arm_R.elbow_height, target.arm_R.elbow_height),
             shoulder_height = reward_shape(prop.arm_R.shoulder_height, target.arm_R.shoulder_height),
         ),
@@ -167,12 +150,12 @@ function compute_rewards(env::ModularImitationEnv)
             toe_joint = reward_shape(prop.foot_L.toe_angle, target.foot_L.toe_angle),
             ankle_joint = reward_shape(prop.foot_L.ankle_angle, target.foot_L.ankle_angle),
             orientation = dot(prop.foot_L.xaxis, target.foot_L.xaxis),
-            #foot_pos = reward_shape(prop.foot_L.egocentric_foot_pos, target.foot_L.egocentric_foot_pos),
+            foot_pos = reward_shape(prop.foot_L.egocentric_foot_pos, target.foot_L.egocentric_foot_pos),
         ),
         leg_L = (
             knee_joint = reward_shape(prop.leg_L.knee_angle, target.leg_L.knee_angle),
             knee_pos = reward_shape(prop.leg_L.egocentric_knee_pos, target.leg_L.egocentric_knee_pos),
-            foot_pos = reward_shape(prop.leg_L.egocentric_foot_pos, target.leg_L.egocentric_foot_pos),
+            #foot_pos = reward_shape(prop.leg_L.egocentric_foot_pos, target.leg_L.egocentric_foot_pos),
             orientation = dot(prop.foot_L.xaxis, target.foot_L.xaxis),
             hip_height = reward_shape(prop.leg_L.hip_height, target.leg_L.hip_height),
         ),
@@ -180,12 +163,12 @@ function compute_rewards(env::ModularImitationEnv)
             toe_joint = reward_shape(prop.foot_R.toe_angle, target.foot_R.toe_angle),
             ankle_joint = reward_shape(prop.foot_R.ankle_angle, target.foot_R.ankle_angle),
             orientation = dot(prop.foot_R.xaxis, target.foot_R.xaxis),
-            #foot_pos = reward_shape(prop.foot_R.egocentric_foot_pos, target.foot_R.egocentric_foot_pos),
+            foot_pos = reward_shape(prop.foot_R.egocentric_foot_pos, target.foot_R.egocentric_foot_pos),
         ),
         leg_R = (
             knee_joint = reward_shape(prop.leg_R.knee_angle, target.leg_R.knee_angle),
             knee_pos = reward_shape(prop.leg_R.egocentric_knee_pos, target.leg_R.egocentric_knee_pos),
-            foot_pos = reward_shape(prop.leg_R.egocentric_foot_pos, target.leg_R.egocentric_foot_pos),
+            #foot_pos = reward_shape(prop.leg_R.egocentric_foot_pos, target.leg_R.egocentric_foot_pos),
             orientation = dot(prop.foot_R.xaxis, target.foot_R.xaxis),
 	        hip_height = reward_shape(prop.leg_R.hip_height, target.leg_R.hip_height),
         ),

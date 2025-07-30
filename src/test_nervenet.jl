@@ -64,7 +64,7 @@ function logger(epoch, dict_to_log)
 end
 
 #Run the training loop
-Algorithms.mppo(collector, networks_gpu, params; logger)
+Algorithms.multiobjective_ppo(collector, networks_gpu, params; logger)
 
 #Cleanup
 Wandb.close(lg)
