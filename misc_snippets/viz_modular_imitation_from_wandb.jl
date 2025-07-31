@@ -15,16 +15,11 @@ using ProgressMeter
 using ComponentArrays: ComponentArray, getdata
 include("../src/utils/wandb_logger.jl")
 
-T = 5000
-wandb_run_id = "xpi4dhl7" #"624ifrxa" # #"7mzfglak"
+T = 2000
+wandb_run_id = "yk9qnl1p" #"624ifrxa" # #"7mzfglak"
 
 params, weights_file_name = load_from_wandb(wandb_run_id, r"step-.*"; project="emiwar-team/Modular-Imitation")
 
-falloffs = params.reward.falloff
-falloffs = (;com=falloffs.com, rotation=falloffs.rotation, joint=falloffs.joint, joint_vel=falloffs.joint_vel, appendages=falloffs.appendages)
-reward_params = merge(params.reward, (;falloff=falloffs))
-
-#ActorCritic = VariationalEncDec
 actor_critic = BSON.load(weights_file_name)[:actor_critic] |> Flux.gpu
 
 MuJoCo.init_visualiser()

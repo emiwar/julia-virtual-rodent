@@ -59,7 +59,8 @@ n_envs(multithreadEnv::MultithreadEnv) = length(multithreadEnv.environments)
 env_type(multithreadEnv::MultithreadEnv) = eltype(multithreadEnv.environments)
 
 function prepare_epoch!(multithreadEnv::MultithreadEnv)
-    @Threads.threads for i=1:n_envs(multithreadEnv)
+    #@Threads.threads
+    for i=1:n_envs(multithreadEnv)
         env = multithreadEnv.environments[i]
         prepare_epoch!(env)
         multithreadEnv.states[:, i] = state(env)

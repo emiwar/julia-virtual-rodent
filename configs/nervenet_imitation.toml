@@ -1,6 +1,6 @@
 [wandb]
 project = "Modular-Imitation"
-run_name = "NerveNetSharedRewardsAndLL-{NOW}"
+run_name = "WithRootRewards-{NOW}"
 
 [rollout]
 n_envs = 512

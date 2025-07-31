@@ -233,6 +233,18 @@ function site_z(rodent::ModularRodent, site::String)
     return rodent.data.site_xpos[siteind, 3]
 end
 
+function root_pos(rodent::ModularRodent)
+    torsoind = MuJoCo.NamedAccess.index_by_name(rodent.data, MuJoCo.mjOBJ_BODY, "walker/torso")+1
+    torsopos = SVector{3}(view(rodent.data.xpos, torsoind, :))
+    return torsopos
+end
+
+function root_xquat(rodent::ModularRodent)
+    torsoind = MuJoCo.NamedAccess.index_by_name(rodent.data, MuJoCo.mjOBJ_BODY, "walker/torso")+1
+    torsopos = SVector{4}(view(rodent.data.xquat, torsoind, :))
+    return torsopos
+end
+
 function null_action(rodent::ModularRodent)
     (
         hand_L = (@SVector zeros(2)),

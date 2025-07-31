@@ -24,8 +24,11 @@ function ModularImitationEnv(walker; max_target_distance::Float64,
 end
 
 function state(env::ModularImitationEnv)
-    prop = proprioception(env.walker)
     target = get_current_target(env)
+    relative_root_pos = torso_yawmat(env.walker) * (target.root_pose.pos - root_pos(env.walker))
+    relative_root_rot = subQuat(target.root_pose.quat, root_xquat(env.walker))
+    prop = proprioception(env.walker)
+    target = target.proprioception
     (
         hand_L = (
             proprioception = prop.hand_L,
@@ -108,6 +111,13 @@ function state(env::ModularImitationEnv)
                 egocentric_pos = target.head.egocentric_pos,
                 mandible = target.head.mandible
             ),
+        ),
+        root = (;
+            #proprioception = (;),
+            imitation_target = (
+                relative_pos = relative_root_pos,
+                relative_rot = relative_root_rot
+            )
         )
     )
 end
@@ -115,8 +125,13 @@ end
 function compute_rewards(env::ModularImitationEnv)
     reward_shape(a, b) = exp(-(norm(a-b)/0.5))
     cosine_dist(a, b) = dot(a, b) / norm(a) / norm(b)
-    prop = proprioception(env.walker)
+
     target = get_current_target(env)
+    root_dist = norm(target.root_pose.pos - root_pos(env.walker))
+    root_ang  = 2*acos(abs(clamp(target.root_pose.quat' * root_xquat(env.walker), -1, 1)))
+
+    prop = proprioception(env.walker)
+    target = target.proprioception
     (
         hand_L = (
             finger_joint = reward_shape(prop.hand_L.finger_angle, target.hand_L.finger_angle),
@@ -184,6 +199,10 @@ function compute_rewards(env::ModularImitationEnv)
             orientation_z = cosine_dist(prop.head.zaxis, target.head.zaxis),
             head_pos = reward_shape(prop.head.egocentric_pos, target.head.egocentric_pos),
             mandible = reward_shape(prop.head.mandible, target.head.mandible),
+        ),
+        root = (
+            distance = 5.0*exp(-(root_dist / 0.05)^2),
+            angle = 5.0*exp(-(root_ang / 0.5)^2)
         )
     )
 end
@@ -192,7 +211,7 @@ reward(env::ModularImitationEnv) = map(sum, compute_rewards(env))
 
 function status(env::ModularImitationEnv)
     prop = proprioception(env.walker)
-    target = get_current_target(env)
+    target = get_current_target(env).proprioception
     #if dot(prop.torso.zaxis, target.torso.zaxis) < 0.5
     #    return TERMINATED
     #elseif dot(prop.leg_L.pelvis_zaxis, target.leg_L.pelvis_zaxis) < 0.5
@@ -213,8 +232,12 @@ function status(env::ModularImitationEnv)
 end
 
 function info(env::ModularImitationEnv)
-    prop = proprioception(env.walker)
     target = get_current_target(env)
+    root_dist = norm(target.root_pose.pos - root_pos(env.walker))
+    root_ang  = 2*acos(abs(clamp(target.root_pose.quat' * root_xquat(env.walker), -1, 1)))
+
+    prop = proprioception(env.walker)
+    target = target.proprioception
     (
         info(env.walker)...,   
         lifetime = float(env.lifetime[]),
@@ -228,6 +251,8 @@ function info(env::ModularImitationEnv)
         leg_L_hip_height = prop.leg_L.hip_height,
         leg_R_hip_height = prop.leg_R.hip_height,
         pelvis_z_dot = dot(prop.leg_R.pelvis_zaxis, target.leg_R.pelvis_zaxis),
+        root_ang = root_ang,
+        root_dist = root_dist,
         #cumulative_reward = env.cumulative_reward,
         reward_terms = compute_rewards(env),
     )
@@ -291,7 +316,8 @@ end
 
 function precompute_target(walker::ModularRodent, orig_target::ComponentArray)
     _, dur, n_clips = size(orig_target)
-    template_prop = proprioception(walker) |> ComponentArray
+    template_prop = (root_pose = (pos=root_pos(walker), quat=root_xquat(walker)),
+                     proprioception = proprioception(walker)) |> ComponentArray
     new_target = ComponentArray(zeros(length(template_prop), dur, n_clips),
                                 getaxes(template_prop)[1], FlatAxis(), FlatAxis())
     @Threads.threads for i = 1:n_clips
@@ -300,7 +326,9 @@ function precompute_target(walker::ModularRodent, orig_target::ComponentArray)
             w.data.qpos .= @view orig_target.qpos[:, t, i]
             w.data.qvel .= @view orig_target.qvel[:, t, i]
             MuJoCo.forward!(w.model, w.data)
-            new_target[:, t, i] = proprioception(w)
+            new_target.proprioception[:, t, i] = proprioception(w)
+            new_target.root_pose.pos[:, t, i] = root_pos(w)
+            new_target.root_pose.quat[:, t, i] = root_xquat(w)
         end
     end
     return new_target

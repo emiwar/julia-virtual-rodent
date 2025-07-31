@@ -46,7 +46,8 @@ function actor(nn::NerveNet, states::ComponentArray, reset_index, action=nothing
     #Combine
     x_root = nn.afferents.arm_L(x_arm_L) + nn.afferents.arm_R(x_arm_R) +
              nn.afferents.leg_L(x_leg_L) + nn.afferents.leg_R(x_leg_R) +
-             nn.afferents.torso(x_torso) + nn.afferents.head(x_head)
+             nn.afferents.torso(x_torso) + nn.afferents.head(x_head) +
+             nn.input_layers.root(states.root |> autodiff_clean)
 
     #Efferents
     x_head = x_head + nn.efferents.head(x_root)
@@ -96,7 +97,8 @@ function critic(nn::NerveNet, states::ComponentArray)
     #Combine
     x_root = nn.afferents.arm_L(x_arm_L) + nn.afferents.arm_R(x_arm_R) +
              nn.afferents.leg_L(x_leg_L) + nn.afferents.leg_R(x_leg_R) +
-             nn.afferents.torso(x_torso) + nn.afferents.head(x_head)
+             nn.afferents.torso(x_torso) + nn.afferents.head(x_head) +
+             nn.input_layers.root(states.root |> autodiff_clean)
 
     #Efferents
     x_head = x_head + nn.efferents.head(x_root)
@@ -121,6 +123,7 @@ function critic(nn::NerveNet, states::ComponentArray)
         leg_R = nn.critics.leg_R(x_leg_R) * 2f1,
         torso = nn.critics.torso(x_torso) * 2f1,
         head = nn.critics.head(x_head) * 2f1,
+        root = nn.critics.root(x_root) * 2f1,
     )
 end
 
