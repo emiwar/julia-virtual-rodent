@@ -16,7 +16,7 @@ using ComponentArrays: ComponentArray, getdata
 include("../src/utils/wandb_logger.jl")
 
 T = 2000
-wandb_run_id = "yk9qnl1p" #"624ifrxa" # #"7mzfglak"
+wandb_run_id = "krfsjio6" #"624ifrxa" # #"7mzfglak"
 
 params, weights_file_name = load_from_wandb(wandb_run_id, r"step-.*"; project="emiwar-team/Modular-Imitation")
 
@@ -43,15 +43,16 @@ dubbleModel = Environments.dm_control_rodent_with_ghost()#torque_actuators = par
 physics_states = zeros(dubbleModel.nq + dubbleModel.nv + dubbleModel.na,
                        T*params.physics.n_physics_steps)
 dubbleData = MuJoCo.init_data(dubbleModel)
-exploration = false
+exploration = true
 n_physics_steps = params.physics.n_physics_steps
 ProgressMeter.@showprogress for t=1:T
     env_state = Environments.state(env) |> ComponentArray |> Flux.gpu
     actor_output = Networks.actor(actor_critic, env_state, false)
-    Environments.set_ctrl!(env.walker, Flux.cpu(actor_output.action))
+    action = Flux.cpu(exploration ? actor_output.action : actor_output.mu)
+    Environments.set_ctrl!(env.walker, action)
     #base_env = env.base_env
     #walker = base_env.walker
-    #walker.data.ctrl .= clamp.(exploration ? actor_output.action : actor_output.mu, -1.0, 1.0) |> Array
+    #walker.data.ctrl .= clamp.(, -1.0, 1.0) |> Array
     for tt=1:n_physics_steps
         dubbleData.qpos[1:(walker.model.nq)] .= walker.data.qpos
         dubbleData.qpos[(walker.model.nq+1):end] = @view env.target_poses.qpos[:, Environments.target_frame(env), Environments.target_clip(env)]

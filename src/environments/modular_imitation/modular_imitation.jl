@@ -27,6 +27,8 @@ function state(env::ModularImitationEnv)
     target = get_current_target(env)
     relative_root_pos = torso_yawmat(env.walker) * (target.root_pose.pos - root_pos(env.walker))
     relative_root_rot = subQuat(target.root_pose.quat, root_xquat(env.walker))
+    future_root_pos = torso_yawmat(env.walker) * (get_future_root_pos(env) - root_pos(env.walker))
+
     prop = proprioception(env.walker)
     target = target.proprioception
     (
@@ -107,7 +109,7 @@ function state(env::ModularImitationEnv)
         head = (
             proprioception = prop.head,
             imitation_target = (
-                zaxis = target.head.zaxis,
+                xaxis = target.head.xaxis,
                 egocentric_pos = target.head.egocentric_pos,
                 mandible = target.head.mandible
             ),
@@ -116,6 +118,7 @@ function state(env::ModularImitationEnv)
             #proprioception = (;),
             imitation_target = (
                 relative_pos = relative_root_pos,
+                future_root_pos = future_root_pos,
                 relative_rot = relative_root_rot
             )
         )
@@ -311,6 +314,17 @@ function get_current_target(env::ModularImitationEnv)
     next_target = view(env.target_sensors, :, int_frame+1, env.target_clip[])
     frac_frame = precise_frame - int_frame
     interpolated = (1-frac_frame) .* target .+ frac_frame .* next_target
+    return interpolated
+end
+
+function get_future_root_pos(env::ModularImitationEnv, time_ahead=0.1)
+    precise_frame = (env.target_timepoint[] + time_ahead) * env.target_fps
+    int_frame = floor(Int64, precise_frame)
+    int_frame = min(clip_length(env)-1, int_frame)
+    pos_a = SVector{3}(view(env.target_sensors.root_pose.pos, :, int_frame,   env.target_clip[]))
+    pos_b = SVector{3}(view(env.target_sensors.root_pose.pos, :, int_frame+1, env.target_clip[]))
+    frac_frame = precise_frame - int_frame
+    interpolated = (1-frac_frame) .* pos_a .+ frac_frame .* pos_b
     return interpolated
 end
 
