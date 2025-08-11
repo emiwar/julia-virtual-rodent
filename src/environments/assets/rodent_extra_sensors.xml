@@ -620,6 +620,9 @@
     <jointpos name="hand_L/elbow_angle" joint="walker/elbow_L" /> 
     <jointpos name="hand_L/wrist_angle" joint="walker/wrist_L" />
     <jointpos name="hand_L/finger_angle" joint="walker/finger_L" />
+    <jointvel name="hand_L/elbow_angle_vel" joint="walker/elbow_L" /> 
+    <jointvel name="hand_L/wrist_angle_vel" joint="walker/wrist_L" />
+    <jointvel name="hand_L/finger_angle_vel" joint="walker/finger_L" />
     <jointlimitpos name="hand_L/finger_limit" joint="walker/finger_L" />
     <jointlimitpos name="hand_L/wrist_limit" joint="walker/wrist_L" />
     <framexaxis name="hand_L/xaxis" objtype="xbody" objname="walker/hand_L" reftype="xbody" refname="walker/torso" />
@@ -635,6 +638,13 @@
     <jointpos name="arm_L/scapula_extend" joint="walker/scapula_L_extend" />
     <jointpos name="arm_L/scapula_abduct" joint="walker/scapula_L_abduct" />
     <jointpos name="arm_L/scapula_supinate" joint="walker/scapula_L_supinate" />
+    <jointvel name="arm_L/wrist_angle_vel" joint="walker/wrist_L" />
+    <jointvel name="arm_L/elbow_angle_vel" joint="walker/elbow_L" />
+    <jointvel name="arm_L/shoulder_sup_vel" joint="walker/shoulder_sup_L" />
+    <jointvel name="arm_L/shoulder_vel" joint="walker/shoulder_L" />
+    <jointvel name="arm_L/scapula_extend_vel" joint="walker/scapula_L_extend" />
+    <jointvel name="arm_L/scapula_abduct_vel" joint="walker/scapula_L_abduct" />
+    <jointvel name="arm_L/scapula_supinate_vel" joint="walker/scapula_L_supinate" />
     <jointlimitpos name="arm_L/elbow_limit" joint="walker/elbow_L" />
     <force name="arm_L/wrist_force" site="walker/wrist_L" />
     <force name="arm_L/elbow_force" site="walker/elbow_L" />
@@ -646,6 +656,9 @@
     <jointpos name="hand_R/elbow_angle" joint="walker/elbow_R" />
     <jointpos name="hand_R/wrist_angle" joint="walker/wrist_R" />
     <jointpos name="hand_R/finger_angle" joint="walker/finger_R" />
+    <jointvel name="hand_R/elbow_angle_vel" joint="walker/elbow_R" />
+    <jointvel name="hand_R/wrist_angle_vel" joint="walker/wrist_R" />
+    <jointvel name="hand_R/finger_angle_vel" joint="walker/finger_R" />
     <jointlimitpos name="hand_R/finger_limit" joint="walker/finger_R" />
     <jointlimitpos name="hand_R/wrist_limit" joint="walker/wrist_R" />
     <framexaxis name="hand_R/xaxis" objtype="xbody" objname="walker/hand_R" reftype="xbody" refname="walker/torso" />
@@ -661,6 +674,13 @@
     <jointpos name="arm_R/scapula_extend" joint="walker/scapula_R_extend" />
     <jointpos name="arm_R/scapula_abduct" joint="walker/scapula_R_abduct" />
     <jointpos name="arm_R/scapula_supinate" joint="walker/scapula_R_supinate" />
+    <jointvel name="arm_R/wrist_angle_vel" joint="walker/wrist_R" />
+    <jointvel name="arm_R/elbow_angle_vel" joint="walker/elbow_R" />
+    <jointvel name="arm_R/shoulder_sup_vel" joint="walker/shoulder_sup_R" />
+    <jointvel name="arm_R/shoulder_vel" joint="walker/shoulder_R" />
+    <jointvel name="arm_R/scapula_extend_vel" joint="walker/scapula_R_extend" />
+    <jointvel name="arm_R/scapula_abduct_vel" joint="walker/scapula_R_abduct" />
+    <jointvel name="arm_R/scapula_supinate_vel" joint="walker/scapula_R_supinate" />
     <jointlimitpos name="arm_R/elbow_limit" joint="walker/elbow_R" />
     <force name="arm_R/wrist_force" site="walker/wrist_R" />
     <force name="arm_R/elbow_force" site="walker/elbow_R" />
@@ -673,6 +693,9 @@
     <jointpos name="foot_L/knee_angle" joint="walker/knee_L" />
     <jointpos name="foot_L/ankle_angle" joint="walker/ankle_L" />
     <jointpos name="foot_L/toe_angle" joint="walker/toe_L" />
+    <jointvel name="foot_L/knee_angle_vel" joint="walker/knee_L" />
+    <jointvel name="foot_L/ankle_angle_vel" joint="walker/ankle_L" />
+    <jointvel name="foot_L/toe_angle_vel" joint="walker/toe_L" />
     <jointlimitpos name="foot_L/toe_limit" joint="walker/toe_L" />
     <jointlimitpos name="foot_L/foot_limit" joint="walker/ankle_L" />
     <framexaxis name="foot_L/xaxis" objtype="xbody" objname="walker/foot_L" reftype="xbody" refname="walker/torso" />
@@ -686,6 +709,11 @@
     <jointpos name="leg_L/hip_extend" joint="walker/hip_L_extend" />
     <jointpos name="leg_L/knee_angle" joint="walker/knee_L" />
     <jointpos name="leg_L/ankle_angle" joint="walker/ankle_L" />
+    <jointvel name="leg_L/hip_supinate_vel" joint="walker/hip_L_supinate" />
+    <jointvel name="leg_L/hip_abduct_vel" joint="walker/hip_L_abduct" />
+    <jointvel name="leg_L/hip_extend_vel" joint="walker/hip_L_extend" />
+    <jointvel name="leg_L/knee_angle_vel" joint="walker/knee_L" />
+    <jointvel name="leg_L/ankle_angle_vel" joint="walker/ankle_L" />
     <jointlimitpos name="leg_L/knee_limit" joint="walker/knee_L" />
     <force name="leg_L/ankle_force" site="walker/heel_L" />
     <force name="leg_L/knee_force" site="walker/ankle_L" />
@@ -699,6 +727,9 @@
     <jointpos name="foot_R/knee_angle" joint="walker/knee_R" />
     <jointpos name="foot_R/ankle_angle" joint="walker/ankle_R" />
     <jointpos name="foot_R/toe_angle" joint="walker/toe_R" />
+    <jointvel name="foot_R/knee_angle_vel" joint="walker/knee_R" />
+    <jointvel name="foot_R/ankle_angle_vel" joint="walker/ankle_R" />
+    <jointvel name="foot_R/toe_angle_vel" joint="walker/toe_R" />
     <jointlimitpos name="foot_R/toe_limit" joint="walker/toe_R" />
     <jointlimitpos name="foot_R/foot_limit" joint="walker/ankle_R" />
     <framexaxis name="foot_R/xaxis" objtype="xbody" objname="walker/foot_R" reftype="xbody" refname="walker/torso" />
@@ -712,6 +743,11 @@
     <jointpos name="leg_R/hip_extend" joint="walker/hip_R_extend" />
     <jointpos name="leg_R/knee_angle" joint="walker/knee_R" />
     <jointpos name="leg_R/ankle_angle" joint="walker/ankle_R" />
+    <jointvel name="leg_R/hip_supinate_vel" joint="walker/hip_R_supinate" />
+    <jointvel name="leg_R/hip_abduct_vel" joint="walker/hip_R_abduct" />
+    <jointvel name="leg_R/hip_extend_vel" joint="walker/hip_R_extend" />
+    <jointvel name="leg_R/knee_angle_vel" joint="walker/knee_R" />
+    <jointvel name="leg_R/ankle_angle_vel" joint="walker/ankle_R" />
     <jointlimitpos name="leg_R/knee_limit" joint="walker/knee_R" />
     <force name="leg_R/ankle_force" site="walker/heel_R" />
     <force name="leg_R/knee_force" site="walker/ankle_R" />
@@ -724,6 +760,9 @@
     <tendonpos name="torso/lumbar_extend" tendon="walker/lumbar_extend"/>
     <tendonpos name="torso/lumbar_bend" tendon="walker/lumbar_bend"/>
     <tendonpos name="torso/lumbar_twist" tendon="walker/lumbar_twist"/>
+    <tendonvel name="torso/lumbar_extend_vel" tendon="walker/lumbar_extend"/>
+    <tendonvel name="torso/lumbar_bend_vel" tendon="walker/lumbar_bend"/>
+    <tendonvel name="torso/lumbar_twist_vel" tendon="walker/lumbar_twist"/>
     <subtreelinvel name="torso/linvel" body="walker/torso"/>
     <framezaxis name="torso/zaxis" objtype="xbody" objname="walker/torso"/>
 
@@ -735,9 +774,15 @@
     <jointpos name="head/atlas" joint="walker/atlas" />
     <jointpos name="head/atlant_extend" joint="walker/vertebra_atlant_extend" />
     <jointpos name="head/mandible" joint="walker/mandible" />
+    <jointvel name="head/atlas_vel" joint="walker/atlas" />
+    <jointvel name="head/atlant_extend_vel" joint="walker/vertebra_atlant_extend" />
+    <jointvel name="head/mandible_vel" joint="walker/mandible" />
     <tendonpos name="head/cervical_extend" tendon="walker/cervical_extend"/>
     <tendonpos name="head/cervical_bend" tendon="walker/cervical_bend"/>
     <tendonpos name="head/cervical_twist" tendon="walker/cervical_twist"/>
+    <tendonvel name="head/cervical_extend_vel" tendon="walker/cervical_extend"/>
+    <tendonvel name="head/cervical_bend_vel" tendon="walker/cervical_bend"/>
+    <tendonvel name="head/cervical_twist_vel" tendon="walker/cervical_twist"/>
     <framelinvel name="head/linvel" objtype="xbody" objname="walker/skull" reftype="xbody" refname="walker/torso" />
     
     <framezaxis name="pelvis/zaxis" objtype="xbody" objname="walker/pelvis" />

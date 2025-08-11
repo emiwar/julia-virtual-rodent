@@ -1,6 +1,6 @@
 [wandb]
 project = "Modular-Imitation"
-run_name = "WithRootRewards-{NOW}"
+run_name = "WithVelSensors-{NOW}"
 
 [rollout]
 n_envs = 512
@@ -23,7 +23,7 @@ min_torso_z = 0.035
 [reward]
 
 [imitation]
-max_target_distance = 0.1
+max_target_distance = 0.05
 restart_on_reset = true
 target_fps = 50.0
 
