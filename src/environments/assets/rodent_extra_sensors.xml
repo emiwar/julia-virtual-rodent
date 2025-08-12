@@ -769,7 +769,7 @@
     <accelerometer name="head/accelerometer" site="walker/head"/>
     <framepos name="head/egocentric_pos" objtype="xbody" objname="walker/skull" reftype="xbody" refname="walker/torso" />
     <framexaxis name="head/xaxis" objtype="xbody" objname="walker/skull" reftype="xbody" refname="walker/torso" />
-    <framezaxis name="head/zaxis" objtype="xbody" objname="walker/skull" />
+    <framezaxis name="head/zaxis" objtype="xbody" objname="walker/skull" reftype="xbody" refname="walker/torso" />
     <force name="head/neck_force" site="walker/head" />
     <jointpos name="head/atlas" joint="walker/atlas" />
     <jointpos name="head/atlant_extend" joint="walker/vertebra_atlant_extend" />
