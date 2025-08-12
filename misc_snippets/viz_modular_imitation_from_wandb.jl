@@ -11,12 +11,13 @@ import MuJoCo
 import Wandb
 import BSON
 import Flux
+import HDF5
 using ProgressMeter
 using ComponentArrays: ComponentArray, getdata
 include("../src/utils/wandb_logger.jl")
 
 T = 2000
-wandb_run_id = "krfsjio6" #"624ifrxa" # #"7mzfglak"
+wandb_run_id = "zyd8akdz" #"624ifrxa" # #"7mzfglak"
 
 params, weights_file_name = load_from_wandb(wandb_run_id, r"step-.*"; project="emiwar-team/Modular-Imitation")
 
@@ -24,18 +25,18 @@ actor_critic = BSON.load(weights_file_name)[:actor_critic] |> Flux.gpu
 
 MuJoCo.init_visualiser()
 
-#target_data = "/home/emil/Development/activation-analysis/local_rollouts/custom_eval1/precomputed_inputs.h5"
-#env = RodentImitationEnv(params; target_data)#, target_data="reference_data/2020_12_22_1_precomputed.h5")
-#clip_labels = HDF5.h5open("src/environments/assets/diego_curated_snippets.h5", "r") do fid
-#    [HDF5.attrs(fid["clip_$(i-1)"])["action"] for i=1:size(env.target)[3]]
-#end
+clip_labels = HDF5.h5open("src/environments/assets/diego_curated_snippets.h5", "r") do fid
+    [HDF5.attrs(fid["clip_$(i-1)"])["action"] for i=1:842]
+end
+
+clips = (1:842)[clip_labels .== "FastWalk"]
 
 #Setup the environment
 env_params = merge(params.imitation, (;target_fps=float(params.imitation.target_fps)))
 walker = Environments.ModularRodent(;params.physics...)
 env = Environments.ModularImitationEnv(walker; env_params...)
 
-Environments.reset!(env)#, rand(clips), 1) #1, 25000)
+Environments.reset!(env, rand(clips), 1) #1, 25000)
 Flux.reset!(actor_critic)
 dubbleModel = Environments.dm_control_rodent_with_ghost()#torque_actuators = params.physics.torque_control,
                                           #foot_mods = params.physics.foot_mods,
@@ -43,7 +44,7 @@ dubbleModel = Environments.dm_control_rodent_with_ghost()#torque_actuators = par
 physics_states = zeros(dubbleModel.nq + dubbleModel.nv + dubbleModel.na,
                        T*params.physics.n_physics_steps)
 dubbleData = MuJoCo.init_data(dubbleModel)
-exploration = true
+exploration = false
 n_physics_steps = params.physics.n_physics_steps
 ProgressMeter.@showprogress for t=1:T
     env_state = Environments.state(env) |> ComponentArray |> Flux.gpu
@@ -64,7 +65,7 @@ ProgressMeter.@showprogress for t=1:T
     env.lifetime[] += 1
     if Environments.status(env) != Environments.RUNNING
         println("Resetting at age $(env.lifetime[]), frame $(Environments.target_frame(env)), animation step $(t*walker.n_physics_steps)")
-        Environments.reset!(env) ##1, env.target_frame)
+        Environments.reset!(env, rand(clips), 1) ##1, env.target_frame)
         Flux.reset!(actor_critic)
     end
 end
