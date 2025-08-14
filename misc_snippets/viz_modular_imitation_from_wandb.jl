@@ -17,7 +17,7 @@ using ComponentArrays: ComponentArray, getdata
 include("../src/utils/wandb_logger.jl")
 
 T = 2000
-wandb_run_id = "zyd8akdz" #"624ifrxa" # #"7mzfglak"
+wandb_run_id = "kyivsbny" #"624ifrxa" # #"7mzfglak"
 
 params, weights_file_name = load_from_wandb(wandb_run_id, r"step-.*"; project="emiwar-team/Modular-Imitation")
 
@@ -29,7 +29,7 @@ clip_labels = HDF5.h5open("src/environments/assets/diego_curated_snippets.h5", "
     [HDF5.attrs(fid["clip_$(i-1)"])["action"] for i=1:842]
 end
 
-clips = (1:842)[clip_labels .== "FastWalk"]
+clips = (1:842)[clip_labels .== "Walk"]
 
 #Setup the environment
 env_params = merge(params.imitation, (;target_fps=float(params.imitation.target_fps)))

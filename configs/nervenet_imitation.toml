@@ -1,11 +1,11 @@
 [wandb]
 project = "Modular-Imitation"
-run_name = "WithVelSensors-{NOW}"
+run_name = "NoToeReward-{NOW}"
 
 [rollout]
 n_envs = 512
 reset_on_epoch_start = false
-n_epochs = 20000
+n_epochs = 200
 n_steps_per_epoch = 16
 use_mpi = false
 
@@ -31,10 +31,10 @@ target_fps = 50.0
 checkpoint_interval = 1000
 loss_weight_critic = 0.5
 loss_weight_actor = 1.0
-loss_weight_entropy = -0.005
+loss_weight_entropy = -0.025
 learning_rate = 0.0001
 n_miniepochs = 1
-gamma = 0.9
+gamma = 0.95
 loss_weight_kl = 0.1
 lambda = 0.95
 clip_range = 0.2
