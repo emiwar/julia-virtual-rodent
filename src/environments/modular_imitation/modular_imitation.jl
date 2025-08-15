@@ -83,6 +83,7 @@ function compute_rewards(env::ModularImitationEnv)
             ankle_joint = reward_shape(prop.foot_L.ankle_angle, target.foot_L.ankle_angle),
             orientation = dot(prop.foot_L.xaxis, target.foot_L.xaxis),
             foot_pos = reward_shape(prop.foot_L.egocentric_foot_pos, target.foot_L.pos),
+            foot_grounded = float(norm(prop.foot_L.egocentric_foot_pos - target.foot_L.pos) < 0.3 && sum(prop.foot_L.heel_contact) > 0.0)
         ),
         leg_L = (
             knee_joint = reward_shape(prop.leg_L.knee_angle, target.leg_L.knee_angle),
@@ -96,6 +97,7 @@ function compute_rewards(env::ModularImitationEnv)
             ankle_joint = reward_shape(prop.foot_R.ankle_angle, target.foot_R.ankle_angle),
             orientation = dot(prop.foot_R.xaxis, target.foot_R.xaxis),
             foot_pos = reward_shape(prop.foot_R.egocentric_foot_pos, target.foot_R.pos),
+            foot_grounded = float(norm(prop.foot_R.egocentric_foot_pos - target.foot_R.pos) < 0.3 && sum(prop.foot_R.heel_contact) > 0.0)
         ),
         leg_R = (
             knee_joint = reward_shape(prop.leg_R.knee_angle, target.leg_R.knee_angle),
