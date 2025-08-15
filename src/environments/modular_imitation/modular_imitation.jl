@@ -86,7 +86,7 @@ function compute_rewards(env::ModularImitationEnv)
         ),
         leg_L = (
             knee_joint = reward_shape(prop.leg_L.knee_angle, target.leg_L.knee_angle),
-            #knee_pos = reward_shape(prop.leg_L.egocentric_knee_pos, target.leg_L.egocentric_knee_pos),
+            knee_pos = reward_shape(prop.leg_L.egocentric_knee_pos, target.leg_L.knee_pos),
             #foot_pos = reward_shape(prop.leg_L.egocentric_foot_pos, target.leg_L.egocentric_foot_pos),
             orientation = dot(prop.foot_L.xaxis, target.foot_L.xaxis),
             hip_height = reward_shape(prop.leg_L.hip_height, target.leg_L.hip_height),
@@ -99,7 +99,7 @@ function compute_rewards(env::ModularImitationEnv)
         ),
         leg_R = (
             knee_joint = reward_shape(prop.leg_R.knee_angle, target.leg_R.knee_angle),
-            #knee_pos = reward_shape(prop.leg_R.egocentric_knee_pos, target.leg_R.egocentric_knee_pos),
+            knee_pos = reward_shape(prop.leg_R.egocentric_knee_pos, target.leg_R.knee_pos),
             #foot_pos = reward_shape(prop.leg_R.egocentric_foot_pos, target.leg_R.egocentric_foot_pos),
             orientation = dot(prop.foot_R.xaxis, target.foot_R.xaxis),
 	        hip_height = reward_shape(prop.leg_R.hip_height, target.leg_R.hip_height),
@@ -281,6 +281,7 @@ function target_from_pose(walker)
             xaxis = SVector{3}(target.foot_L.xaxis)
         ),
         leg_L = (
+            knee_pos   = target.leg_L.egocentric_knee_pos,
             knee_angle = target.leg_L.knee_angle,
             hip_height = target.leg_L.hip_height,
         ),
@@ -291,6 +292,7 @@ function target_from_pose(walker)
             xaxis = SVector{3}(target.foot_R.xaxis)
         ),
         leg_R = (
+            knee_pos   = target.leg_R.egocentric_knee_pos,
             knee_angle = target.leg_R.knee_angle,
             hip_height = target.leg_R.hip_height,
         ),

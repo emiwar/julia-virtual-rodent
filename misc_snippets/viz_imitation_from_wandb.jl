@@ -16,7 +16,7 @@ using ComponentArrays: ComponentArray, getdata
 include("../src/utils/wandb_logger.jl")
 
 T = 5000
-wandb_run_id = "icdnu112" #"624ifrxa" # #"7mzfglak"
+wandb_run_id = "gfib3hnw" #"624ifrxa" # #"7mzfglak"
 
 params, weights_file_name = load_from_wandb(wandb_run_id, r"step-.*")
 
@@ -50,9 +50,9 @@ if haskey(params, :mod)
     end
 end
 
-#clips = 1:3#1:842 #findall(l->l=="FastWalk", clip_labels) #FaceGroom #
+clips = [1,3,4,6]#findall(l->l=="FastWalk", clip_labels) #FaceGroom #
 
-Environments.reset!(env)#, rand(clips), 1) #1, 25000)
+Environments.reset!(env, rand(clips), 1) #1, 25000)
 Flux.reset!(actor_critic)
 dubbleModel = Environments.dm_control_rodent_with_ghost(torque_actuators = params.physics.torque_control,
                                           foot_mods = params.physics.foot_mods,
@@ -65,7 +65,7 @@ n_physics_steps = params.physics.n_physics_steps
 ProgressMeter.@showprogress for t=1:T
     env_state = Environments.state(env) |> ComponentArray |> Flux.gpu
     actor_output = Networks.actor(actor_critic, env_state, false)
-    base_env = env.base_env
+    base_env = env#.base_env
     walker = base_env.walker
     walker.data.ctrl .= clamp.(exploration ? actor_output.action : actor_output.mu, -1.0, 1.0) |> Array
     for tt=1:n_physics_steps
@@ -79,7 +79,7 @@ ProgressMeter.@showprogress for t=1:T
     base_env.lifetime[] += 1
     if Environments.status(env) != Environments.RUNNING
         println("Resetting at age $(base_env.lifetime[]), frame $(Environments.target_frame(base_env)), animation step $(t*walker.n_physics_steps)")
-        Environments.reset!(env) ##1, env.target_frame)
+        Environments.reset!(env, rand(clips), 1) ##1, env.target_frame)
         Flux.reset!(actor_critic)
     end
 end
