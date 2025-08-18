@@ -51,6 +51,7 @@ function compute_rewards(env::ModularImitationEnv)
     prop = proprioception(env.walker)
     (
         hand_L = (
+            finger_level = prop.hand_L.finger_zz,
             #finger_joint = reward_shape(prop.hand_L.finger_angle, target.hand_L.finger_angle),
             wrist_joint = reward_shape(prop.hand_L.wrist_angle, target.hand_L.wrist_angle),
             orientation = dot(prop.hand_L.xaxis, target.hand_L.xaxis),
@@ -65,6 +66,7 @@ function compute_rewards(env::ModularImitationEnv)
             shoulder_height = reward_shape(prop.arm_L.shoulder_height, target.arm_L.shoulder_height),
         ),
         hand_R = (
+            finger_level = prop.hand_R.finger_zz,
             #finger_joint = reward_shape(prop.hand_R.finger_angle, target.hand_R.finger_angle),
             wrist_joint = reward_shape(prop.hand_R.wrist_angle, target.hand_R.wrist_angle),
             orientation = dot(prop.hand_R.xaxis, target.hand_R.xaxis),
@@ -80,6 +82,7 @@ function compute_rewards(env::ModularImitationEnv)
         ),
         foot_L = (
             #toe_joint = reward_shape(prop.foot_L.toe_angle, target.foot_L.toe_angle),
+            toe_level = prop.foot_L.toe_zz,
             ankle_joint = reward_shape(prop.foot_L.ankle_angle, target.foot_L.ankle_angle),
             orientation = dot(prop.foot_L.xaxis, target.foot_L.xaxis),
             foot_pos = reward_shape(prop.foot_L.egocentric_foot_pos, target.foot_L.pos),
@@ -93,6 +96,7 @@ function compute_rewards(env::ModularImitationEnv)
             hip_height = reward_shape(prop.leg_L.hip_height, target.leg_L.hip_height),
         ),
         foot_R = (
+            toe_level = prop.foot_R.toe_zz,
             #toe_joint = reward_shape(prop.foot_R.toe_angle, target.foot_R.toe_angle),
             ankle_joint = reward_shape(prop.foot_R.ankle_angle, target.foot_R.ankle_angle),
             orientation = dot(prop.foot_R.xaxis, target.foot_R.xaxis),

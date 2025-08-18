@@ -626,6 +626,7 @@
     <jointlimitpos name="hand_L/finger_limit" joint="walker/finger_L" />
     <jointlimitpos name="hand_L/wrist_limit" joint="walker/wrist_L" />
     <framexaxis name="hand_L/xaxis" objtype="xbody" objname="walker/hand_L" reftype="xbody" refname="walker/torso" />
+    <framezaxis name="hand_L/finger_global_zaxis" objtype="xbody" objname="walker/finger_L" />
     <force name="hand_L/finger_force" site="walker/palm_L" />
     <force name="hand_L/wrist_force" site="walker/finger_L" />
 
@@ -662,6 +663,7 @@
     <jointlimitpos name="hand_R/finger_limit" joint="walker/finger_R" />
     <jointlimitpos name="hand_R/wrist_limit" joint="walker/wrist_R" />
     <framexaxis name="hand_R/xaxis" objtype="xbody" objname="walker/hand_R" reftype="xbody" refname="walker/torso" />
+    <framezaxis name="hand_R/finger_global_zaxis" objtype="xbody" objname="walker/finger_R" />
     <force name="hand_R/finger_force" site="walker/palm_R" />
     <force name="hand_R/wrist_force" site="walker/finger_R" />
 
@@ -699,6 +701,7 @@
     <jointlimitpos name="foot_L/toe_limit" joint="walker/toe_L" />
     <jointlimitpos name="foot_L/foot_limit" joint="walker/ankle_L" />
     <framexaxis name="foot_L/xaxis" objtype="xbody" objname="walker/foot_L" reftype="xbody" refname="walker/torso" />
+    <framezaxis name="foot_L/toe_global_zaxis" objtype="xbody" objname="walker/toe_L" />
     <force name="foot_L/toe_force" site="walker/sole_L" />
     <force name="foot_L/ankle_force" site="walker/heel_L" />
 
@@ -733,6 +736,7 @@
     <jointlimitpos name="foot_R/toe_limit" joint="walker/toe_R" />
     <jointlimitpos name="foot_R/foot_limit" joint="walker/ankle_R" />
     <framexaxis name="foot_R/xaxis" objtype="xbody" objname="walker/foot_R" reftype="xbody" refname="walker/torso" />
+    <framezaxis name="foot_R/toe_global_zaxis" objtype="xbody" objname="walker/toe_R" />
     <force name="foot_R/toe_force" site="walker/sole_R" />
     <force name="foot_R/ankle_force" site="walker/heel_R" />
 

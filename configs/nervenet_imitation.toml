@@ -1,6 +1,6 @@
 [wandb]
 project = "Modular-Imitation"
-run_name = "ExtraKneeReward-{NOW}"
+run_name = "ToeAndFingerLevelRewards-{NOW}"
 
 [rollout]
 n_envs = 512
